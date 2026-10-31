@@ -23,6 +23,7 @@ import { useMapPreferencesState } from './use-map-preferences-state';
 import { useMarkerLoader } from './use-marker-loader';
 import { useUpcomingElectronicHorizonAlerts } from './use-upcoming-electronic-horizon-alerts';
 import { useWazePoliceAlerts } from './use-waze-police-alerts';
+import { setWatchUpcomingAlerts } from '../watch/watch-shared-state';
 
 const SharedMapStateContext = createContext(null);
 const SharedMapLocationStateContext = createContext(null);
@@ -68,6 +69,9 @@ export function SharedMapStateProvider({ children }) {
             policeAlerts: policeAlertsLoader.policeAlerts,
             userLocation: mapPreferences.userLocation,
         });
+    useEffect(() => {
+        setWatchUpcomingAlerts(drivingModeIsActive ? upcomingAlerts : []);
+    }, [drivingModeIsActive, upcomingAlerts]);
 
     useEffect(() => {
         let isMounted = true;

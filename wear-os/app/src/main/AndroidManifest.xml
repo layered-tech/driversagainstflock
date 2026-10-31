@@ -19,5 +19,20 @@
                 <data android:scheme="wear" android:host="*" android:pathPrefix="/daf/watch/" />
             </intent-filter>
         </service>
+        <service android:name=".WatchAreasTileService" android:exported="true"
+            android:label="DAF My areas" android:description="@string/tile_description"
+            android:icon="@drawable/app_logo"
+            android:permission="com.google.android.wearable.permission.BIND_TILE_PROVIDER">
+            <intent-filter><action android:name="androidx.wear.tiles.action.BIND_TILE_PROVIDER" /></intent-filter>
+        </service>
+        <service android:name=".WatchComplicationService" android:exported="true"
+            android:label="DAF areas and Scorecard" android:icon="@drawable/app_logo"
+            android:permission="com.google.android.wearable.permission.BIND_COMPLICATION_PROVIDER">
+            <intent-filter><action android:name="android.support.wearable.complications.ACTION_COMPLICATION_UPDATE_REQUEST" /></intent-filter>
+            <meta-data android:name="android.support.wearable.complications.SUPPORTED_TYPES"
+                android:value="SHORT_TEXT,LONG_TEXT,ICON,RANGED_VALUE" />
+            <meta-data android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
+                android:value="900" />
+        </service>
     </application>
 </manifest>

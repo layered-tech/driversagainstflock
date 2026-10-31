@@ -6,6 +6,7 @@ import com.google.android.gms.wearable.Wearable
 import org.junit.Assert.*
 import org.junit.Assume.assumeTrue
 import org.junit.Test
+import org.json.JSONObject
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
@@ -20,12 +21,22 @@ class WatchTransportTest {
         val token = "transport-test-${System.nanoTime()}".toByteArray()
         val reply = CountDownLatch(1)
         val stateReply = CountDownLatch(1)
+        val handoffReply = CountDownLatch(1)
+        val handoffRequestId = "handoff-test-${System.nanoTime()}"
         val requestedSnapshot = AtomicReference<WatchSnapshot>()
+        val handoffStatus = AtomicReference<String>()
         val listener = com.google.android.gms.wearable.MessageClient.OnMessageReceivedListener { event ->
             if (event.path == "/daf/watch/pong" && event.data.contentEquals(token)) reply.countDown()
             if (event.path == "/daf/watch/state") {
                 requestedSnapshot.set(WatchSnapshot.parse(event.data.toString(Charsets.UTF_8)))
                 stateReply.countDown()
+            }
+            if (event.path == "/daf/watch/open-ack") {
+                val response = JSONObject(event.data.toString(Charsets.UTF_8))
+                if (response.optString("requestId") == handoffRequestId) {
+                    handoffStatus.set(response.optString("status"))
+                    handoffReply.countDown()
+                }
             }
         }
         Tasks.await(client.addListener(listener), 10, TimeUnit.SECONDS)
@@ -44,6 +55,10 @@ class WatchTransportTest {
             assertTrue("DAF companion must be confirmed, even when capability metadata is unavailable", repository.connected)
             assertNotNull("Phone must provide its current snapshot", repository.snapshot)
             assertTrue("Repository ping must complete: ${repository.pingStatus}", repository.pingStatus.endsWith(" ms"))
+            val handoff = JSONObject().put("requestId", handoffRequestId).put("target", "areas")
+            nodes.forEach { Tasks.await(client.sendMessage(it.id, "/daf/watch/open", handoff.toString().toByteArray()), 10, TimeUnit.SECONDS) }
+            assertTrue("Phone must acknowledge an Areas handoff", handoffReply.await(10, TimeUnit.SECONDS))
+            assertEquals("opened", handoffStatus.get())
         } finally {
             Tasks.await(client.removeListener(listener), 10, TimeUnit.SECONDS)
         }

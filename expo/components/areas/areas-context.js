@@ -8,7 +8,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import { AppState } from 'react-native';
+import { AppState, Platform } from 'react-native';
 import {
     getPrivateCacheItem,
     removePrivateCacheItem,
@@ -21,6 +21,11 @@ import {
     notificationsModule,
     registerAreaNotifications,
 } from './area-notifications';
+import { refreshWatchAreas } from '../watch/watch-areas-runtime';
+
+const syncWatchAreas = (force = false) => {
+    if (Platform.OS === 'android') refreshWatchAreas({ force }).catch(() => {});
+};
 
 const AreasContext = createContext(null);
 export function AreasProvider({ children }) {
@@ -104,6 +109,7 @@ export function AreasProvider({ children }) {
                 ...current.filter((item) => item.id !== area.id),
                 area,
             ]);
+            syncWatchAreas(true);
             return area;
         },
         [rememberAreaBoundary],
@@ -129,6 +135,7 @@ export function AreasProvider({ children }) {
                         : item,
                 ),
             );
+            syncWatchAreas(true);
             return area;
         },
         [rememberAreaBoundary],
@@ -143,6 +150,7 @@ export function AreasProvider({ children }) {
             setAreas((current) =>
                 current.filter((area) => area.id !== Number(id)),
             );
+            syncWatchAreas(true);
         },
         [boundaryCache],
     );
@@ -153,6 +161,7 @@ export function AreasProvider({ children }) {
                 body: { through_id: throughId },
             });
             await refresh();
+            syncWatchAreas(true);
         },
         [refresh],
     );
@@ -200,7 +209,10 @@ export function AreasProvider({ children }) {
         const responseListener =
             notifications?.addNotificationResponseReceivedListener(onResponse);
         const receivedListener = notifications?.addNotificationReceivedListener(
-            () => refresh({ initialize: false }),
+            () => {
+                refresh({ initialize: false });
+                syncWatchAreas();
+            },
         );
         const tokenListener = notifications?.addPushTokenListener(
             (devicePushToken) =>

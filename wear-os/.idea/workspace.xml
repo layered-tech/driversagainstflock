@@ -1,0 +1,354 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="NONE" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="e8b76893-e645-4ab5-8373-9fdc2c2b099c" name="Changes" comment="">
+      <change beforePath="$PROJECT_DIR$/../design/.thumbnail" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Article.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/AutoMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/AutoRail.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Blog.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DirectionDial.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoAreas.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoScorecard.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/DuoSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldAreas.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldScorecard.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/FoldSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Help.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Hotlist.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Login.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileAndroid.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileAndroidAuto.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileAreas.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileInfo.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileScorecard.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MobileSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Moderation.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Motion - Find &amp; Go.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Motion - Put It on the Map.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Motion - Scorecard.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/Motion - Watch an Area.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/MotionClips.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/PrivacyPolicy.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/SchematicMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletAreas.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletScorecard.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TabletSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/TermsOfUse.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchFoundations.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase1.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase2.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase3.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase4.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase5.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WatchPhase6.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WebFullMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WebLanding.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/WebMapMobile.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_adherence.oxlintrc.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_manifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/readme.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_ds/daf-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_gen/make-duo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/_gen/make-wide.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/android-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/animations-v3.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/assets/logo-mark.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/assets/presets/axon.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/assets/presets/flock.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/assets/presets/genetec.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/assets/presets/motorola.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/clip-areas.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/clip-contribute.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/clip-scorecard.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/clip-search.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/daf-motion.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/geo.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/clips/map-config.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/ios-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/screenshots/arrows.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/support.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/tweaks-panel.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/Article.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/AutoMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/AutoRail.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/Blog.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/DirectionDial.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/Help.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/Hotlist.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileAndroid.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileAndroidAuto.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/MobileSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/PrivacyPolicy.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/SchematicMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/TermsOfUse.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/WebFullMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/WebLanding.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/WebMapMobile.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_adherence.oxlintrc.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_bundle.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/_ds_manifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/readme.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/styles.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/colors.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/fonts.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/motion.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/radius.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/spacing.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/_ds/drivers-against-flock-design-system-c71fad40-d31b-4d08-8ff8-15a599d9d59e/tokens/typography.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/android-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/assets/logo-mark.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/ios-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/support.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/Article.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/Blog.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/DirectionDial.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/Help.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/Hotlist.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileAndroid.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileApp.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileContribute.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileExplore.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileNavigate.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/MobileSettings.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/PrivacyPolicy.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/SchematicMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/TermsOfUse.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/WebFullMap.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/WebLanding.dc.html" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_adherence.oxlintrc.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_bundle.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/_ds_manifest.json" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/readme.md" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/styles.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/colors.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/fonts.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/motion.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/radius.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/spacing.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/_ds/daf-v2-7f7fb081-407d-439a-abf8-8e0e1346d067/tokens/typography.css" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/android-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/assets/logo-mark.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/ios-frame.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Drivers Against Flock/support.js" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Screenshot 2026-07-16 at 10.47.56 PM.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Screenshot 2026-07-16 at 10.48.17 PM.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Archive/uploads/Screenshot 2026-07-16 at 10.51.40 PM.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Screenshot 2026-10-04 at 3.05.05 PM.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Screenshot 2026-10-05 at 4.04.12 PM.jpeg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/Simulator Screenshot - iPhone 17 Pro - 2026-08-10 at 15.27.00.png" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/axon-2.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/flock-1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/genetec-1.webp" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/uploads/motorola-1.jpg" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../design/watch-kit.jsx" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/areas/areas-context.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/areas/areas-context.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/map/shared-map-state.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/map/shared-map-state.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-contract.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-contract.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-runtime.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-runtime.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/components/watch/watch-settings-screen.js" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/components/watch/watch-settings-screen.js" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionModule.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionModule.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/../expo/modules/watch-companion/android/src/main/java/expo/modules/watchcompanion/WatchCompanionService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/../package.json" beforeDir="false" afterPath="$PROJECT_DIR$/../package.json" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/build.gradle.kts" beforeDir="false" afterPath="$PROJECT_DIR$/app/build.gradle.kts" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchTransportTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchTransportTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchUiTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/androidTest/java/org/driversagainstflock/watch/WatchUiTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/AndroidManifest.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/MainActivity.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/MainActivity.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchApp.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchApp.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchHaptics.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchHaptics.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchListenerService.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchListenerService.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchRepository.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchRepository.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchSnapshot.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/main/java/org/driversagainstflock/watch/WatchSnapshot.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchCueTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchCueTest.kt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchSnapshotTest.kt" beforeDir="false" afterPath="$PROJECT_DIR$/app/src/test/java/org/driversagainstflock/watch/WatchSnapshotTest.kt" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="ClangdSettings">
+    <option name="formatViaClangd" value="false" />
+  </component>
+  <component name="ExecutionTargetManager" SELECTED_TARGET="device_and_snapshot_combo_box_target[LocalEmulator::path=/Users/chris/.android/avd/Wear_OS_Large_Round.avd]" />
+  <component name="ExternalProjectsData">
+    <projectState path="$PROJECT_DIR$">
+      <ProjectState />
+    </projectState>
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$/.." />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 4,
+  &quot;fromUser&quot;: false
+}</component>
+  <component name="ProjectId" id="3LREdQU7TtATN7bfr3R7nuchWTI" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "Android App.app.executor": "Run",
+    "CidrDebugProfileConversion": "true",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.cidr.known.project.marker": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.readMode.enableVisualFormatting": "true",
+    "cf.first.check.clang-format": "false",
+    "cidr.known.project.marker": "true",
+    "external.system.has.shared.sources": "true",
+    "git-widget-placeholder": "smartwatch",
+    "kotlin-language-version-configured": "true",
+    "last_opened_file_path": "/Volumes/PfeiferDev/Projects/driversagainstflock/wear-os"
+  }
+}]]></component>
+  <component name="RunManager" selected="Android App.app">
+    <configuration name="app.WatchComplicationService" type="AndroidComplicationConfigurationType" factoryName="AndroidComplicationConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
+      <module name="DAFWatch.app" />
+      <option name="allowRunningInParallel" value="false" />
+      <option name="projectPathOnTarget" />
+      <option name="selectedOptions">
+        <list />
+      </option>
+      <LaunchOptions>
+        <option name="chosenSlots">
+          <list />
+        </option>
+        <option name="componentName" value="org.driversagainstflock.watch.WatchComplicationService" />
+      </LaunchOptions>
+      <DeployOptions>
+        <option name="pmInstallFlags" value="" />
+      </DeployOptions>
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="app" type="AndroidRunConfigurationType" factoryName="Android App" activateToolWindowBeforeRun="false">
+      <module name="DAFWatch.app" />
+      <option name="ANDROID_RUN_CONFIGURATION_SCHEMA_VERSION" value="1" />
+      <option name="DEPLOY" value="true" />
+      <option name="DEPLOY_APK_FROM_BUNDLE" value="false" />
+      <option name="DEPLOY_AS_INSTANT" value="false" />
+      <option name="ARTIFACT_NAME" value="" />
+      <option name="PM_INSTALL_OPTIONS" value="" />
+      <option name="ALL_USERS" value="false" />
+      <option name="ALWAYS_INSTALL_WITH_PM" value="false" />
+      <option name="ALLOW_ASSUME_VERIFIED" value="false" />
+      <option name="CLEAR_APP_STORAGE" value="false" />
+      <option name="DYNAMIC_FEATURES_DISABLED_LIST" value="" />
+      <option name="ACTIVITY_EXTRA_FLAGS" value="" />
+      <option name="MODE" value="default_activity" />
+      <option name="RESTORE_ENABLED" value="false" />
+      <option name="RESTORE_FILE" value="" />
+      <option name="RESTORE_FRESH_INSTALL_ONLY" value="false" />
+      <option name="CLEAR_LOGCAT" value="false" />
+      <option name="SHOW_LOGCAT_AUTOMATICALLY" value="false" />
+      <option name="TARGET_SELECTION_MODE" value="DEVICE_AND_SNAPSHOT_COMBO_BOX" />
+      <option name="DEBUGGER_TYPE" value="Auto" />
+      <Auto>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Auto>
+      <Hybrid>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Hybrid>
+      <Java>
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Java>
+      <Native>
+        <option name="USE_JAVA_AWARE_DEBUGGER" value="false" />
+        <option name="SHOW_STATIC_VARS" value="true" />
+        <option name="WORKING_DIR" value="" />
+        <option name="TARGET_LOGGING_CHANNELS" value="lldb process:gdb-remote packets" />
+        <option name="SHOW_OPTIMIZED_WARNING" value="true" />
+        <option name="ATTACH_ON_WAIT_FOR_DEBUGGER" value="false" />
+      </Native>
+      <Profilers>
+        <option name="ADVANCED_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_ENABLED" value="false" />
+        <option name="STARTUP_CPU_PROFILING_CONFIGURATION_NAME" value="Java/Kotlin Method Trace" />
+        <option name="STARTUP_NATIVE_MEMORY_PROFILING_ENABLED" value="false" />
+        <option name="NATIVE_MEMORY_SAMPLE_RATE_BYTES" value="2048" />
+      </Profilers>
+      <option name="DEEP_LINK" value="" />
+      <option name="ACTIVITY" value="" />
+      <option name="ACTIVITY_CLASS" value="" />
+      <option name="SEARCH_ACTIVITY_IN_GLOBAL_SCOPE" value="false" />
+      <option name="SKIP_ACTIVITY_VALIDATION" value="false" />
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+    <configuration name="app.WatchAreasTileService" type="AndroidTileConfigurationType" factoryName="AndroidTileConfigurationFactory" show_console_on_std_err="false" show_console_on_std_out="false">
+      <module name="DAFWatch.app" />
+      <option name="allowRunningInParallel" value="false" />
+      <option name="projectPathOnTarget" />
+      <option name="selectedOptions">
+        <list />
+      </option>
+      <LaunchOptions>
+        <option name="componentName" value="org.driversagainstflock.watch.WatchAreasTileService" />
+      </LaunchOptions>
+      <DeployOptions>
+        <option name="pmInstallFlags" value="" />
+      </DeployOptions>
+      <method v="2">
+        <option name="Android.Gradle.BeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="Default task">
+      <changelist id="e8b76893-e645-4ab5-8373-9fdc2c2b099c" name="Changes" comment="" />
+      <created>1793408567283</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1793408567283</updated>
+    </task>
+    <servers />
+  </component>
+</project>

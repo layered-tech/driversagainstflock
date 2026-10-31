@@ -16,6 +16,12 @@ import {
     subscribeWatchHaptics,
     watchHapticsEnabled,
 } from './watch-haptic-preferences';
+import {
+    getWatchCameraPreferences,
+    loadWatchCameraPreferences,
+    setWatchCameraPreferences,
+    subscribeWatchCameraPreferences,
+} from './watch-camera-preferences';
 
 const patterns = [
     { label: 'Left', description: 'One short tap', pattern: 'left' },
@@ -30,9 +36,18 @@ const patterns = [
 export function WatchSettingsScreen() {
     const [enabled, setEnabled] = useState(watchHapticsEnabled);
     const [previewing, setPreviewing] = useState(null);
+    const [cameraPreferences, setCameraPreferences] = useState(
+        getWatchCameraPreferences,
+    );
     useEffect(() => {
         const unsubscribe = subscribeWatchHaptics(setEnabled);
         loadWatchHapticPreferences().catch(() => {});
+        return unsubscribe;
+    }, []);
+    useEffect(() => {
+        const unsubscribe =
+            subscribeWatchCameraPreferences(setCameraPreferences);
+        loadWatchCameraPreferences().catch(() => {});
         return unsubscribe;
     }, []);
 
@@ -145,6 +160,38 @@ export function WatchSettingsScreen() {
                                 </Text>
                             </Pressable>
                         ))}
+                    </View>
+                </View>
+                <View className="gap-2">
+                    <Text className="px-1 text-[11px] font-bold uppercase tracking-[0.06em] text-daf-text-tertiary dark:text-neutral-400">
+                        Camera alerts
+                    </Text>
+                    <View className="overflow-hidden rounded-dafMd border border-daf-border bg-white dark:border-daf-border-dark dark:bg-daf-surface-dark">
+                        <View className="min-h-[64px] flex-row items-center gap-4 px-4 py-3">
+                            <View className="min-w-0 flex-1 gap-0.5">
+                                <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">
+                                    Alert on wrist
+                                </Text>
+                                <Text className="text-xs text-daf-text-tertiary dark:text-neutral-400">
+                                    Three quick ticks, camera type and distance.
+                                </Text>
+                            </View>
+                            <Switch
+                                accessibilityLabel="Alert on wrist"
+                                value={cameraPreferences.alertsEnabled}
+                                onValueChange={(alertsEnabled) =>
+                                    setWatchCameraPreferences({
+                                        alertsEnabled,
+                                    }).catch(() =>
+                                        Alert.alert(
+                                            'Could not save',
+                                            'Try changing this setting again.',
+                                        ),
+                                    )
+                                }
+                                testID="watch-camera-alerts-toggle"
+                            />
+                        </View>
                     </View>
                 </View>
             </ScrollView>

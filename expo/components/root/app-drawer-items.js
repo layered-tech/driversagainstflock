@@ -3,7 +3,7 @@ export const PRIMARY_DRAWER_ITEMS = [
     { icon: 'gauge', label: 'Scorecard', routeName: 'scorecard' },
     { icon: 'flame', label: 'Hotlist', routeName: 'hotlist' },
     { icon: 'map-pin', label: 'My areas', routeName: 'areas' },
-    { icon: 'phone', label: 'Watch', routeName: 'watch-settings' },
+    { icon: 'watch', label: 'Watch', routeName: 'watch-settings' },
 ];
 
 export const HELP_AND_LEGAL_DRAWER_ITEMS = [

@@ -30,8 +30,16 @@ class WatchUiTest {
         override var endedAt by mutableStateOf<Long?>(null)
         override var endedByArrival by mutableStateOf(false)
         override val history = listOf("Accepted revision 12", "Ping 42 ms")
+        override val handoffStatus = "idle"
+        override val dismissedCameraId: String? = null
+        override val recentCameraAlert: JSONObject? = null
+        override val cameraEndedAt: Long? = null
         override fun refresh(request: Boolean) {}
         override fun preview(pattern: String) {}
+        override fun openOnPhone(target: String, areaId: Int?, changeId: Int?, driveId: String?) {}
+        override fun areaOpened(areaId: Int) {}
+        override fun dismissCamera() {}
+        override fun resetHandoff() {}
     }
     private fun snapshot(navStatus: String = "active", scoreStatus: String = "active", stale: Boolean = false, instruction: String? = null): WatchSnapshot {
         val context = InstrumentationRegistry.getInstrumentation().context
@@ -104,6 +112,57 @@ class WatchUiTest {
             compose.onNodeWithText(text).assertIsDisplayed()
             screenshot("score-$status")
         }
+    }
+    @Test fun cameraAreasAndRecapScreens() {
+        val state = Presentation().apply { snapshot = snapshot() }
+        compose.setContent { WatchApp(state, ambient = false) }
+        val now = System.currentTimeMillis()
+        val camera = JSONObject().put("id", "alpr-7").put("type", "ALPR")
+            .put("road", "San Pablo Ave").put("distanceMeters", 644)
+            .put("count", 1).put("sourceAt", now)
+        compose.runOnIdle { state.snapshot = WatchSnapshot.parse(JSONObject(snapshot().json.toString())
+            .put("cameraAlert", camera).put("cameraAlertsEnabled", true).toString()) }
+        compose.onNodeWithText("ALPR  0.4 mi").assertIsDisplayed()
+        screenshot("camera-card")
+
+        val area = JSONObject().put("id", 7).put("name", "Oakland, CA")
+            .put("unreadCount", 3).put("cameraCount", 116).put("addedCount", 2)
+            .put("removedCount", 1).put("readThroughId", 23)
+            .put("changes", org.json.JSONArray().put(JSONObject().put("id", 22)
+                .put("kind", "added").put("street", "International Blvd & 35th Ave")
+                .put("operator", "ALPR").put("direction", "NE").put("changedAt", now - 7_200_000)))
+        val idle = JSONObject(snapshot("idle").json.toString())
+            .put("areas", JSONObject().put("status", "ready").put("sourceAt", now)
+                .put("items", org.json.JSONArray().put(area)))
+        compose.runOnIdle { state.snapshot = WatchSnapshot.parse(idle.toString()) }
+        compose.onNodeWithText("MY AREAS").assertIsDisplayed()
+        screenshot("areas-home")
+        compose.onNodeWithText("Oakland, CA").performClick()
+        compose.onNodeWithText("International Blvd & 35th Ave", substring = true).assertIsDisplayed()
+        screenshot("area-summary")
+        compose.onNodeWithText("International Blvd & 35th Ave", substring = true).performClick()
+        compose.onNodeWithText("New ALPR camera").assertIsDisplayed()
+        screenshot("area-change")
+
+        val recap = JSONObject().put("status", "completed").put("id", "drive-1")
+            .put("endedAt", now).put("durationSeconds", 1122).put("distanceMiles", 9.3)
+            .put("confirmedCrossings", 1).put("possibleCrossings", 0)
+            .put("avoidedCameras", 4).put("xpEarned", 180)
+            .put("privacyScore", 82).put("privacyScoreDelta", 18)
+        compose.runOnIdle { state.snapshot = WatchSnapshot.parse(idle.put("recap", recap).toString()); state.endedAt = now - 4_000 }
+        compose.onNodeWithText("DRIVE COMPLETE").assertIsDisplayed()
+        screenshot("recap")
+    }
+    @Test fun endedRouteWaitsForItsOwnRecap() {
+        val now = System.currentTimeMillis()
+        val idle = JSONObject(snapshot("idle").json.toString()).put("recap", JSONObject()
+            .put("status", "completed").put("id", "earlier-drive").put("endedAt", now - 600_000))
+        val state = Presentation().apply {
+            snapshot = WatchSnapshot.parse(idle.toString())
+            endedAt = now - 4_000
+        }
+        compose.setContent { WatchApp(state, ambient = false) }
+        compose.onNodeWithText("Finalizing on phone…").assertIsDisplayed()
     }
     @Test fun missingCrossingDetailsRemainUnavailableAndCanBeScrolledIntoView() {
         val missing = snapshot().json

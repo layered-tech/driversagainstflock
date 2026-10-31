@@ -53,4 +53,18 @@ class WatchSnapshotTest {
         json.getJSONObject("navigation").put("status", "rerouting").put("sessionId", "drive-1")
         assertNull(WatchSnapshot.parse(json.toString()).navigation.optJSONObject("maneuver"))
     }
+    @Test fun quickAccessDistinguishesUnreadStaleUnavailableAndGuidance() {
+        val json = JSONObject(fixture())
+        json.put("areas", JSONObject().put("status", "ready").put("sourceAt", 2000)
+            .put("items", org.json.JSONArray().put(JSONObject().put("id", 7).put("name", "Oakland")
+                .put("unreadCount", 4).put("cameraCount", 100).put("changes", org.json.JSONArray()))))
+        val idle = JSONObject(json.toString())
+        idle.getJSONObject("navigation").put("status", "idle").put("sessionId", JSONObject.NULL).put("maneuver", JSONObject.NULL)
+        val snapshot = WatchSnapshot.parse(idle.toString())
+        assertEquals("areas", quickAccess(snapshot, 3000, true).mode)
+        assertEquals(4, quickAccess(snapshot, 3000, true).unread)
+        assertEquals("stale", quickAccess(snapshot, 3_602_000, true).mode)
+        assertEquals("unavailable", quickAccess(snapshot, 86_402_001, false).mode)
+        assertEquals("navigation", quickAccess(WatchSnapshot.parse(json.toString()), 3000, true).mode)
+    }
 }

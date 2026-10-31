@@ -11,8 +11,12 @@ data class WatchSnapshot(val json: JSONObject) {
     val revision = json.getLong("revision")
     val navigation = json.getJSONObject("navigation")
     val scorecard = json.getJSONObject("scorecard")
+    val cameraAlert: JSONObject? = json.optJSONObject("cameraAlert")
+    val areas: JSONObject? = json.optJSONObject("areas")
+    val recap: JSONObject? = json.optJSONObject("recap")
     val publishedAt = json.getLong("publishedAt")
     val hapticsEnabled = json.optBoolean("hapticsEnabled", true)
+    val cameraAlertsEnabled = json.optBoolean("cameraAlertsEnabled", false)
     val sessionId: String? = navigation.optionalString("sessionId")
     fun sourceAge(now: Long): Long? = navigation.optionalLong("sourceAt")?.let { now - it }
     fun stale(now: Long): Boolean = sourceAge(now)?.let { it >= STALE_AFTER_MS || it < -5_000 } ?: true
@@ -39,6 +43,38 @@ data class WatchSnapshot(val json: JSONObject) {
             require(nav.optString("destination").length <= 240)
             val score = json.getJSONObject("scorecard")
             require(score.getString("status") in setOf("active", "tracking-off", "initializing", "unavailable", "no-active-drive"))
+            json.optJSONObject("cameraAlert")?.let { alert ->
+                require(alert.getString("id").length in 1..80)
+                require(alert.optString("type").length <= 40 && alert.optString("road").length <= 80)
+                require(alert.getDouble("distanceMeters") >= 0 && alert.getDouble("distanceMeters").isFinite())
+                require(alert.getInt("count") in 1..100)
+                require(alert.getLong("sourceAt") > 0)
+                require(alert.optionalLong("issuedAt")?.let { it > 0 } != false)
+            }
+            json.optJSONObject("areas")?.let { areas ->
+                require(areas.getString("status") in setOf("loading", "ready", "offline", "expired"))
+                val items = areas.getJSONArray("items")
+                require(items.length() <= 25)
+                for (index in 0 until items.length()) {
+                    val area = items.getJSONObject(index)
+                    require(area.getInt("id") > 0 && area.getString("name").length <= 120)
+                    require(area.getInt("unreadCount") >= 0 && area.getInt("cameraCount") >= 0)
+                    require(area.optString("changesStatus", "ready") in setOf("loading", "ready", "unavailable"))
+                    val changes = area.getJSONArray("changes")
+                    require(changes.length() <= 10)
+                    for (changeIndex in 0 until changes.length()) {
+                        val change = changes.getJSONObject(changeIndex)
+                        require(change.getInt("id") > 0 && change.getString("kind") in setOf("added", "removed"))
+                        require(change.optString("street").length <= 120)
+                    }
+                }
+            }
+            json.optJSONObject("recap")?.let { recap ->
+                require(recap.getString("status") in setOf("none", "initializing", "tracking-off", "completed", "canceled"))
+                if (recap.getString("status") in setOf("completed", "canceled")) {
+                    require(recap.getString("id").length in 1..80 && recap.getLong("endedAt") > 0)
+                }
+            }
             listOf(nav to listOf("sourceAt", "distanceRemainingMeters", "durationRemainingSeconds", "arrivalAt"),
                 score to listOf("sourceAt", "elapsedSeconds", "distanceMeters", "confirmedCrossings", "possibleCrossings", "cameraCrossings"),
                 (maneuver ?: JSONObject()) to listOf("distanceMeters", "exitNumber")).forEach { (obj, keys) ->

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.pager.HorizontalPager
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.activity.compose.BackHandler
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -27,24 +28,34 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.wear.compose.foundation.lazy.ScalingLazyColumn
+import androidx.wear.compose.foundation.lazy.rememberScalingLazyListState
 import androidx.wear.compose.material.*
 import kotlinx.coroutines.delay
 import java.text.DateFormat
 import java.util.Date
 import org.json.JSONObject
 
-private val WatchSans = FontFamily(Font(R.font.hanken_semibold, FontWeight.SemiBold))
-private val WatchMono = FontFamily(Font(R.font.jetbrains_semibold, FontWeight.SemiBold))
+internal val WatchSans = FontFamily(Font(R.font.hanken_semibold, FontWeight.SemiBold))
+internal val WatchMono = FontFamily(Font(R.font.jetbrains_semibold, FontWeight.SemiBold))
 
-private val Brand = Color(0xFF1FBF6B)
-private val Amber = Color(0xFFFFB02E)
-private val Muted = Color(0xFFB3B3B3)
+internal val Brand = Color(0xFF1FBF6B)
+internal val Amber = Color(0xFFFFB02E)
+internal val Muted = Color(0xFFB3B3B3)
 
 @Composable
-fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean = true, resumeRevision: Int = 0) {
+fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean = true, resumeRevision: Int = 0, launchPage: Int = 0) {
     val pager = rememberPagerState(pageCount = { 4 })
+    var selectedAreaId by remember { mutableIntStateOf(0) }
+    var selectedChangeId by remember { mutableIntStateOf(0) }
+    var dismissedRecapId by remember { mutableStateOf<String?>(null) }
+    var recapInteracted by remember { mutableStateOf(false) }
+    var recapAmbientStartedAt by remember { mutableStateOf<Long?>(null) }
+    var recapPausedMs by remember { mutableLongStateOf(0L) }
     var now by remember { mutableLongStateOf(System.currentTimeMillis()) }
     val snapshot = repository.snapshot
+    BackHandler(enabled = selectedAreaId != 0 && snapshot?.sessionId == null) {
+        if (selectedChangeId != 0) selectedChangeId = 0 else selectedAreaId = 0
+    }
     LaunchedEffect(ambient, resumed) {
         while (true) {
             now = System.currentTimeMillis()
@@ -52,11 +63,45 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
             delay(if (ambient || !resumed) 60_000 else 1_000)
         }
     }
-    LaunchedEffect(snapshot?.sessionId, resumeRevision) { pager.scrollToPage(0) }
+    LaunchedEffect(snapshot?.sessionId, resumeRevision, launchPage) {
+        pager.scrollToPage(if (snapshot?.sessionId != null) 0 else launchPage.coerceIn(0, 3))
+        if (snapshot?.sessionId != null) { selectedAreaId = 0; selectedChangeId = 0 }
+    }
+    val endedAt = repository.endedAt
+    val recap = snapshot?.recap?.takeIf { candidate ->
+        val status = candidate.optString("status")
+        status !in setOf("completed", "canceled") || endedAt == null ||
+            candidate.optionalLong("endedAt")?.let { kotlin.math.abs(endedAt - it) <= 60_000 } == true
+    }
+    val recapId = recap?.optionalString("id")
+    LaunchedEffect(ambient, endedAt) {
+        if (endedAt == null) {
+            recapAmbientStartedAt = null
+            recapPausedMs = 0
+            recapInteracted = false
+        } else if (ambient && recapAmbientStartedAt == null) {
+            recapAmbientStartedAt = System.currentTimeMillis()
+        } else if (!ambient && recapAmbientStartedAt != null) {
+            recapPausedMs += System.currentTimeMillis() - recapAmbientStartedAt!!
+            recapAmbientStartedAt = null
+        }
+    }
+    val recapElapsed = endedAt?.let { now - it - recapPausedMs -
+        (recapAmbientStartedAt?.let { started -> now - started } ?: 0) } ?: 0
+    val recapKey = recapId ?: endedAt?.let { "pending:$it" }
+    val recapWaiting = recap == null || recap.optString("status") in setOf("none", "initializing")
+    val showRecap = endedAt != null && recapKey != null && dismissedRecapId != recapKey &&
+        recapElapsed >= 3_000 && (recapInteracted || recapElapsed < (if (recapWaiting) 60_000 else 23_000)) &&
+        (recapAmbientStartedAt?.let { now - it < 120_000 } != false)
     MaterialTheme(colors = Colors(primary = Brand, background = Color.Black, onBackground = Color.White)) {
         Box(Modifier.fillMaxSize().background(Color.Black)) {
             HorizontalPager(state = pager, userScrollEnabled = !ambient, modifier = Modifier.fillMaxSize().testTag("watch-pager")) { page ->
+                val listState = rememberScalingLazyListState()
+                LaunchedEffect(page, listState.isScrollInProgress, showRecap) {
+                    if (page == 0 && showRecap && listState.isScrollInProgress) recapInteracted = true
+                }
                 ScalingLazyColumn(
+                    state = listState,
                     modifier = Modifier.fillMaxSize(),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     contentPadding = PaddingValues(horizontal = 26.dp, vertical = 24.dp),
@@ -64,7 +109,23 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                     autoCentering = null,
                 ) {
                     when (page) {
-                        0 -> item { NavigationPage(repository, snapshot, now, ambient) }
+                        0 -> item {
+                            when {
+                                showRecap -> WatchRecapPage(repository, recap ?: JSONObject().put("status", "initializing"), recapElapsed, ambient,
+                                    onInteraction = { recapInteracted = true }, onDismiss = { dismissedRecapId = recapKey })
+                                snapshot?.navigation?.optString("status") == "idle" && snapshot.cameraAlert != null &&
+                                    snapshot.cameraAlert.optString("id") != repository.dismissedCameraId &&
+                                    now - (snapshot.cameraAlert.optionalLong("sourceAt") ?: 0) < STALE_AFTER_MS ->
+                                    WatchFullCameraPage(snapshot.cameraAlert, ambient, repository::dismissCamera)
+                                snapshot?.navigation?.optString("status") == "idle" && snapshot.areas != null &&
+                                    repository.connected && !repository.incompatible ->
+                                    WatchAreasPage(repository, snapshot.areas, now, ambient, selectedAreaId, selectedChangeId,
+                                        onArea = { areaId -> selectedAreaId = areaId; selectedChangeId = 0; repository.areaOpened(areaId) },
+                                        onChange = { repository.resetHandoff(); selectedChangeId = it },
+                                        onBack = { if (selectedChangeId != 0) selectedChangeId = 0 else selectedAreaId = 0 })
+                                else -> NavigationPage(repository, snapshot, now, ambient)
+                            }
+                        }
                         1 -> item { ScorecardPage(repository, snapshot, now, ambient) }
                         2 -> {
                             item { Label("Diagnostics", 18, Color.White) }
@@ -105,7 +166,8 @@ fun WatchApp(repository: WatchPresentation, ambient: Boolean, resumed: Boolean =
                     }
                 }
             }
-            if (!ambient) {
+            if (!ambient && !showRecap && selectedAreaId == 0 &&
+                !(snapshot?.navigation?.optString("status") == "idle" && snapshot.cameraAlert != null)) {
                 Row(Modifier.align(Alignment.BottomCenter).padding(bottom = 10.dp), horizontalArrangement = Arrangement.spacedBy(5.dp)) {
                     repeat(4) { page -> Box(Modifier.size(4.dp).background(if (pager.currentPage == page) Brand else Color.DarkGray, CircleShape)) }
                 }
@@ -141,6 +203,11 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
                 Label(distance(nav.optionalDouble("distanceRemainingMeters")), 14, Muted)
             }
             else -> {
+                val liveAlert = snapshot.cameraAlert?.takeIf { now - (it.optionalLong("sourceAt") ?: 0) < STALE_AFTER_MS && !stale &&
+                    it.optString("id") != repository.dismissedCameraId }
+                val passedAlert = repository.recentCameraAlert?.takeIf {
+                    repository.cameraEndedAt?.let { ended -> now - ended < 5_000 } == true
+                }
                 Status(if (stale) "Stale · ${(snapshot.sourceAge(now)?.div(1000) ?: 0).coerceAtLeast(0)}s" else if (ambient) "Last guidance" else "Live", if (stale && !ambient) Amber else liveColor)
                 val maneuver = nav.optJSONObject("maneuver")
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -150,15 +217,20 @@ private fun NavigationPage(repository: WatchPresentation, snapshot: WatchSnapsho
                 var expanded by remember(maneuver?.optString("id")) { mutableStateOf(false) }
                 val instruction = maneuver?.optString("instruction")?.takeIf { it.isNotBlank() } ?: "Follow the road"
                 Text(instruction, fontFamily = WatchSans, fontSize = 16.sp, color = contentColor, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
-                    maxLines = if (expanded) Int.MAX_VALUE else 2, overflow = TextOverflow.Ellipsis,
+                    maxLines = if (expanded) Int.MAX_VALUE else if (liveAlert != null) 1 else 2, overflow = TextOverflow.Ellipsis,
                     modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.semantics { contentDescription = instruction })
                 if (stale) Label("Showing the last update", 12, Muted)
                 Text(nav.optString("destination"), fontFamily = WatchSans, fontSize = 12.sp, color = Muted, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                val eta = nav.optionalLong("arrivalAt")?.let { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)) } ?: "—"
-                Text(buildAnnotatedString {
-                    withStyle(SpanStyle(color = liveColor)) { append(eta) }
-                    append(" · ${duration(nav.optionalDouble("durationRemainingSeconds"))} · ${distance(nav.optionalDouble("distanceRemainingMeters"))}")
-                }, fontSize = 11.sp, color = Muted, fontFamily = WatchMono, textAlign = TextAlign.Center)
+                if (liveAlert != null || passedAlert != null) {
+                    WatchCameraStrip(liveAlert ?: passedAlert!!, ambient, passed = liveAlert == null,
+                        onDismiss = repository::dismissCamera)
+                } else {
+                    val eta = nav.optionalLong("arrivalAt")?.let { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(it)) } ?: "—"
+                    Text(buildAnnotatedString {
+                        withStyle(SpanStyle(color = liveColor)) { append(eta) }
+                        append(" · ${duration(nav.optionalDouble("durationRemainingSeconds"))} · ${distance(nav.optionalDouble("distanceRemainingMeters"))}")
+                    }, fontSize = 11.sp, color = Muted, fontFamily = WatchMono, textAlign = TextAlign.Center)
+                }
             }
         }
     }
@@ -199,7 +271,7 @@ private fun ScorecardPage(repository: WatchPresentation, snapshot: WatchSnapshot
     Text(text, fontFamily = WatchSans, color = color, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
         modifier = Modifier.background(color.copy(alpha = 0.14f), CircleShape).padding(horizontal = 9.dp, vertical = 3.dp))
 }
-@Composable private fun Label(text: String, size: Int, color: Color, mono: Boolean = false) {
+@Composable internal fun Label(text: String, size: Int, color: Color, mono: Boolean = false) {
     Text(text, color = color, fontSize = size.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center,
         fontFamily = if (mono) WatchMono else WatchSans)
 }

@@ -10,7 +10,7 @@ require(releaseVersionCode == null || (releaseVersionCode.matches(Regex("[1-9][0
 }
 val watchVersionName = providers.environmentVariable("WEAR_VERSION_NAME").orElse("0.2.0").get()
 val watchBuildEnvironment = providers.environmentVariable("WEAR_BUILD_ENV").orElse("production").get()
-require(watchBuildEnvironment in setOf("staging", "production")) { "WEAR_BUILD_ENV must be staging or production." }
+require(watchBuildEnvironment in setOf("development", "staging", "production")) { "WEAR_BUILD_ENV must be development, staging, or production." }
 require(watchVersionName.matches(Regex("[0-9]+\\.[0-9]+\\.[0-9]+(?:[-+][A-Za-z0-9.-]+)?"))) {
     "WEAR_VERSION_NAME must be a version such as 0.1.0."
 }
@@ -67,8 +67,9 @@ android {
     buildTypes {
         debug {
             signingConfig = signingConfigs.getByName("phoneStaging")
-            resValue("string", "app_name", "Staging | DAF")
-            buildConfigField("String", "APP_ENVIRONMENT", "\"staging\"")
+            if (watchBuildEnvironment == "development") applicationIdSuffix = ".dev"
+            resValue("string", "app_name", if (watchBuildEnvironment == "development") "Dev | DAF" else "Staging | DAF")
+            buildConfigField("String", "APP_ENVIRONMENT", "\"$watchBuildEnvironment\"")
         }
         release {
             signingConfig = signingConfigs.getByName("playUpload")
@@ -90,6 +91,10 @@ dependencies {
     implementation("androidx.wear.compose:compose-material:1.5.6")
     implementation("androidx.wear:wear:1.3.0")
     implementation("androidx.wear:wear-ongoing:1.1.0")
+    implementation("androidx.wear.tiles:tiles:1.6.2")
+    implementation("androidx.wear.protolayout:protolayout:1.4.2")
+    implementation("androidx.wear.protolayout:protolayout-material3:1.4.2")
+    implementation("androidx.wear.watchface:watchface-complications-data-source-ktx:1.2.1")
     implementation("com.google.android.gms:play-services-wearable:20.0.1")
     androidTestImplementation("androidx.test:runner:1.7.0")
     androidTestImplementation("androidx.compose.ui:ui-test-junit4:1.8.3")

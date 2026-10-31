@@ -17,6 +17,7 @@ data class WatchCue(
     val publisherId: String?,
     val sessionId: String?,
     val maneuverId: String?,
+    val cameraId: String?,
     val preview: Boolean,
 ) {
     companion object {
@@ -28,22 +29,33 @@ data class WatchCue(
             val pattern = json.getString("pattern")
             val issuedAt = json.getLong("issuedAt")
             val expiresAt = json.getLong("expiresAt")
-            require(id.length in 1..240 && pattern in setOf("left", "right", "neutral"))
+            require(id.length in 1..240 && pattern in setOf("left", "right", "neutral", "camera"))
             require(issuedAt > 0 && expiresAt > issuedAt && expiresAt - issuedAt <= 5_000)
             val preview = json.optBoolean("preview", false)
-            if (!preview) {
+            if (!preview && pattern != "camera") {
                 require(!json.optionalString("publisherId").isNullOrEmpty())
                 require(!json.optionalString("sessionId").isNullOrEmpty())
                 require(!json.optionalString("maneuverId").isNullOrEmpty())
             }
+            if (!preview && pattern == "camera") {
+                require(!json.optionalString("publisherId").isNullOrEmpty())
+                require(!json.optionalString("cameraId").isNullOrEmpty())
+            }
             return WatchCue(id, pattern, issuedAt, expiresAt,
-                json.optionalString("publisherId"), json.optionalString("sessionId"), json.optionalString("maneuverId"), preview)
+                json.optionalString("publisherId"), json.optionalString("sessionId"), json.optionalString("maneuverId"),
+                json.optionalString("cameraId"), preview)
         }
     }
 
     fun eligible(snapshot: WatchSnapshot?, now: Long): Boolean {
         if (now < issuedAt - 5_000 || now >= expiresAt) return false
         if (preview) return true
+        if (pattern == "camera") {
+            val alert = snapshot?.cameraAlert ?: return false
+            val sourceAt = alert.optionalLong("sourceAt") ?: return false
+            return snapshot.cameraAlertsEnabled && publisherId == snapshot.publisherId &&
+                cameraId == alert.optString("id") && now - sourceAt in -5_000 until STALE_AFTER_MS
+        }
         val nav = snapshot?.navigation ?: return false
         return snapshot.hapticsEnabled && !snapshot.stale(now) && nav.optString("status") == "active" &&
             publisherId == snapshot.publisherId && sessionId == snapshot.sessionId &&
@@ -75,6 +87,7 @@ class WatchHaptics(private val context: Context) {
             "left" -> longArrayOf(0, 85)
             "right" -> longArrayOf(0, 85, 110, 85)
             "neutral" -> longArrayOf(0, 250)
+            "camera" -> longArrayOf(0, 60, 70, 60, 70, 60)
             else -> return "Unsupported pattern"
         }
         vibrator.vibrate(VibrationEffect.createWaveform(timings, -1))

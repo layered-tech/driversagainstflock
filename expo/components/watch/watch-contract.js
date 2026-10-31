@@ -65,6 +65,10 @@ export function createWatchSnapshot({
     remaining,
     scorecard,
     hapticsEnabled = true,
+    cameraAlert,
+    areas,
+    recap,
+    cameraAlertsEnabled,
 }) {
     const normalizedManeuver = semanticWatchManeuver(maneuver, routeRevision);
     const navigationStatus = !active
@@ -77,7 +81,7 @@ export function createWatchSnapshot({
               ? 'missing-maneuver'
               : 'active';
     const scoreStatus = scorecard?.status ?? 'unavailable';
-    return {
+    const snapshot = {
         protocolVersion: WATCH_PROTOCOL_VERSION,
         publisherId,
         publisherStartedAt,
@@ -141,6 +145,12 @@ export function createWatchSnapshot({
                     : null,
         },
     };
+    if (cameraAlert !== undefined) snapshot.cameraAlert = cameraAlert;
+    if (areas !== undefined) snapshot.areas = areas;
+    if (recap !== undefined) snapshot.recap = recap;
+    if (cameraAlertsEnabled !== undefined)
+        snapshot.cameraAlertsEnabled = cameraAlertsEnabled === true;
+    return snapshot;
 }
 
 export function watchSnapshotStateKey(snapshot) {
@@ -153,6 +163,11 @@ export function watchSnapshotStateKey(snapshot) {
         scorecard.status,
         scorecard.cameraCrossings,
         snapshot.hapticsEnabled,
+        snapshot.cameraAlert?.id,
+        snapshot.cameraAlert?.count,
+        snapshot.cameraAlertsEnabled,
+        snapshot.areas?.sourceAt,
+        snapshot.recap?.id,
     ]);
 }
 

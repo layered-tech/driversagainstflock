@@ -43,4 +43,18 @@ class WatchCueTest {
         assertTrue(runCatching { WatchCue.parse(JSONObject().put("version", 1).put("id", "x")
             .put("pattern", "unknown").put("issuedAt", 10_000).put("expiresAt", 13_000).toString()) }.isFailure)
     }
+    @Test fun cameraCueRequiresCurrentFreshAlertAndPhonePreference() {
+        val json = JSONObject(snapshot().json.toString())
+            .put("cameraAlertsEnabled", true)
+            .put("cameraAlert", JSONObject().put("id", "alpr-7").put("type", "ALPR")
+                .put("road", "Market St").put("distanceMeters", 400).put("count", 1).put("sourceAt", 10_000))
+        val state = WatchSnapshot.parse(json.toString())
+        val cue = WatchCue.parse(JSONObject().put("version", 1).put("id", "camera:alpr-7")
+            .put("pattern", "camera").put("publisherId", "fixture-phone").put("cameraId", "alpr-7")
+            .put("issuedAt", 10_000).put("expiresAt", 12_000).toString())
+        assertTrue(cue.eligible(state, 10_100))
+        assertFalse(cue.eligible(state, 12_000))
+        assertFalse(cue.copy(cameraId = "other").eligible(state, 10_100))
+        assertFalse(cue.eligible(WatchSnapshot.parse(json.put("cameraAlertsEnabled", false).toString()), 10_100))
+    }
 }

@@ -25,6 +25,7 @@ import {
 } from '../map/shared-routing-state';
 import {
     getScorecardActiveDriveSummary,
+    getScorecardRuntimeSnapshot,
     subscribeScorecardRuntime,
 } from '../scorecard/scorecard-runtime-instance';
 import {
@@ -33,6 +34,23 @@ import {
 } from './watch-contract';
 import { createWatchPublisher } from './watch-publisher';
 import { createWatchCuePlanner } from './watch-cues';
+import { createWatchCameraCuePlanner } from './watch-camera-cues';
+import {
+    getWatchCameraPreferences,
+    loadWatchCameraPreferences,
+    subscribeWatchCameraPreferences,
+} from './watch-camera-preferences';
+import { markWatchAreaRead, refreshWatchAreas } from './watch-areas-runtime';
+import {
+    getWatchAreas,
+    getWatchUpcomingAlerts,
+    subscribeWatchSharedState,
+} from './watch-shared-state';
+import {
+    createWatchCameraAppearanceTracker,
+    projectWatchCamera,
+    projectWatchRecap,
+} from './watch-projections';
 import {
     loadWatchHapticPreferences,
     subscribeWatchHaptics,
@@ -55,7 +73,9 @@ export function initializeWatchRuntime() {
     let sessionId = null;
     let routeKey = null;
     let routeRevision = 0;
+    const trackCameraAppearance = createWatchCameraAppearanceTracker();
     const cuePlanner = createWatchCuePlanner();
+    const cameraCuePlanner = createWatchCameraCuePlanner();
     const publisher = createWatchPublisher({
         readSnapshot(revision) {
             const state = getSharedRoutingState();
@@ -83,6 +103,16 @@ export function initializeWatchRuntime() {
                 active && location
                     ? getDirectionsRouteProgress(route, location)
                     : null;
+            const cameraAlert = trackCameraAppearance(
+                projectWatchCamera(
+                    getWatchUpcomingAlerts(),
+                    sourceAt,
+                    getWatchCameraPreferences().alertsEnabled &&
+                        state.drivingModeIsActive &&
+                        !getSharedNavigationRerouting(),
+                ),
+                Date.now(),
+            );
             return createWatchSnapshot({
                 publisherId,
                 publisherStartedAt,
@@ -110,6 +140,10 @@ export function initializeWatchRuntime() {
                       )
                     : null,
                 scorecard: getScorecardActiveDriveSummary(),
+                cameraAlert,
+                areas: getWatchAreas(),
+                recap: projectWatchRecap(getScorecardRuntimeSnapshot()),
+                cameraAlertsEnabled: getWatchCameraPreferences().alertsEnabled,
             });
         },
         async publish(snapshot) {
@@ -124,8 +158,17 @@ export function initializeWatchRuntime() {
                 watchHapticsEnabled(),
                 Date.now(),
             );
+            const cameraCue = cameraCuePlanner.consume(
+                snapshot,
+                Date.now(),
+                cue,
+                getWatchCameraPreferences().alertsEnabled,
+                speed,
+            );
             await transport.publishSnapshot(JSON.stringify(snapshot));
             if (cue) await transport.sendHapticCue(JSON.stringify(cue));
+            if (cameraCue)
+                await transport.sendHapticCue(JSON.stringify(cameraCue));
         },
     });
     // Let the Scorecard runtime finish its atomic route/location update before reading it.
@@ -143,16 +186,47 @@ export function initializeWatchRuntime() {
     subscribeSharedNavigationRerouting(update);
     subscribeScorecardRuntime(update);
     subscribeWatchHaptics(update);
+    subscribeWatchCameraPreferences(update);
+    subscribeWatchSharedState(update);
     loadWatchHapticPreferences()
+        .then(update)
+        .catch(() => {});
+    loadWatchCameraPreferences()
+        .then(update)
+        .catch(() => {});
+    refreshWatchAreas()
         .then(update)
         .catch(() => {});
     transport.addListener('onStateRequested', () => {
         if (sharedRoutingStateCanPublish()) publisher.update({ force: true });
+        refreshWatchAreas().catch(() => {});
     });
+    transport.addListener('onAreaOpened', ({ areaId }) => {
+        markWatchAreaRead(Number(areaId))
+            .then(async (read) => {
+                if (read) await transport.confirmAreaRead(Number(areaId));
+                update();
+            })
+            .catch(() => {});
+    });
+    transport
+        .pendingAreaReads()
+        .then((areaIds) => {
+            areaIds.forEach((areaId) => {
+                markWatchAreaRead(areaId)
+                    .then(async (read) => {
+                        if (read) await transport.confirmAreaRead(areaId);
+                        update();
+                    })
+                    .catch(() => {});
+            });
+        })
+        .catch(() => {});
     AppState.addEventListener('change', (state) => {
         if (state === 'active') update();
     });
     // A heartbeat reports transport liveness without changing active source timestamps.
     setInterval(update, 5_000);
+    setInterval(() => refreshWatchAreas().catch(() => {}), 15 * 60_000);
     update();
 }

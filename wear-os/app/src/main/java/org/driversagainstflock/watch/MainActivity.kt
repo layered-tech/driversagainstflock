@@ -17,28 +17,37 @@ class MainActivity : FragmentActivity(), AmbientModeSupport.AmbientCallbackProvi
     private var resumed by mutableStateOf(false)
     private var resumeRevision by mutableStateOf(0)
     private var ambient by mutableStateOf(false)
+    private var launchPage by mutableStateOf(0)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        launchPage = intent.getIntExtra("page", 0)
         AmbientModeSupport.attach(this)
         val repository = WatchRepository.get(this)
         setContent {
             LaunchedEffect(repository.snapshot?.sessionId, resumed) {
-                if (resumed && !requestedNotifications && repository.snapshot?.sessionId != null && Build.VERSION.SDK_INT >= 33 &&
+                if (resumed && !requestedNotifications && Build.VERSION.SDK_INT >= 33 &&
                     checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
                     requestedNotifications = true
                     requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), NOTIFICATION_PERMISSION_REQUEST)
                 }
             }
-            WatchApp(repository, ambient, resumed, resumeRevision)
+            WatchApp(repository, ambient, resumed, resumeRevision, launchPage)
         }
     }
     override fun onResume() {
         super.onResume()
         resumed = true
+        WatchRepository.get(this).setForeground(true)
         resumeRevision += 1
         WatchRepository.get(this).refresh(request = true)
     }
-    override fun onPause() { resumed = false; super.onPause() }
+    override fun onPause() { resumed = false; WatchRepository.get(this).setForeground(false); super.onPause() }
+    override fun onNewIntent(intent: android.content.Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        launchPage = intent.getIntExtra("page", 0)
+        resumeRevision += 1
+    }
     override fun onRequestPermissionsResult(requestCode: Int, permissions: Array<out String>, grantResults: IntArray) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
         if (requestCode == NOTIFICATION_PERMISSION_REQUEST && grantResults.firstOrNull() == PackageManager.PERMISSION_GRANTED) {

@@ -77,103 +77,114 @@ describe('Navigation drawer icons', () => {
     test('uses optical icons for navigation, authentication, and developer rows in both themes', () => {
         for (const isAuthenticated of [false, true]) {
             for (const theme of ['light', 'dark']) {
-                let reportedDrawerState;
-                const { AppDrawerContent } = loadTourModule(
-                    new URL(
-                        '../../root/app-drawer-content.js',
-                        import.meta.url,
-                    ),
-                    {
-                        react: {
-                            useContext: () => (state) => {
-                                reportedDrawerState = state;
+                for (const watchIsConnected of [false, true]) {
+                    let reportedDrawerState;
+                    const { AppDrawerContent } = loadTourModule(
+                        new URL(
+                            '../../root/app-drawer-content.js',
+                            import.meta.url,
+                        ),
+                        {
+                            react: {
+                                useContext: () => (state) => {
+                                    reportedDrawerState = state;
+                                },
+                                useEffect: (effect) => effect(),
                             },
-                            useEffect: (effect) => effect(),
-                        },
-                        'expo-constants': { nativeAppVersion: 'test' },
-                        './app-drawer-navigation': { openDrawerRoot },
-                        'expo-router/drawer': {
-                            DrawerContentScrollView: 'ScrollView',
-                            DrawerItem: 'DrawerItem',
-                            useDrawerStatus: () => 'open',
-                        },
-                        'react-native': {
-                            Alert: {},
-                            Platform: { OS: 'android', isPad: false },
-                            Text: 'Text',
-                            View: 'View',
-                            useColorScheme: () => theme,
-                        },
-                        '../../lib/auth': {
-                            useAuth: () => ({ isAuthenticated }),
-                        },
-                        '../../lib/auth/constants': {
-                            APP_ENVIRONMENT: 'development',
-                        },
-                        '../../lib/crashlytics': {},
-                        '../areas/areas-context': {
-                            useAreas: () => ({ unreadCount: 5 }),
-                        },
-                        '../design-system/icon': { Icon: 'Icon' },
-                        '../map/config': { SHOW_MAP_DEBUG_CONTROLS: true },
-                        '../map/shared-map-state': {
-                            useSharedMapState: () => ({
-                                debugOverlayIsVisible: true,
-                                mapPreferencesAreLoaded: true,
-                            }),
-                        },
-                        '../scorecard/scorecard-context': {
-                            useScorecard: () => ({ isHydrated: false }),
-                        },
-                        './app-drawer-icon': { AppDrawerIcon },
-                        './app-drawer-items': drawerItems,
-                    },
-                );
-                const rows = drawerRows(
-                    AppDrawerContent({
-                        state: {
-                            index: 0,
-                            routes: [{ name: 'index', key: 'map' }],
-                        },
-                        descriptors: {
-                            map: {
-                                options: { swipeEnabled: theme === 'light' },
+                            'expo-constants': { nativeAppVersion: 'test' },
+                            './app-drawer-navigation': { openDrawerRoot },
+                            'expo-router/drawer': {
+                                DrawerContentScrollView: 'ScrollView',
+                                DrawerItem: 'DrawerItem',
+                                useDrawerStatus: () => 'open',
+                            },
+                            'react-native': {
+                                Alert: {},
+                                Platform: { OS: 'android', isPad: false },
+                                Text: 'Text',
+                                View: 'View',
+                                useColorScheme: () => theme,
+                            },
+                            '../../lib/auth': {
+                                useAuth: () => ({ isAuthenticated }),
+                            },
+                            '../../lib/auth/constants': {
+                                APP_ENVIRONMENT: 'development',
+                            },
+                            '../../lib/crashlytics': {},
+                            '../areas/areas-context': {
+                                useAreas: () => ({ unreadCount: 5 }),
+                            },
+                            '../design-system/icon': { Icon: 'Icon' },
+                            '../map/config': { SHOW_MAP_DEBUG_CONTROLS: true },
+                            '../map/shared-map-state': {
+                                useSharedMapState: () => ({
+                                    debugOverlayIsVisible: true,
+                                    mapPreferencesAreLoaded: true,
+                                }),
+                            },
+                            '../scorecard/scorecard-context': {
+                                useScorecard: () => ({ isHydrated: false }),
+                            },
+                            './app-drawer-icon': { AppDrawerIcon },
+                            './app-drawer-items': drawerItems,
+                            '../watch/use-connected-watch': {
+                                useConnectedWatch: () => watchIsConnected,
                             },
                         },
-                        navigation: {},
-                    }),
-                );
-                assert.equal(reportedDrawerState.open, true);
-                assert.equal(
-                    reportedDrawerState.swipeEnabled,
-                    theme === 'light',
-                );
-                const expectedNames = [
-                    ...drawerItems.PRIMARY_DRAWER_ITEMS.map(({ icon }) => icon),
-                    ...drawerItems.HELP_AND_LEGAL_DRAWER_ITEMS.map(
-                        ({ icon }) => icon,
-                    ),
-                    ...(isAuthenticated ? ['pencil', 'log-out'] : []),
-                    'sliders-horizontal',
-                    'bug',
-                    'triangle-alert',
-                    ...(!isAuthenticated ? ['user'] : []),
-                ];
+                    );
+                    const rows = drawerRows(
+                        AppDrawerContent({
+                            state: {
+                                index: 0,
+                                routes: [{ name: 'index', key: 'map' }],
+                            },
+                            descriptors: {
+                                map: {
+                                    options: {
+                                        swipeEnabled: theme === 'light',
+                                    },
+                                },
+                            },
+                            navigation: {},
+                        }),
+                    );
+                    assert.equal(reportedDrawerState.open, true);
+                    assert.equal(
+                        reportedDrawerState.swipeEnabled,
+                        theme === 'light',
+                    );
+                    const expectedNames = [
+                        ...drawerItems.PRIMARY_DRAWER_ITEMS.filter(
+                            (item) =>
+                                item.routeName !== 'watch-settings' ||
+                                watchIsConnected,
+                        ).map(({ icon }) => icon),
+                        ...drawerItems.HELP_AND_LEGAL_DRAWER_ITEMS.map(
+                            ({ icon }) => icon,
+                        ),
+                        ...(isAuthenticated ? ['pencil', 'log-out'] : []),
+                        'sliders-horizontal',
+                        'bug',
+                        'triangle-alert',
+                        ...(!isAuthenticated ? ['user'] : []),
+                    ];
 
-                assert.deepEqual(
-                    rows.map((row) => {
-                        const color = row.props.focused
-                            ? row.props.activeTintColor
-                            : row.props.inactiveTintColor;
-                        const icon = row.props.icon({ color, size: 24 });
+                    assert.deepEqual(
+                        rows.map((row) => {
+                            const color = row.props.focused
+                                ? row.props.activeTintColor
+                                : row.props.inactiveTintColor;
+                            const icon = row.props.icon({ color, size: 24 });
 
-                        assert.equal(icon.type, AppDrawerIcon);
-                        assert.equal(icon.props.color, color);
+                            assert.equal(icon.type, AppDrawerIcon);
+                            assert.equal(icon.props.color, color);
 
-                        return icon.props.name;
-                    }),
-                    expectedNames,
-                );
+                            return icon.props.name;
+                        }),
+                        expectedNames,
+                    );
+                }
             }
         }
     });
