@@ -8,6 +8,7 @@ import {
     setCrashlyticsCollectionEnabled,
     setUserId,
 } from '@react-native-firebase/crashlytics';
+import { APP_TARGET } from './app-target';
 import Constants from 'expo-constants';
 import { usePathname } from 'expo-router';
 import { useEffect, useRef } from 'react';
@@ -104,6 +105,7 @@ async function initializeCrashlytics() {
 
         await setAttributes(crashlytics, {
             'app.environment': APP_ENVIRONMENT,
+            'app.target': APP_TARGET,
             'app.version': String(
                 Constants.nativeAppVersion ??
                     Constants.expoConfig?.version ??

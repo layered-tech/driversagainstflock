@@ -67,6 +67,43 @@
             "android": {
                 "buildType": "apk"
             }
+        },
+        "automotive-development": {
+            "extends": "development",
+            "env": {
+                "APP_TARGET": "automotive"
+            },
+            "android": {
+                "buildType": "apk"
+            }
+        },
+        "automotive-e2e": {
+            "extends": "e2e-test",
+            "env": {
+                "APP_TARGET": "automotive",
+                "APP_ENV": "e2e"
+            },
+            "android": {
+                "buildType": "apk"
+            }
+        },
+        "automotive-staging": {
+            "extends": "staging-apk",
+            "env": {
+                "APP_TARGET": "automotive"
+            },
+            "android": {
+                "buildType": "apk"
+            }
+        },
+        "automotive-production": {
+            "extends": "production",
+            "env": {
+                "APP_TARGET": "automotive"
+            },
+            "android": {
+                "buildType": "app-bundle"
+            }
         }
     },
     "submit": {

@@ -9,8 +9,11 @@
 
         "start": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo start",
         "start:metro": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo start --dev-client",
+        "start:metro:automotive": "npm --prefix expo run start:metro:automotive --",
         "prebuild:local": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo prebuild --clean",
         "android:no-bundler": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo run:android --no-bundler --device",
+        "automotive:no-bundler": "npm --prefix expo run automotive:no-bundler --",
+        "prebuild:automotive": "npm --prefix expo run prebuild:automotive --",
         "ios:no-bundler": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo run:ios --no-bundler --device",
 
         "prebuild:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx dotenv -c staging -- expo prebuild --clean",
@@ -26,6 +29,11 @@
         "build:android:production-apk": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production-apk --non-interactive --no-wait",
         "build:wear:production": "cd expo && node ./scripts/build-wear-production.mjs",
         "build:ios:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
+
+        "build:automotive:development": "npm --prefix expo run build:automotive:development --",
+        "build:automotive:e2e": "npm --prefix expo run build:automotive:e2e --",
+        "build:automotive:staging": "npm --prefix expo run build:automotive:staging --",
+        "build:automotive:production": "npm --prefix expo run build:automotive:production --",
 
         "android:auto": "cd expo && bash ./scripts/android-auto.sh 2.0 landscape",
         "android:auto:2.1": "cd expo && bash ./scripts/android-auto.sh 2.1 landscape",

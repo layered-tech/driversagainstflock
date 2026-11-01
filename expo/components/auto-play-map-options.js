@@ -8,6 +8,7 @@ import {
 } from './map/advanced-route-settings.js';
 
 const CHOICE_TITLES = {
+    display: 'More map settings',
     layer: 'Map layer',
     light: "Map's Time of Day",
     route: 'Route Options',
@@ -32,6 +33,7 @@ export function createAutoPlayMapOptionsTemplate({
     lightPresets,
     requestIsCurrent,
     onError,
+    onOpenSetup,
 }) {
     let isActive = true;
     let template;
@@ -94,6 +96,9 @@ export function createAutoPlayMapOptionsTemplate({
                     },
                 ],
             };
+        }
+        if (kind === 'display') {
+            return { type: 'default', items: makeToggles(canChange) };
         }
         if (kind === 'route') {
             return {
@@ -261,6 +266,28 @@ export function createAutoPlayMapOptionsTemplate({
         }
     }
 
+    function makeToggles(canChange = current) {
+        const preferences = getPreferences();
+        return MAP_OPTION_TOGGLES.map(([key, label, defaultValue]) => ({
+            title: { text: label },
+            type: 'toggle',
+            checked:
+                key === 'weatherEnabled'
+                    ? weatherStore.getSnapshot().preferences.enabled
+                    : (preferences[key] ?? defaultValue) === true,
+            onPress: (_template, checked) => {
+                if (!canChange() || !getPreferences().mapPreferencesAreLoaded) {
+                    return;
+                }
+                if (key === 'weatherEnabled') {
+                    weatherStore.setEnabled(checked);
+                    return;
+                }
+                setPreferences({ [key]: checked });
+            },
+        }));
+    }
+
     function makeSection() {
         const preferences = getPreferences();
         if (!preferences.mapPreferencesAreLoaded) {
@@ -271,30 +298,26 @@ export function createAutoPlayMapOptionsTemplate({
                 ],
             };
         }
-        const toggles = MAP_OPTION_TOGGLES.map(
-            ([key, label, defaultValue]) => ({
-                title: { text: label },
-                type: 'toggle',
-                checked:
-                    key === 'weatherEnabled'
-                        ? weatherStore.getSnapshot().preferences.enabled
-                        : (preferences[key] ?? defaultValue) === true,
-                onPress: (_template, checked) => {
-                    if (
-                        !current() ||
-                        !getPreferences().mapPreferencesAreLoaded
-                    ) {
-                        return;
-                    }
-                    if (key === 'weatherEnabled') {
-                        weatherStore.setEnabled(checked);
-                        return;
-                    }
-                    setPreferences({ [key]: checked });
-                },
-            }),
-        );
+        const toggles = makeToggles();
         const items = [
+            ...(onOpenSetup
+                ? [
+                      {
+                          type: 'default',
+                          browsable: true,
+                          title: { text: 'Car setup' },
+                          detailedText: {
+                              text: 'Location access and saved places. Park to continue.',
+                          },
+                          onPress: () => {
+                              if (current())
+                                  void Promise.resolve()
+                                      .then(onOpenSetup)
+                                      .catch(reportError);
+                          },
+                      },
+                  ]
+                : []),
             {
                 type: 'default',
                 browsable: true,
@@ -324,7 +347,16 @@ export function createAutoPlayMapOptionsTemplate({
                 },
                 onPress: () => openChoices('light'),
             },
-            ...toggles,
+            ...(onOpenSetup
+                ? [
+                      {
+                          type: 'default',
+                          browsable: true,
+                          title: { text: CHOICE_TITLES.display },
+                          onPress: () => openChoices('display'),
+                      },
+                  ]
+                : toggles),
             {
                 type: 'default',
                 browsable: true,

@@ -147,6 +147,8 @@ test('configures Crashlytics and matching Firebase SDK versions for every app en
             module: { exports: {} },
             process: { env: { APP_ENV: environment } },
             require: (name) => {
+                if (name === './app-target')
+                    return require('../../app-target.js');
                 assert.equal(name, './package.json');
                 return manifest;
             },

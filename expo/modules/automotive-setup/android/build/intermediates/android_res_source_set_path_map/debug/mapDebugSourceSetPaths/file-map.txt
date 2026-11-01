@@ -1,0 +1,9 @@
+expo.modules.automotivesetup.daf-automotive-setup-pngs-0 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/generated/res/pngs/debug
+expo.modules.automotivesetup.daf-automotive-setup-updated_navigation_xml-1 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/generated/updated_navigation_xml/debug
+expo.modules.automotivesetup.daf-automotive-setup-mergeDebugResources-2 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/intermediates/incremental/debug/mergeDebugResources/merged.dir
+expo.modules.automotivesetup.daf-automotive-setup-mergeDebugResources-3 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/intermediates/incremental/debug/mergeDebugResources/stripped.dir
+expo.modules.automotivesetup.daf-automotive-setup-debug-4 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/intermediates/merged_res/debug/mergeDebugResources
+expo.modules.automotivesetup.daf-automotive-setup-debug-5 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/build/intermediates/packaged_res/debug/packageDebugResources
+expo.modules.automotivesetup.daf-automotive-setup-debug-6 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/debug/res
+expo.modules.automotivesetup.daf-automotive-setup-main-7 /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/res
+gradleHome-0 /Volumes/PfeiferDev/DevCaches/chris/home/.gradle

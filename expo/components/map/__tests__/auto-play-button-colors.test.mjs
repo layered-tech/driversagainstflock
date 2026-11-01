@@ -21,6 +21,7 @@ function createHarness(platform, isDarkMapLayer) {
         'utf8',
     );
     const context = vm.createContext({
+        IS_AUTOMOTIVE: false,
         AndroidAutoMapSurface() {},
         CarPlayMapSurface() {},
         DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',

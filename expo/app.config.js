@@ -1,3 +1,5 @@
+const { resolveAppTarget } = require('./app-target');
+const appTarget = resolveAppTarget(process.env.APP_TARGET);
 const IS_PRODUCTION = process.env.APP_ENV === 'production';
 const IS_STAGING = process.env.APP_ENV === 'staging';
 const IS_E2E = process.env.APP_ENV === 'e2e';
@@ -129,6 +131,12 @@ module.exports = {
         './plugins/withGradleJvmMemory',
         './plugins/withCanonicalReactNativeWorkletsPath',
         './plugins/withAndroidAuto',
+        ...(appTarget === 'automotive'
+            ? [
+                  './plugins/withAndroidAutomotive',
+                  './plugins/withAutomotiveLaunchIntent',
+              ]
+            : []),
         // Injects the React Native Firebase compatibility shims required by `useFrameworks: "dynamic"`
         // (below). No-op under static linking. See the plugin for details.
         './plugins/withDynamicFrameworksCompat',
@@ -244,6 +252,7 @@ module.exports = {
             projectId: '213a980a-473d-4493-9d6f-5a9bd3abae14',
         },
         environment,
+        appTarget,
     },
     owner: 'jikon',
 };

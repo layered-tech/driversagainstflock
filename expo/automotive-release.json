@@ -1,0 +1,42 @@
+{
+    "packageName": "com.anonymous.drivefree",
+    "formFactor": "Android Automotive OS",
+    "trackType": "Android Automotive OS only",
+    "buildProfile": "automotive-production",
+    "uploadMethod": "Select the Automotive AAB explicitly in Play Console on the dedicated Automotive testing track.",
+    "title": "Drivers Against Flock",
+    "shortDescription": "Car navigation with ALPR camera awareness, route choices, and saved places.",
+    "fullDescription": "Drivers Against Flock runs directly on supported cars with Android Automotive OS. Explore the map, search for destinations, compare routes, and navigate with ALPR camera awareness and configurable avoidance settings.\n\nUse supported voice navigation commands, view guidance and alerts, and choose map and route preferences from your car screen. Instrument-cluster maps are available when supported by your vehicle.\n\nWhile parked, allow location access and set Home, Work, and favorites. Saved places and recent destinations stay on the car; they do not sync with the phone app.\n\nAn internet connection is needed for online search, map content, and route requests. This version provides the car navigation experience; mobile contribution tools, Areas, and full Scorecard history are not included.",
+    "screenshots": {
+        "status": "captured_on_automotive_emulator",
+        "artifactDirectory": "/Volumes/PfeiferDev/DevCaches/chris/expo-builds/automotive-validation/2026-10-31",
+        "portrait": {
+            "count": 2,
+            "width": 800,
+            "height": 1280,
+            "files": ["portrait-route-preview.png", "portrait-navigation.png"]
+        },
+        "landscape": {
+            "count": 2,
+            "width": 1024,
+            "height": 786,
+            "files": ["landscape-route-preview.png", "landscape-navigation.png"]
+        },
+        "ultrawide": {
+            "count": 2,
+            "width": 3904,
+            "height": 1320,
+            "files": ["ultrawide-route-preview.png", "ultrawide-navigation.png"]
+        },
+        "device": "Generic Automotive emulator without OEM branding",
+        "scenes": ["Route preview", "Active navigation"],
+        "publicationStatus": "not_uploaded"
+    },
+    "releaseGates": [
+        "Separate authorization for publication",
+        "Complete remaining Automotive acceptance: alert variations, microphone voice interaction, rotary interaction, and repeat host/process recovery",
+        "Physical vehicle acceptance before broad rollout",
+        "Play declarations completed and captured screenshots reviewed for submission",
+        "Dedicated Automotive internal testing, closed testing, then production review"
+    ]
+}

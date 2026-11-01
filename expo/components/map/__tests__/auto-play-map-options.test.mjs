@@ -281,6 +281,7 @@ test('the sliders button works with or without an active route', async () => {
         let opened = 0;
         const fn = vm.runInNewContext(`(${source.slice(start, end)})`, {
             activeNavigationRoute,
+            autoPlayPlatform: {},
             rootMapTemplate: {},
             rootMapTemplateIsReady,
             loadAutoPlayModule: () => ({ ListTemplate: null }),
@@ -550,4 +551,29 @@ test('route actions are inert while preferences are not loaded and failed child 
     const writes = harness.writes.length;
     failed.config.sections.items[1].onPress();
     assert.equal(harness.writes.length, writes);
+});
+
+test('Automotive setup stays accessible with bounded rows and retains all map toggles', async () => {
+    const harness = createHarness();
+    let opened = 0;
+    harness.options.onOpenSetup = () => {
+        opened++;
+    };
+    const { template } = await open(harness);
+    const items = template.config.sections.items;
+    assert.ok(items.length <= 6);
+    items.find((item) => item.title.text === 'Car setup').onPress();
+    await Promise.resolve();
+    assert.equal(opened, 1);
+    items.find((item) => item.title.text === 'More map settings').onPress();
+    const more = harness.templates.at(-1);
+    assert.equal(more.config.sections.items.length, 3);
+    more.config.sections.items
+        .find((item) => item.title.text === 'Prefer private routes')
+        .onPress(null, true);
+    assert.deepEqual(harness.writes.at(-1), { preferPrivateRoutes: true });
+    template.config.onPopped();
+    items[0].onPress();
+    await Promise.resolve();
+    assert.equal(opened, 1);
 });

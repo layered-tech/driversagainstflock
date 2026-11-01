@@ -19,6 +19,7 @@
     "scripts": {
         "start": "expo start",
         "prebuild": "expo prebuild --clean",
+        "prebuild:automotive": "APP_TARGET=automotive EXPO_OFFLINE=${EXPO_OFFLINE:-1} expo prebuild --platform android --no-install",
         "prebuild:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- expo prebuild --clean",
         "prebuild:production": "APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- expo prebuild --clean",
         "build:android:staging": "APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile staging --no-wait",
@@ -34,9 +35,11 @@
         "carplay:gps:clear": "uv run --no-project --with pymobiledevice3==11.45.0 pymobiledevice3 developer dvt simulate-location clear --userspace",
         "carplay:screenshot": "node ./scripts/carplay-e2e.mjs --screenshot",
         "android:no-bundler": "expo run:android --no-bundler",
+        "automotive:no-bundler": "APP_TARGET=automotive EXPO_ADB_USER=${EXPO_ADB_USER:-current} EXPO_OFFLINE=${EXPO_OFFLINE:-1} expo run:android --no-bundler --device",
         "ios": "expo run:ios",
         "ios:no-bundler": "expo run:ios --no-bundler --device",
         "start:metro": "expo start --dev-client",
+        "start:metro:automotive": "APP_TARGET=automotive EXPO_ADB_USER=${EXPO_ADB_USER:-current} EXPO_OFFLINE=${EXPO_OFFLINE:-1} expo start --dev-client",
         "xcodebuild:external": "./scripts/xcodebuild-external.sh",
         "e2e": "./scripts/maestro-test.sh .maestro",
         "e2e:android": "MAESTRO_PLATFORM=android ./scripts/maestro-test.sh .maestro",
@@ -61,7 +64,11 @@
         "e2e:watch-camera": "node ./scripts/watch-camera-e2e.mjs",
         "e2e:watch-camera:guided": "node ./scripts/watch-camera-e2e.mjs --guided",
         "e2e:android-auto:route-choices:portrait": "ANDROID_AUTO_E2E_SUITE=route-choices ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
-        "e2e:android-auto:ui:portrait": "ANDROID_AUTO_E2E_SUITE=navigation ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json"
+        "e2e:android-auto:ui:portrait": "ANDROID_AUTO_E2E_SUITE=navigation ANDROID_AUTO_E2E_DHU_BINARY=\"${ANDROID_AUTO_DHU_ROOT:-$HOME/Library/Android/dhu}/2.1/desktop-head-unit\" ./scripts/android-auto-e2e.sh ./.android-auto/suite-portrait.json",
+        "build:automotive:development": "APP_TARGET=automotive APP_ENV=development EXPO_NO_DOTENV=1 ./scripts/eas-local-build.sh -p android --profile automotive-development --non-interactive --no-wait",
+        "build:automotive:e2e": "APP_TARGET=automotive APP_ENV=e2e EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile automotive-e2e --non-interactive --no-wait",
+        "build:automotive:staging": "APP_TARGET=automotive APP_ENV=staging EXPO_NO_DOTENV=1 npx dotenv -c staging -- ./scripts/eas-local-build.sh -p android --profile automotive-staging --non-interactive --no-wait",
+        "build:automotive:production": "APP_TARGET=automotive APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile automotive-production --non-interactive --no-wait"
     },
     "dependencies": {
         "@fortawesome/fontawesome-svg-core": "^7.3.1",

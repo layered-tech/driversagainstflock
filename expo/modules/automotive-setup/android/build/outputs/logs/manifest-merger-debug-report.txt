@@ -1,0 +1,16 @@
+-- Merging decision tree log ---
+manifest
+ADDED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml:1:1-72
+INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml:1:1-72
+	package
+		INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml
+	xmlns:android
+		ADDED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml:1:11-69
+uses-sdk
+INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml reason: use-sdk injection requested
+INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml
+INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml
+	android:targetSdkVersion
+		INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml
+	android:minSdkVersion
+		INJECTED from /Volumes/PfeiferDev/Projects/driversagainstflock/expo/modules/automotive-setup/android/src/main/AndroidManifest.xml

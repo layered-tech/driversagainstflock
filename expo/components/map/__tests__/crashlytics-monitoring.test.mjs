@@ -25,6 +25,7 @@ async function loadMonitoring({
     platform = 'android',
     dev = false,
     environment = 'production',
+    target = 'mobile',
     enabled,
     unavailable = false,
     hermes = false,
@@ -62,6 +63,7 @@ async function loadMonitoring({
         };
     }
     const modules = {
+        './app-target': { APP_TARGET: target },
         '@react-native-firebase/crashlytics': {
             getCrashlytics() {
                 sdkCalls++;
@@ -447,5 +449,14 @@ test('analytics covers each Scorecard screen with sanitized event metadata', asy
     assert.doesNotMatch(
         JSON.stringify(calls),
         /private-id|home address|private-place/,
+    );
+});
+
+test('Automotive diagnostics are tagged separately from mobile reports', async () => {
+    const harness = await loadMonitoring({ target: 'automotive' });
+    assert.ok(
+        harness.attributes.some(
+            (attributes) => attributes['app.target'] === 'automotive',
+        ),
     );
 });

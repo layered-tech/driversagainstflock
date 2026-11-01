@@ -86,7 +86,10 @@ function removeMainActivityGeoIntentFilter(activity, actionName) {
 
 function applyAndroidAutoManifest(
     androidManifest,
-    { instrumentClusterEnabled = androidInstrumentClusterEnabled } = {},
+    {
+        instrumentClusterEnabled = androidInstrumentClusterEnabled,
+        isAutomotive = false,
+    } = {},
 ) {
     const application = androidManifest?.manifest?.application?.[0];
 
@@ -101,7 +104,11 @@ function applyAndroidAutoManifest(
     }
 
     removeMainActivityGeoIntentFilter(mainActivity, NAVIGATE_ACTION);
-    ensureMainActivityGeoIntentFilter(mainActivity, VIEW_ACTION);
+    if (isAutomotive) {
+        removeMainActivityGeoIntentFilter(mainActivity, VIEW_ACTION);
+    } else {
+        ensureMainActivityGeoIntentFilter(mainActivity, VIEW_ACTION);
+    }
 
     androidManifest.manifest.$ ??= {};
     androidManifest.manifest.$['xmlns:tools'] =
@@ -169,6 +176,7 @@ function withAndroidAuto(config) {
     return withAndroidManifest(config, (manifestConfig) => {
         manifestConfig.modResults = applyAndroidAutoManifest(
             manifestConfig.modResults,
+            { isAutomotive: config.extra?.appTarget === 'automotive' },
         );
 
         return manifestConfig;

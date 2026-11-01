@@ -566,6 +566,7 @@ async function getAutoPlaySearchLocation(preferredLocation) {
 }
 
 async function getCurrentLocation() {
+    await autoPlayPlatform?.ensureLocation?.();
     if (!(await getLocationPermissionIsGranted())) {
         throw new Error(
             'Location permission is required. Open the phone app and allow location before starting car screen directions.',
@@ -1646,6 +1647,7 @@ function openMapOptionsTemplate() {
         setPreferences: setSharedMapPreferencesState,
         subscribePreferences: addSharedMapSettingsStateListener,
         weatherStore,
+        onOpenSetup: autoPlayPlatform.openSetup,
         mapLayers: MAP_LAYER_STYLES,
         lightPresets: MAP_LIGHT_PRESET_OPTIONS,
         requestIsCurrent: () =>
@@ -4001,6 +4003,15 @@ function getRootMapHeaderActions() {
 }
 
 function showAutoPlayError(title, message) {
+    if (
+        autoPlayPlatform?.isAutomotive &&
+        /fetch failed|network request failed|failed to fetch|UnknownHostException|unable to resolve host|SocketTimeoutException/i.test(
+            message,
+        )
+    ) {
+        message =
+            "Check your car's internet connection, then try Search again.";
+    }
     const autoPlayModule = loadAutoPlayModule();
     const searchAction = {
         onPress: handleRootHeaderSearchPress,
@@ -4484,7 +4495,9 @@ async function handleAutoPlayConnect() {
     const routingStateHydration = hydrateSharedRoutingStateAsync();
     const { MapTemplate } = loadAutoPlayModule();
     setAutoPlaySessionConnected(true);
-    retainAutoPlayConnectionRoadMatchingSession(connectionGeneration);
+    if (!autoPlayPlatform.isAutomotive) {
+        retainAutoPlayConnectionRoadMatchingSession(connectionGeneration);
+    }
 
     rootMapTemplateIsReady = false;
     lastAppliedMapButtonsKey = null;
@@ -4595,6 +4608,23 @@ async function handleAutoPlayConnect() {
 
                 rootMapTemplateIsReady = true;
                 updateRootTemplateHeaderActions();
+                if (autoPlayPlatform.isAutomotive) {
+                    try {
+                        await autoPlayPlatform.prepareSession();
+                    } catch (error) {
+                        if (rootTemplateSetupIsCurrent(attemptNumber)) {
+                            showAutoPlayError(
+                                'Location setup required',
+                                error.message,
+                            );
+                        }
+                        return;
+                    }
+                    if (!rootTemplateSetupIsCurrent(attemptNumber)) return;
+                    retainAutoPlayConnectionRoadMatchingSession(
+                        connectionGeneration,
+                    );
+                }
                 syncAutoPlayNavigationFromSharedRoutingState();
                 replayPendingVoiceNavigation();
                 replayPendingDashboardAction();
@@ -4714,6 +4744,14 @@ export default function registerAutoPlay() {
         getPrimaryLocations: () => autoPlayPrimaryLocations,
         makeGlyphImage: makeButtonGlyphImage,
         onDashboardAction: handleAutoPlayDashboardAction,
+        onLocationReady: () => {
+            if (!rootMapTemplateIsReady) return;
+            releaseAutoPlayConnectionRoadMatchingSession();
+            retainAutoPlayConnectionRoadMatchingSession(
+                autoPlayConnectionGeneration,
+            );
+            syncAutoPlayNavigationFromSharedRoutingState();
+        },
         onSessionRenderState: handleAutoPlaySessionRenderState,
         onVoiceNavigation: handleVoiceNavigationWhenReady,
     });

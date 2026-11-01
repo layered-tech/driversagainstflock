@@ -1,3 +1,4 @@
+import { IS_AUTOMOTIVE } from '../lib/app-target';
 import { createAutoPlayMapSurface } from './auto-play-map-surface';
 
 // The Android Auto host reports an oversized left inset while its maneuver
@@ -23,7 +24,7 @@ const ANDROID_AUTO_SURFACE_PLATFORM_CONFIG = {
     },
     hideCompassDuringNavigation: true,
     hideMapboxCompass: true,
-    ornamentSafeAreaLeftScale: 0.65,
+    ornamentSafeAreaLeftScale: IS_AUTOMOTIVE ? 1 : 0.65,
     speedLimitBadge: {
         portraitSize: 56,
     },
