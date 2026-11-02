@@ -1,0 +1,433 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+
+	};
+	objectVersion = 77;
+	objects = {
+		53FDCFC88309148D00AE0AE2 = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					EAFA01D5F1A84F039413933D = {
+						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+					0D2C8DBBAFC173DEE373E97F = {
+						CreatedOnToolsVersion = 16.0;
+						SystemCapabilities = {
+							com.apple.ApplicationGroups.iOS = {
+								enabled = 1;
+							};
+						};
+					};
+				};
+			};
+			buildConfigurationList = 14564D7902CFC433549A4868;
+			compatibilityVersion = "Xcode 16.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A78ADC56182907F4530DA452;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				EAFA01D5F1A84F039413933D,
+				0D2C8DBBAFC173DEE373E97F,
+			);
+			productRefGroup = B5AA8EB3763EC6432C46980B;
+			preferredProjectObjectVersion = 77;
+		};
+		A78ADC56182907F4530DA452 = {
+			isa = PBXGroup;
+			children = (
+				B5AA8EB3763EC6432C46980B,
+				DDA3D48FDB31C089B2326B0B,
+			);
+			sourceTree = "<group>";
+		};
+		B5AA8EB3763EC6432C46980B = {
+			isa = PBXGroup;
+			children = (
+				93A982D1032345FAD4043E0E,
+				E54F6D1FE11F7B5411AAA977,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		DDA3D48FDB31C089B2326B0B = {
+			isa = PBXGroup;
+			children = (
+				961D0C2308F3AEAC657ECCA2,
+				5853754BA3E8DD32C860488B,
+				8C85DDF2BE03888CE99B13A0,
+				BE7E4C94215F2D4E5BDC70DD,
+			);
+			name = "Apple Watch";
+			sourceTree = "<group>";
+		};
+		3D4FA3FD907D475D96660A1C = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+			};
+			name = Debug;
+		};
+		185771748E1D3FCDE8ACE3EF = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+
+			};
+			name = Release;
+		};
+		AF5F0DF6B57CBF0265CA18E1 = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE7E4C94215F2D4E5BDC70DD;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				DEBUG_INFORMATION_FORMAT = "dwarf";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = "./Configuration/WatchApp-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "./Configuration/Watch.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DAF_PHONE_BUNDLE_IDENTIFIER).watchkitapp";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SKIP_INSTALL = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			};
+			name = Debug;
+		};
+		5306C3FC939C7DEF6D58BB4B = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE7E4C94215F2D4E5BDC70DD;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = "./Configuration/WatchApp-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "./Configuration/Watch.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DAF_PHONE_BUNDLE_IDENTIFIER).watchkitapp";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				SKIP_INSTALL = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+			};
+			name = Release;
+		};
+		25EEC6966F8B51FFDCBBFCD8 = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE7E4C94215F2D4E5BDC70DD;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				DEBUG_INFORMATION_FORMAT = "dwarf";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = "./Configuration/Widgets-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "./Configuration/Watch.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DAF_PHONE_BUNDLE_IDENTIFIER).watchkitapp.widgets";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SKIP_INSTALL = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+			};
+			name = Debug;
+		};
+		1B5FE489C2B0ACF154D39F88 = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = BE7E4C94215F2D4E5BDC70DD;
+			buildSettings = {
+				SDKROOT = watchos;
+				SUPPORTED_PLATFORMS = "watchos watchsimulator";
+				WATCHOS_DEPLOYMENT_TARGET = 10.0;
+				TARGETED_DEVICE_FAMILY = 4;
+				SWIFT_VERSION = 5.0;
+				SWIFT_STRICT_CONCURRENCY = minimal;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "$(inherited)";
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				GENERATE_INFOPLIST_FILE = NO;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				INFOPLIST_FILE = "./Configuration/Widgets-Info.plist";
+				CODE_SIGN_ENTITLEMENTS = "./Configuration/Watch.entitlements";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				PRODUCT_BUNDLE_IDENTIFIER = "$(DAF_PHONE_BUNDLE_IDENTIFIER).watchkitapp.widgets";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				SKIP_INSTALL = YES;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = NO;
+				APPLICATION_EXTENSION_API_ONLY = YES;
+			};
+			name = Release;
+		};
+		14564D7902CFC433549A4868 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				3D4FA3FD907D475D96660A1C,
+				185771748E1D3FCDE8ACE3EF,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		C2B495DF15AC99C8D8BFE7CE = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AF5F0DF6B57CBF0265CA18E1,
+				5306C3FC939C7DEF6D58BB4B,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		7CA6581816ABFB6F1CF94974 = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				25EEC6966F8B51FFDCBBFCD8,
+				1B5FE489C2B0ACF154D39F88,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		961D0C2308F3AEAC657ECCA2 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+
+			};
+			explicitFolders = (
+
+			);
+			path = "./WatchApp";
+			sourceTree = SOURCE_ROOT;
+		};
+		5853754BA3E8DD32C860488B = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+
+			};
+			explicitFolders = (
+
+			);
+			path = "./Widgets";
+			sourceTree = SOURCE_ROOT;
+		};
+		8C85DDF2BE03888CE99B13A0 = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			explicitFileTypes = {
+
+			};
+			explicitFolders = (
+
+			);
+			path = "./Shared";
+			sourceTree = SOURCE_ROOT;
+		};
+		BE7E4C94215F2D4E5BDC70DD = {
+			isa = PBXFileReference;
+			lastKnownFileType = text.xcconfig;
+			path = "./Configuration/Companion.xcconfig";
+			sourceTree = SOURCE_ROOT;
+		};
+		93A982D1032345FAD4043E0E = {
+			isa = PBXFileReference;
+			explicitFileType = wrapper.application;
+			includeInIndex = 0;
+			path = "DAFWatch.app";
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		E54F6D1FE11F7B5411AAA977 = {
+			isa = PBXFileReference;
+			explicitFileType = "wrapper.app-extension";
+			includeInIndex = 0;
+			path = "DAFWatchWidgets.appex";
+			sourceTree = BUILT_PRODUCTS_DIR;
+		};
+		6787047D2D389D7BB9BF3ED1 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		CA23B038E28FAF1499B270E1 = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		F981D3FB1D1A8EC8F1FA020F = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		60A201AD45C26AAAF840124F = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		4289D960CBB424B290FEB6F9 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E5DB0AFD96A73538ECF79261 = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		EAFA01D5F1A84F039413933D = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = C2B495DF15AC99C8D8BFE7CE;
+			buildPhases = (
+				6787047D2D389D7BB9BF3ED1,
+				F981D3FB1D1A8EC8F1FA020F,
+				4289D960CBB424B290FEB6F9,
+				BA9D0050DCB7C991653DEB0A,
+			);
+			buildRules = (
+
+			);
+			dependencies = (
+				2DC3076C94714C8E47DFABA3,
+			);
+			fileSystemSynchronizedGroups = (
+				961D0C2308F3AEAC657ECCA2,
+				8C85DDF2BE03888CE99B13A0,
+			);
+			name = DAFWatch;
+			packageProductDependencies = (
+
+			);
+			productName = DAFWatch;
+			productReference = 93A982D1032345FAD4043E0E;
+			productType = "com.apple.product-type.application";
+		};
+		0D2C8DBBAFC173DEE373E97F = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7CA6581816ABFB6F1CF94974;
+			buildPhases = (
+				CA23B038E28FAF1499B270E1,
+				60A201AD45C26AAAF840124F,
+				E5DB0AFD96A73538ECF79261,
+			);
+			buildRules = (
+
+			);
+			dependencies = (
+
+			);
+			fileSystemSynchronizedGroups = (
+				5853754BA3E8DD32C860488B,
+				8C85DDF2BE03888CE99B13A0,
+			);
+			name = DAFWatchWidgets;
+			packageProductDependencies = (
+
+			);
+			productName = DAFWatchWidgets;
+			productReference = E54F6D1FE11F7B5411AAA977;
+			productType = "com.apple.product-type.app-extension";
+		};
+		79700200C47A2C0FB93BFAB5 = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 53FDCFC88309148D00AE0AE2;
+			proxyType = 1;
+			remoteGlobalIDString = 0D2C8DBBAFC173DEE373E97F;
+			remoteInfo = DAFWatchWidgets;
+		};
+		2DC3076C94714C8E47DFABA3 = {
+			isa = PBXTargetDependency;
+			target = 0D2C8DBBAFC173DEE373E97F;
+			targetProxy = 79700200C47A2C0FB93BFAB5;
+		};
+		F47B8B6E7FD1A7B51021A961 = {
+			isa = PBXBuildFile;
+			fileRef = E54F6D1FE11F7B5411AAA977;
+			settings = {
+				ATTRIBUTES = (
+					RemoveHeadersOnCopy,
+				);
+			};
+		};
+		BA9D0050DCB7C991653DEB0A = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				F47B8B6E7FD1A7B51021A961,
+			);
+			name = "Embed App Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+	};
+	rootObject = 53FDCFC88309148D00AE0AE2;
+}

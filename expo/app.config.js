@@ -129,6 +129,7 @@ module.exports = {
         './plugins/withGradleJvmMemory',
         './plugins/withCanonicalReactNativeWorkletsPath',
         './plugins/withAndroidAuto',
+        './plugins/withAppleWatch',
         // Injects the React Native Firebase compatibility shims required by `useFrameworks: "dynamic"`
         // (below). No-op under static linking. See the plugin for details.
         './plugins/withDynamicFrameworksCompat',

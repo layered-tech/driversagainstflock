@@ -101,15 +101,18 @@ export function WatchSettingsScreen() {
     }, []);
 
     const openPreview = async () => {
-        const transport =
-            Platform.OS === 'android'
-                ? requireOptionalNativeModule('WatchCompanion')
-                : null;
+        const transport = ['android', 'ios'].includes(Platform.OS)
+            ? requireOptionalNativeModule('WatchCompanion')
+            : null;
         if (previewDisabled || !transport?.openHapticsOnWatch) return;
         setOpeningPreview(true);
         try {
             await transport.openHapticsOnWatch();
-            ToastAndroid.show('Check your wrist.', ToastAndroid.SHORT);
+            if (Platform.OS === 'android') {
+                ToastAndroid.show('Check your wrist.', ToastAndroid.SHORT);
+            } else {
+                Alert.alert('Check your wrist.');
+            }
         } catch {
             Alert.alert(
                 'Watch not connected',

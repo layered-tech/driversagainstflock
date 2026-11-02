@@ -77,7 +77,16 @@ describe('Navigation drawer icons', () => {
     test('uses optical icons for navigation, authentication, and developer rows in both themes', () => {
         for (const isAuthenticated of [false, true]) {
             for (const theme of ['light', 'dark']) {
-                for (const watchIsConnected of [false, true]) {
+                for (const { platform, watchIsConnected } of [
+                    'android',
+                    'ios',
+                    'web',
+                ].flatMap((platform) =>
+                    [false, true].map((watchIsConnected) => ({
+                        platform,
+                        watchIsConnected,
+                    })),
+                )) {
                     let reportedDrawerState;
                     const { AppDrawerContent } = loadTourModule(
                         new URL(
@@ -100,7 +109,7 @@ describe('Navigation drawer icons', () => {
                             },
                             'react-native': {
                                 Alert: {},
-                                Platform: { OS: 'android', isPad: false },
+                                Platform: { OS: platform, isPad: false },
                                 Text: 'Text',
                                 View: 'View',
                                 useColorScheme: () => theme,
@@ -155,9 +164,12 @@ describe('Navigation drawer icons', () => {
                         theme === 'light',
                     );
                     const expectedNames = [
-                        ...drawerItems.PRIMARY_DRAWER_ITEMS.map(
-                            ({ icon }) => icon,
-                        ),
+                        ...drawerItems.PRIMARY_DRAWER_ITEMS.filter(
+                            (item) =>
+                                item.routeName !== 'watch-settings' ||
+                                platform === 'android' ||
+                                (platform === 'ios' && watchIsConnected),
+                        ).map(({ icon }) => icon),
                         ...drawerItems.HELP_AND_LEGAL_DRAWER_ITEMS.map(
                             ({ icon }) => icon,
                         ),

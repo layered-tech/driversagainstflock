@@ -6,7 +6,7 @@ export function useConnectedWatch(active) {
     const [connected, setConnected] = useState(false);
 
     useEffect(() => {
-        if (!active || Platform.OS !== 'android') {
+        if (!active || !['android', 'ios'].includes(Platform.OS)) {
             setConnected(false);
             return;
         }
