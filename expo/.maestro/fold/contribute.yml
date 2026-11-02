@@ -1,0 +1,307 @@
+appId: com.anonymous.drivefree.dev
+name: Fold contribution editor and publishing
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/open-expo-dev-client-after-clear.yml
+- runFlow: ../subflows/dismiss-first-launch-support.yml
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 30000
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 30000
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- runFlow:
+    when:
+      visible:
+        id: contribute-tour-skip-start
+    commands:
+      - tapOn:
+          id: contribute-tour-skip-start
+          retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-start-editing-button
+    timeout: 15000
+- takeScreenshot: fold-11-start
+- tapOn:
+    id: contribute-start-editing-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-add-camera-button
+    timeout: 15000
+- takeScreenshot: fold-12-editing
+- extendedWaitUntil:
+    visible:
+      id: map-marker-0-map
+    timeout: 15000
+- tapOn:
+    id: map-marker-0-map
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: editing-camera-details
+    timeout: 15000
+- assertVisible:
+    id: marker-details-edit-node-button
+- assertVisible:
+    id: marker-details-delete-node-button
+- takeScreenshot: fold-15-existing-camera
+- tapOn:
+    id: marker-details-edit-node-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-custom
+    timeout: 15000
+- takeScreenshot: osm-edit-camera
+- tapOn:
+    id: contribute-back-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-add-camera-button
+    timeout: 15000
+- tapOn:
+    id: contribute-add-camera-button
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- assertVisible:
+    id: contribute-preset-flock
+- assertVisible:
+    id: contribute-preset-motorola
+- assertVisible:
+    id: contribute-preset-genetec
+- assertVisible:
+    id: contribute-preset-axon
+- tapOn:
+    id: contribute-preset-genetec
+    retryTapIfNoChange: false
+- assertVisible:
+    id: contribute-preset-genetec
+    selected: true
+- takeScreenshot: fold-13-preset
+- longPressOn:
+    id: contribute-preset-genetec
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-preview
+    timeout: 10000
+- takeScreenshot: fold-13a-photo
+- tapOn:
+    id: contribute-brand-preview-close
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- tapOn:
+    id: contribute-add-camera-button
+    retryTapIfNoChange: false
+- waitForAnimationToEnd
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- tapOn:
+    id: contribute-preset-axon
+    retryTapIfNoChange: false
+- assertVisible:
+    id: contribute-preset-axon
+    selected: true
+- tapOn:
+    id: contribute-preset-custom
+    retryTapIfNoChange: false
+- runFlow:
+    file: subflows/scroll-left.yml
+    env:
+      TARGET_ID: contribute-raw-tag-value-5
+- assertVisible: Axon Enterprise
+- takeScreenshot: osm-custom-tags
+- takeScreenshot: fold-14-custom
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- assertVisible: '2 changes staged'
+- extendedWaitUntil:
+    visible:
+      id: contribute-keep-editing
+    timeout: 15000
+- takeScreenshot: osm-staged-tray
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- tapOn:
+    id: contribute-back-button
+    retryTapIfNoChange: false
+- assertVisible: 'Close the editor?'
+- takeScreenshot: fold-17a-close-editor
+- tapOn:
+    id: contribute-keep-draft
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000
+- assertVisible:
+    id: map-contribute-button
+    text: 'Resume draft changeset, 2 pending changes'
+- takeScreenshot: fold-17b-map-draft
+- tapOn:
+    id: contribute-coach-mark
+    optional: true
+    retryTapIfNoChange: false
+- assertNotVisible:
+    id: contribute-coach-mark
+- assertVisible:
+    id: map-contribute-button
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- openLink: 'driversagainstflock://edits/1234567890'
+- extendedWaitUntil:
+    visible:
+      id: contribute-preset-flock
+    timeout: 15000
+- tapOn:
+    id: contribute-next-changeset-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- tapOn:
+    id: contribute-keep-editing
+    retryTapIfNoChange: false
+- openLink: 'driversagainstflock://edits'
+- extendedWaitUntil:
+    visible:
+      id: your-edits-row-11640217-menu-button
+    timeout: 15000
+- tapOn:
+    id: your-edits-row-11640217-menu-button
+    retryTapIfNoChange: false
+- tapOn:
+    id: your-edits-row-11640217-delete-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: remove-camera-confirm-button
+    timeout: 15000
+- takeScreenshot: fold-16-delete
+- tapOn:
+    id: remove-camera-confirm-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-placement-sheet-title
+    timeout: 15000
+- takeScreenshot: fold-17-staged
+- tapOn:
+    id: contribute-next-details-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-comment-input
+    timeout: 15000
+- tapOn:
+    id: contribute-comment-input
+    retryTapIfNoChange: false
+- inputText: 'Surveyed cameras for emulator design validation'
+- tapOn:
+    text: 'Say what changed and why — other mappers read this.'
+    retryTapIfNoChange: false
+- takeScreenshot: fold-18-changeset-details
+- tapOn:
+    id: contribute-next-review-button
+    retryTapIfNoChange: false
+- assertVisible: '.*Create.*Genetec.*'
+- assertVisible: '.*Modify.*'
+- assertVisible: '.*Delete.*'
+- takeScreenshot: fold-19-review
+- tapOn:
+    id: contribute-publish-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-published-screen
+    timeout: 15000
+- assertVisible: '4 changes.*'
+- assertVisible: created
+- assertVisible: modified
+- assertVisible: deleted
+- takeScreenshot: fold-20-published
+- tapOn:
+    id: contribute-see-on-map-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000
+- tapOn:
+    id: map-contribute-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: contribute-account-card-signed-in
+    timeout: 15000
+- takeScreenshot: osm-start-sheet
+- tapOn:
+    id: contribute-account-card-signed-in
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: your-edits-row-12100881
+    timeout: 15000
+- assertVisible: Deleted
+- assertNotVisible:
+    id: your-edits-row-11640217-menu-button
+- takeScreenshot: fold-22-your-edits
+- tapOn:
+    id: your-edits-row-12100881-menu-button
+    retryTapIfNoChange: false
+- assertVisible:
+    id: your-edits-row-12100881-edit-button
+- assertVisible:
+    id: your-edits-row-12100881-delete-button
+- takeScreenshot: fold-22-your-edits-actions
+- tapOn:
+    id: your-edits-back-button
+    retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000

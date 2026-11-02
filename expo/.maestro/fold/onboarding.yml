@@ -1,0 +1,29 @@
+appId: com.anonymous.drivefree.dev
+name: Fold support and no-location fallback
+---
+- launchApp:
+    clearState: true
+    stopApp: true
+    permissions:
+      all: allow
+      location: deny
+- runFlow:
+    when:
+      true: ${typeof MAESTRO_EXPO_DEV_CLIENT_URL !== 'undefined' && MAESTRO_EXPO_DEV_CLIENT_URL.length > 0}
+    file: ../subflows/open-expo-dev-client-after-clear.yml
+- extendedWaitUntil:
+    visible:
+      id: first-launch-support-maybe-later
+    timeout: 120000
+- takeScreenshot: fold-08-support
+- tapOn:
+    id: first-launch-support-maybe-later
+- extendedWaitUntil:
+    visible: Continue without location
+    timeout: 15000
+- takeScreenshot: fold-08b-no-location
+- tapOn: Continue without location
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 15000

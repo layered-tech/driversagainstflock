@@ -1,0 +1,48 @@
+appId: com.anonymous.drivefree.dev
+name: Fold editor close and header regression
+---
+- openLink: 'driversagainstflock://e2e-mocks?auth=1'
+- extendedWaitUntil:
+    visible:
+      id: map-contribute-button
+    timeout: 15000
+- tapOn:
+    id: map-contribute-button
+- runFlow:
+    when:
+      visible:
+        id: contribute-tour-skip-start
+    commands:
+      - tapOn:
+          id: contribute-tour-skip-start
+- extendedWaitUntil:
+    visible:
+      id: contribute-start-editing-button
+    timeout: 15000
+- assertVisible:
+    id: contribute-start-sheet-close
+- tapOn:
+    id: contribute-start-editing-button
+- extendedWaitUntil:
+    visible:
+      id: contribute-add-camera-button
+    timeout: 15000
+- tapOn:
+    id: map-marker-0-map
+- extendedWaitUntil:
+    visible:
+      id: editing-camera-details
+    timeout: 15000
+- assertVisible:
+    id: marker-details-close-button
+- takeScreenshot: fold-15-existing-camera-final
+- tapOn:
+    id: marker-details-close-button
+- assertNotVisible:
+    id: editing-camera-details
+- tapOn:
+    id: contribute-back-button
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 15000

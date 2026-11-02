@@ -1,0 +1,44 @@
+appId: com.anonymous.drivefree.dev
+name: Fold map settings and Hotlist
+---
+- openLink: 'driversagainstflock://e2e-mocks'
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 30000
+- tapOn:
+    id: map-layer-button
+- runFlow:
+    when:
+      visible:
+        id: map-options-tour-skip-police-reports
+    commands:
+      - tapOn:
+          id: map-options-tour-skip-police-reports
+- assertVisible:
+    id: map-settings-close-button
+- takeScreenshot: fold-09-map-settings
+- tapOn:
+    id: map-settings-close-button
+- tapOn:
+    id: map-search-drawer-button-map
+- extendedWaitUntil:
+    visible:
+      id: app-drawer-open
+    timeout: 10000
+- takeScreenshot: fold-24-areas-drawer
+- tapOn: Hotlist
+- extendedWaitUntil:
+    visible:
+      id: hotlist-row-0
+    timeout: 15000
+- assertVisible:
+    id: duo-content-pane
+- takeScreenshot: fold-21-hotlist
+- tapOn:
+    id: hotlist-drawer-button
+- tapOn: Map
+- extendedWaitUntil:
+    visible:
+      id: map-search-input-map
+    timeout: 15000
