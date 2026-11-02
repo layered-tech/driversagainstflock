@@ -284,11 +284,15 @@ function applyCarPlayInfoPlist(infoPlist, bundleIdentifier) {
 }
 
 function addAutoPlayRootViewToAppDelegate(source) {
+    const declaration = source.match(
+        /class AppDelegate\s*:\s*ExpoAppDelegate\b(?:\s*,\s*[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)*\s*\{/,
+    )?.[0];
+
     return addGeneratedSwiftBlock(
         source,
         APP_DELEGATE_TAG,
         GET_ROOT_VIEW_FOR_AUTOPLAY,
-        'class AppDelegate: ExpoAppDelegate {',
+        declaration ?? 'class AppDelegate: ExpoAppDelegate {',
     );
 }
 

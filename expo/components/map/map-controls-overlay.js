@@ -86,6 +86,7 @@ export function MapControlsOverlay({
         >
             {showDrawerButton ? (
                 <MapControlButton
+                    nativeGroup="navigation"
                     accessibilityHint="Opens the navigation drawer."
                     accessibilityLabel="Open menu"
                     accessibilityRole="button"
@@ -105,6 +106,9 @@ export function MapControlsOverlay({
 
             {drivingMapViewControlIsVisible ? (
                 <MapControlButton
+                    nativeGroup="activity"
+                    nativeOrder={0}
+                    nativeVisibilityPriority="standard"
                     accessibilityHint={`Switches to ${nextDrivingMapViewPresentation.label.toLowerCase()} map view.`}
                     accessibilityLabel={`Map view: ${drivingMapViewPresentation.label}`}
                     accessibilityRole="button"
@@ -122,6 +126,11 @@ export function MapControlsOverlay({
 
             {showFreeDriveButton ? (
                 <MapControlButton
+                    nativeGroup="activity"
+                    nativeOrder={1}
+                    nativeVisibilityPriority={
+                        freeDriveIsActive ? 'high' : 'standard'
+                    }
                     accessibilityLabel={
                         freeDriveIsActive
                             ? 'Exit free drive'
@@ -161,6 +170,10 @@ export function MapControlsOverlay({
             ) : null}
 
             <MapControlButton
+                nativeGroup="map"
+                nativeOrder={1}
+                nativeSharesBackground
+                nativeVisibilityPriority="low"
                 accessibilityLabel="Zoom in"
                 accessibilityRole="button"
                 className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${defaultMapControlClassName}`}
@@ -174,6 +187,10 @@ export function MapControlsOverlay({
             </MapControlButton>
 
             <MapControlButton
+                nativeGroup="map"
+                nativeOrder={2}
+                nativeSharesBackground
+                nativeVisibilityPriority="low"
                 accessibilityLabel="Zoom out"
                 accessibilityRole="button"
                 className={`${MAP_CONTROL_BUTTON_CLASS_NAME} ${defaultMapControlClassName}`}
@@ -187,6 +204,10 @@ export function MapControlsOverlay({
             </MapControlButton>
 
             <MapControlButton
+                nativeSymbol="scope"
+                nativeGroup="map"
+                nativeOrder={3}
+                nativeVisibilityPriority="high"
                 accessibilityHint={userLocationButtonAccessibilityHint}
                 accessibilityLabel={userLocationButtonAccessibilityLabel}
                 accessibilityRole="button"

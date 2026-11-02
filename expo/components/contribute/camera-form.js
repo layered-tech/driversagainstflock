@@ -1,5 +1,12 @@
+import { DuoText as Text } from '../design-system/duo-typography';
+import {
+    FullWidthSafeAreaBand,
+    NativeModalContent,
+    NativeNavigationAction,
+} from '../root/native-navigation';
 import { CAMERA_REFERENCE_IMAGES } from './camera-reference-images';
 import { useRef, useState } from 'react';
+import { useDuoDevice } from '../root/duo-device-context';
 import {
     Image,
     KeyboardAvoidingView,
@@ -7,8 +14,8 @@ import {
     Platform,
     Pressable,
     ScrollView,
-    Text,
     useColorScheme,
+    useWindowDimensions,
     View,
 } from 'react-native';
 import {
@@ -138,6 +145,8 @@ export function CameraForm({
     saving = false,
 }) {
     const insets = useSafeAreaInsets();
+    const duo = useDuoDevice();
+    const { width: windowWidth } = useWindowDimensions();
     const theme = getDafTheme(useColorScheme());
     const targets = useRef({});
     const scrollRef = useRef(null);
@@ -242,7 +251,11 @@ export function CameraForm({
                             : 'new node'
                     }
                 />
-                <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+                <FullWidthSafeAreaBand
+                    gutter={16}
+                    testID="contribute-camera-coordinate-header"
+                    className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
+                >
                     <Text className="font-dafMono text-[11px] text-daf-text-brand dark:text-daf-brand">
                         {pin.latitude.toFixed(4)}, {pin.longitude.toFixed(4)}
                     </Text>
@@ -251,14 +264,14 @@ export function CameraForm({
                             node/{pin.nodeId}
                         </Text>
                     ) : null}
-                </View>
+                </FullWidthSafeAreaBand>
                 <ScrollView
                     className="flex-1"
                     ref={scrollRef}
                     keyboardShouldPersistTaps="handled"
                 >
                     <View
-                        className="gap-[18px] p-4"
+                        className="gap-[20px] p-[16px]"
                         ref={contentRef}
                         collapsable={false}
                     >
@@ -582,8 +595,10 @@ export function CameraForm({
                         ) : null}
                     </View>
                 </ScrollView>
-                <View
-                    className="gap-2 border-t border-daf-border bg-white px-4 pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+                <FullWidthSafeAreaBand
+                    gutter={16}
+                    testID="contribute-camera-footer"
+                    className="gap-2 border-t border-daf-border bg-white pt-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                     style={{ paddingBottom: Math.max(insets.bottom + 12, 20) }}
                 >
                     {error || validationError ? (
@@ -608,7 +623,7 @@ export function CameraForm({
                         Staged on your phone — nothing publishes until you
                         review.
                     </Text>
-                </View>
+                </FullWidthSafeAreaBand>
             </View>
             {tour ? (
                 <ContributeTourOverlay
@@ -628,73 +643,85 @@ export function CameraForm({
                 onRequestClose={() => setPreview(null)}
                 testID="contribute-brand-preview-modal"
             >
-                {preview ? (
-                    <View
-                        className="flex-1 items-center justify-center bg-[rgba(11,14,18,0.62)] px-6"
-                        testID="contribute-preset-preview"
-                    >
-                        <View className="max-h-[85%] w-full overflow-hidden rounded-dafLg bg-white dark:bg-daf-surface-dark">
-                            <View className="flex-row items-center justify-between gap-2 px-4 py-2">
-                                <Text className="flex-1 font-dafDisplay text-lg font-bold text-daf-text-primary dark:text-white">
-                                    {preview.label} {preview.model}
-                                </Text>
-                                <Pressable
-                                    accessibilityRole="button"
-                                    accessibilityLabel="Close brand preview"
-                                    className="h-11 w-11 items-center justify-center rounded-full bg-daf-surface-alt dark:bg-daf-surface-inverse"
-                                    onPress={() => setPreview(null)}
-                                    testID="contribute-brand-preview-close"
-                                >
-                                    <Icon
-                                        name="x"
-                                        size={22}
-                                        color={theme.text.tertiary}
-                                    />
-                                </Pressable>
-                            </View>
-                            <ScrollView
-                                className="flex-shrink"
-                                testID="contribute-reference-gallery"
-                                onLayout={({ nativeEvent }) => {
-                                    const width = nativeEvent.layout.width;
-                                    if (Number.isFinite(width) && width > 0)
-                                        setReferenceGalleryWidth(width);
-                                }}
+                <NativeModalContent>
+                    {preview ? (
+                        <View
+                            className={`flex-1 justify-center bg-[rgba(11,14,18,0.62)] px-[24px] ${duo && windowWidth >= 768 ? 'items-end' : 'items-center'}`}
+                            testID="contribute-preset-preview"
+                        >
+                            <View
+                                className={`max-h-[85%] w-full overflow-hidden rounded-dafLg bg-white dark:bg-daf-surface-dark ${Platform.isPad ? 'max-w-[420px]' : duo ? 'max-w-[360px]' : ''}`}
                             >
-                                <Text className="px-4 pb-3 text-sm leading-5 text-daf-text-secondary dark:text-neutral-300">
-                                    {preview.description}
-                                </Text>
-                                {(
-                                    CAMERA_MANUFACTURERS.find(
-                                        ({ value }) => value === preview.value,
-                                    )?.referenceImages ?? []
-                                ).map((reference, index) => {
-                                    const source =
-                                        CAMERA_REFERENCE_IMAGES[reference];
-                                    const dimensions =
-                                        Image.resolveAssetSource(source);
-                                    const aspectRatio =
-                                        dimensions.width / dimensions.height;
-                                    return (
-                                        <Image
-                                            key={reference}
-                                            source={source}
-                                            className="mb-3"
-                                            style={{
-                                                width: referenceGalleryWidth,
-                                                height:
-                                                    referenceGalleryWidth /
-                                                    aspectRatio,
-                                            }}
-                                            resizeMode="contain"
-                                            accessibilityLabel={`${preview.label} reference photo ${index + 1}`}
-                                        />
-                                    );
-                                })}
-                            </ScrollView>
+                                <View className="flex-row items-center justify-between gap-2 px-[16px] py-2">
+                                    <Text className="flex-1 font-dafDisplay text-lg font-bold text-daf-text-primary dark:text-white">
+                                        {preview.label} {preview.model}
+                                    </Text>
+                                    <NativeNavigationAction
+                                        railOnly
+                                        kind="close"
+                                        priority={400}
+                                    >
+                                        <Pressable
+                                            accessibilityRole="button"
+                                            accessibilityLabel="Close brand preview"
+                                            className="h-11 w-11 items-center justify-center rounded-full bg-daf-surface-alt dark:bg-daf-surface-inverse"
+                                            onPress={() => setPreview(null)}
+                                            testID="contribute-brand-preview-close"
+                                        >
+                                            <Icon
+                                                name="x"
+                                                size={22}
+                                                color={theme.text.tertiary}
+                                            />
+                                        </Pressable>
+                                    </NativeNavigationAction>
+                                </View>
+                                <ScrollView
+                                    className="flex-shrink"
+                                    testID="contribute-reference-gallery"
+                                    onLayout={({ nativeEvent }) => {
+                                        const width = nativeEvent.layout.width;
+                                        if (Number.isFinite(width) && width > 0)
+                                            setReferenceGalleryWidth(width);
+                                    }}
+                                >
+                                    <Text className="px-[16px] pb-3 text-sm leading-5 text-daf-text-secondary dark:text-neutral-300">
+                                        {preview.description}
+                                    </Text>
+                                    {(
+                                        CAMERA_MANUFACTURERS.find(
+                                            ({ value }) =>
+                                                value === preview.value,
+                                        )?.referenceImages ?? []
+                                    ).map((reference, index) => {
+                                        const source =
+                                            CAMERA_REFERENCE_IMAGES[reference];
+                                        const dimensions =
+                                            Image.resolveAssetSource(source);
+                                        const aspectRatio =
+                                            dimensions.width /
+                                            dimensions.height;
+                                        return (
+                                            <Image
+                                                key={reference}
+                                                source={source}
+                                                className="mb-3"
+                                                style={{
+                                                    width: referenceGalleryWidth,
+                                                    height:
+                                                        referenceGalleryWidth /
+                                                        aspectRatio,
+                                                }}
+                                                resizeMode="contain"
+                                                accessibilityLabel={`${preview.label} reference photo ${index + 1}`}
+                                            />
+                                        );
+                                    })}
+                                </ScrollView>
+                            </View>
                         </View>
-                    </View>
-                ) : null}
+                    ) : null}
+                </NativeModalContent>
             </Modal>
         </KeyboardAvoidingView>
     );

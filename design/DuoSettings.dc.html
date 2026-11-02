@@ -112,7 +112,7 @@
           <div style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,600px" subtitle="Customize what you see" title="Map settings">
                 <div style="display:flex; flex-direction:column; gap:2px; margin-bottom:8px;">
                   <x-import checked="{{ true }}" component-from-global-scope="DesignSystem_c71fad.Switch" hint-size="100%,44px" label="Show surveillance markers" onChange="{{ noop }}"></x-import>
@@ -182,7 +182,7 @@ class Component extends DCLogic {
   setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
   componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
   state = { themeOverride: null };
-  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { maxHeight: 447, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
   renderValsBase() {
     const donation = { bmcUrl: 'https://buymeacoffee.com/driversagainstflock' };
     const R = React.createElement;

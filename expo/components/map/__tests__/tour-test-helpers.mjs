@@ -1,4 +1,10 @@
 import assert from 'node:assert/strict';
+import * as responsiveMapLayout from '../responsive-map-layout.js';
+import { getContributeMapLayout } from '../../contribute/contribute-layout.js';
+import {
+    getDuoMapCenterPoint,
+    getDuoPaneLayout,
+} from '../duo-bottom-sheet-layout.js';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 
@@ -14,11 +20,14 @@ export function loadTourModule(fileUrl, mocks, scheduler = {}) {
         plugins: [[jsx, { runtime: 'automatic' }], commonjs],
     });
     const module = { exports: {} };
-    const createElement = (type, props, key) => ({
-        type,
-        props,
-        ...(key === undefined ? {} : { key }),
-    });
+    const createElement = (type, props, key) =>
+        type === 'PersistentMapScene'
+            ? props.children
+            : {
+                  type,
+                  props,
+                  ...(key === undefined ? {} : { key }),
+              };
 
     new Function(
         'require',
@@ -29,10 +38,56 @@ export function loadTourModule(fileUrl, mocks, scheduler = {}) {
         code,
     )(
         (specifier) => {
+            if (specifier === 'react-native' && specifier in mocks) {
+                return { Platform: { isPad: false }, ...mocks[specifier] };
+            }
+            if (
+                specifier.endsWith('/persistent-map-host') &&
+                !(specifier in mocks)
+            )
+                return {
+                    usePersistentMapEnabled: () => false,
+                    PersistentMapScene: 'PersistentMapScene',
+                    PersistentDrawerStateContext: {},
+                };
+            if (specifier === './contribute-layout') {
+                return { getContributeMapLayout };
+            }
             if (specifier === 'react/jsx-runtime') {
                 return { jsx: createElement, jsxs: createElement };
             }
+            if (
+                specifier.endsWith('/duo-typography') &&
+                !(specifier in mocks)
+            ) {
+                return { DuoText: 'Text', DuoTextInput: 'TextInput' };
+            }
 
+            if (
+                specifier.endsWith('/duo-pane-content-size') &&
+                !(specifier in mocks)
+            )
+                return { useDuoPaneContentSize: () => ({}) };
+            if (
+                specifier.endsWith('/duo-device-context') &&
+                !(specifier in mocks)
+            ) {
+                return {
+                    useDuoDevice: () => false,
+                    useDuoPaneContent: () => false,
+                    DuoDeviceProvider: 'DuoDeviceProvider',
+                };
+            }
+            if (
+                specifier.endsWith('/duo-bottom-sheet-layout') &&
+                !(specifier in mocks)
+            )
+                return { getDuoPaneLayout, getDuoMapCenterPoint };
+            if (
+                specifier.endsWith('/responsive-map-layout') &&
+                !(specifier in mocks)
+            )
+                return responsiveMapLayout;
             assert.ok(specifier in mocks, `Missing mock: ${specifier}`);
             return mocks[specifier];
         },

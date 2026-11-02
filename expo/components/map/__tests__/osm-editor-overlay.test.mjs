@@ -13,7 +13,7 @@ function find(tree, id) {
     }
     return null;
 }
-function createOverlay(saved) {
+function createOverlay(saved, tablet = false, pins = [{ id: 'one' }]) {
     const hooks = createHookHarness();
     const calls = [];
     const { ContributePlacementOverlay } = loadTourModule(
@@ -26,23 +26,37 @@ function createOverlay(saved) {
             'react-native': {
                 Alert: { alert: () => calls.push('error') },
                 BackHandler: { addEventListener: () => ({ remove() {} }) },
+                Platform: { isPad: tablet },
                 Pressable: 'Pressable',
                 Text: 'Text',
                 View: 'View',
+                useWindowDimensions: () => ({
+                    width: tablet ? 1194 : 390,
+                    height: 844,
+                }),
             },
             '@gorhom/bottom-sheet': { BottomSheetBackdrop: 'Backdrop' },
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeNavigationAction',
+            },
             '../design-system/icon': { Icon: 'Icon' },
             '../design-system/primitives': { DafButton: 'Button' },
             '../map/native-components': {
                 NativeWindBottomSheetModal: 'Modal',
                 NativeWindBottomSheetView: 'View',
+                NativeWindBottomSheetScrollView: 'ScrollView',
             },
             '../../lib/safe-area-insets': {
-                useSafeAreaInsets: () => ({ bottom: 10 }),
+                useSafeAreaInsets: () => ({
+                    top: 24,
+                    bottom: 10,
+                    left: 0,
+                    right: 0,
+                }),
             },
             './contribute-state': {
                 useContribute: () => ({
-                    pins: [{ id: 'one' }],
+                    pins,
                     removals: [],
                     tour: {},
                     saveDraft: async () => {
@@ -86,6 +100,35 @@ test('a failed draft save keeps the editor open and shows an error', async () =>
     try {
         await find(overlay.render(), 'contribute-keep-draft').props.onPress();
         assert.deepEqual(overlay.calls, ['save', 'error']);
+    } finally {
+        overlay.cleanup();
+    }
+});
+
+test('tablet editing header leaves the staged changes pane accessible', () => {
+    const staged = createOverlay(true, true);
+    const empty = createOverlay(true, true, []);
+    try {
+        const stagedStyle = staged.render().props.style;
+        assert.equal(stagedStyle.marginLeft, 430);
+        assert.equal(stagedStyle.width, 740);
+        assert.equal(empty.render().props.style.width, 406);
+        assert.ok(find(staged.render(), 'contribute-back-button'));
+    } finally {
+        staged.cleanup();
+        empty.cleanup();
+    }
+});
+
+test('close-editor confirmation opts into tablet confirmation geometry', () => {
+    const overlay = createOverlay(true, true);
+    try {
+        const tree = overlay.render();
+        const modal = tree.props.children.find(
+            (child) => child?.type === 'Modal',
+        );
+        assert.equal(modal.props.tabletPresentation, 'confirmation');
+        assert.equal(modal.props.backdropComponent({}).props.opacity, 0.28);
     } finally {
         overlay.cleanup();
     }

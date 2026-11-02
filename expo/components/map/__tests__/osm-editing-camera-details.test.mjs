@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { createHookHarness, loadTourModule } from './tour-test-helpers.mjs';
 
-function createDetails(currentUser = { id: 1 }) {
+function createDetails(currentUser = { id: 1 }, closable = false) {
     const hooks = createHookHarness();
     const actions = [];
     let node = null;
@@ -10,7 +10,11 @@ function createDetails(currentUser = { id: 1 }) {
         new URL('../../contribute/editing-camera-details.js', import.meta.url),
         {
             react: hooks.react,
-            'react-native': { Text: 'Text', View: 'View' },
+            'react-native': {
+                Text: 'Text',
+                View: 'View',
+                Pressable: 'Pressable',
+            },
             '../design-system/icon': { Icon: 'Icon' },
             '../design-system/primitives': { DafButton: 'Button' },
         },
@@ -24,6 +28,7 @@ function createDetails(currentUser = { id: 1 }) {
                     currentUser,
                     onEdit: () => actions.push('edit'),
                     onDelete: () => actions.push('delete'),
+                    onClose: closable ? () => actions.push('close') : undefined,
                 }),
             ),
         setNode: (next) => {
@@ -32,6 +37,17 @@ function createDetails(currentUser = { id: 1 }) {
         cleanup: hooks.cleanup,
     };
 }
+
+test('pane camera details retain a working close action alongside staging actions', () => {
+    const details = createDetails({ id: 1 }, true);
+    try {
+        details.setNode({ id: 123, version: 1, tags: {} });
+        find(details.render(), 'marker-details-close-button').props.onPress();
+        assert.deepEqual(details.actions, ['close']);
+    } finally {
+        details.cleanup();
+    }
+});
 function find(tree, id) {
     if (!tree || typeof tree !== 'object') return null;
     if (tree.props?.testID === id) return tree;

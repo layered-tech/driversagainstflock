@@ -115,6 +115,17 @@ test('native labels preserve IDs and rename existing location channels', () => {
     assert.match(auto, /CHANNEL_ID = "AutoPlayServiceChannel"/);
     assert.match(
         auto,
-        /CHANNEL_ID, "Android Auto Navigation", NotificationManager.IMPORTANCE_DEFAULT/,
+        /CHANNEL_ID,\s*getString\(R\.string\.AutoPlayNotificationChannelName\),\s*NotificationManager.IMPORTANCE_DEFAULT/,
+    );
+    const strings = readFileSync(
+        new URL(
+            '../../../node_modules/@iternio/react-native-auto-play/android/src/main/res/values/strings.xml',
+            import.meta.url,
+        ),
+        'utf8',
+    );
+    assert.match(
+        strings,
+        /<string name="AutoPlayNotificationChannelName">Android Auto Navigation<\/string>/,
     );
 });

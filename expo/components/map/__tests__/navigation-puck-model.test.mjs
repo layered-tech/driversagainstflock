@@ -145,13 +145,14 @@ test('the 3D puck keeps its flush face, white rim, and centered origin', async (
     );
 });
 
-test('the 3D puck preserves its map footprint while compressing its height', () => {
+test('the 3D puck scales all three axes equally on phone and car hosts', () => {
     const { getNavigationPuck3DScaleExpression } = loadNavigationPuckLayout();
 
     for (const options of [
         { platform: 'android' },
         { platform: 'ios' },
         { platform: 'android', variant: 'auto-play' },
+        { platform: 'ios', variant: 'auto-play' },
     ]) {
         const expression = JSON.parse(
             getNavigationPuck3DScaleExpression(options),
@@ -162,7 +163,8 @@ test('the 3D puck preserves its map footprint while compressing its height', () 
                 expression[index + 1][1];
 
             assert.equal(horizontalX, horizontalY);
-            assert.ok(Math.abs(vertical - horizontalX * 0.02) < 0.000001);
+            assert.ok(horizontalX > 0);
+            assert.equal(vertical, horizontalX);
         }
     }
 });

@@ -28,7 +28,7 @@ export function SystemBars() {
     return (
         <StatusBar
             animated
-            backgroundColor={backgroundColor}
+            verticalBarBehaviorIOS="automatic"
             style={isDarkMode ? 'light' : 'dark'}
         />
     );

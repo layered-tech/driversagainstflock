@@ -125,7 +125,7 @@
             <div style="position:absolute; left:52%; top:64%; transform:translate(-50%,-50%); z-index:3;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="20" hint-size="64px,64px" variant="user"></x-import></div>
             <div style="position:absolute; left:47%; top:34%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="16px,16px" variant="monitored"></x-import></div>
             <div style="position:absolute; left:49%; top:46%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" hint-size="16px,16px" variant="monitored"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,400px" subtitle="2 routes · 1 avoids cameras" title="Choose your route">
                 <div data-route-cards="" style="display:grid; gap:8px; margin-bottom:12px;">
                   <x-import arrival="ETA 6:15" cameras="{{ c0 }}" component-from-global-scope="DesignSystem_c71fad.RouteCard" distance="13 mi" eta="27 min" hint-size="100%,76px" kind="private" recommended="{{ true }}" selected="{{ true }}"></x-import>
@@ -183,7 +183,7 @@
             </div>
             <div class="daf-slb" style="position:absolute; left:12px; top:140px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
             <!-- Draggable steps sheet: grab the handle / ETA row and pull up to reveal the maneuver list. Snaps collapsed ↔ expanded (≤ ⅔ of the map). -->
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; height:{{ sheetH }}px; transition:{{ sheetTransition }}; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); display:flex; flex-direction:column; overflow:hidden; padding-right:84px;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10; height:{{ sheetH }}px; transition:{{ sheetTransition }}; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); display:flex; flex-direction:column; overflow:hidden;">
               <div onPointerCancel="{{ sheetUp }}" onPointerDown="{{ sheetDown }}" onPointerMove="{{ sheetMove }}" onPointerUp="{{ sheetUp }}" style="flex:0 0 auto; cursor:grab; touch-action:none; user-select:none; -webkit-user-select:none;">
                 <div style="display:flex; justify-content:center; padding:8px 0 4px;"><span aria-hidden="true" style="width:36px; height:5px; border-radius:var(--radius-pill); background:var(--border-strong);"></span></div>
                 <div style="padding:4px 16px 24px; display:flex; align-items:center; gap:12px;">
@@ -248,7 +248,7 @@
               </div>
             </div>
             <!-- ETA sheet: Resume returns to live guidance -->
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 100px 24px 16px; display:flex; align-items:center; gap:12px;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10; background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 16px 24px; display:flex; align-items:center; gap:12px;">
               <span aria-hidden="true" style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand);"><svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
               <div style="flex:1; min-width:0;">
                 <div style="display:flex; align-items:baseline; gap:10px; white-space:nowrap; overflow:hidden;">
@@ -292,10 +292,10 @@
               </div>
             </div>
             <div class="daf-slb" style="position:absolute; left:12px; top:140px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Single alert: the card runs full width. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
-              <div style="position:relative; overflow:hidden; margin:0 96px 0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
+              <div style="position:relative; overflow:hidden; margin:0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
                 <div style="display:flex; align-items:center; gap:11px; min-width:0;">
                   <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:rgba(46,139,255,0.14); color:var(--info);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path></svg></span>
                   <div style="flex:1; min-width:0;">
@@ -313,7 +313,7 @@
                 </div></div>
               </div>
               <!-- ETA / destination sheet -->
-              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 100px 24px 16px; display:flex; align-items:center; gap:12px;">
+              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 16px 24px; display:flex; align-items:center; gap:12px;">
                 <span aria-hidden="true" style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand);"><svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
                 <div style="flex:1; min-width:0;">
                   <div style="display:flex; align-items:baseline; gap:10px; white-space:nowrap; overflow:hidden;">
@@ -356,10 +356,10 @@
               </div>
             </div>
             <div class="daf-slb" style="position:absolute; left:12px; top:140px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Single alert: the card runs full width. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
-              <div style="position:relative; overflow:hidden; margin:0 96px 0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
+              <div style="position:relative; overflow:hidden; margin:0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); padding:14px 14px 16px; display:flex; flex-direction:column; gap:9px;">
                 <div style="display:flex; align-items:center; gap:11px; min-width:0;">
                   <span style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:38px; height:38px; border-radius:var(--radius-sm); background:rgba(255,77,79,0.14); color:var(--alert-500);"><svg fill="none" height="22" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="22"><path d="M14.5 4h-5L7 7H4a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2h-3l-2.5-3z"></path><circle cx="12" cy="13" r="3"></circle></svg></span>
                   <div style="flex:1; min-width:0;">
@@ -377,7 +377,7 @@
                 </div></div>
               </div>
               <!-- ETA / destination sheet -->
-              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 100px 24px 16px; display:flex; align-items:center; gap:12px;">
+              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 16px 24px; display:flex; align-items:center; gap:12px;">
                 <span aria-hidden="true" style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand);"><svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
                 <div style="flex:1; min-width:0;">
                   <div style="display:flex; align-items:baseline; gap:10px; white-space:nowrap; overflow:hidden;">
@@ -421,10 +421,10 @@
               </div>
             </div>
             <div class="daf-slb" style="position:absolute; left:12px; top:140px; z-index:10;"><x-import component-from-global-scope="DesignSystem_c71fad.SpeedLimitBadge" current="{{ n41 }}" hint-size="80px,115px" limit="35" size="lg"></x-import></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10; display:flex; flex-direction:column; gap:12px;">
               <!-- Two alerts: police left, ALPR right, split by a diagonal slash. Distance track fills left→right as you close in; the green user arrow
                    rides the leading edge toward the fixed report pin at the right end. -->
-              <div style="position:relative; overflow:hidden; margin:0 96px 0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); display:grid; grid-template-columns:1fr 1fr;">
+              <div style="position:relative; overflow:hidden; margin:0 12px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-lg); box-shadow:var(--shadow-float); display:grid; grid-template-columns:1fr 1fr;">
                 <span aria-hidden="true" style="position:absolute; left:50%; top:-25%; height:150%; width:1px; background:var(--border); transform:rotate(11deg);"></span>
                 <button aria-label="Dismiss alerts" style="position:absolute; top:7px; right:7px; z-index:2; width:30px; height:30px; border:none; background:transparent; border-radius:var(--radius-pill); color:var(--text-tertiary); cursor:pointer; display:flex; align-items:center; justify-content:center; -webkit-tap-highlight-color:transparent;"><svg fill="none" height="17" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="17"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></button>
                 <div style="padding:13px 20px 15px 14px; min-width:0; display:flex; flex-direction:column; gap:8px;">
@@ -457,7 +457,7 @@
                 </div>
               </div>
               <!-- ETA / destination sheet -->
-              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 100px 24px 16px; display:flex; align-items:center; gap:12px;">
+              <div style="background:var(--surface-sheet); border-top-left-radius:var(--radius-sheet); border-top-right-radius:var(--radius-sheet); box-shadow:var(--shadow-sheet); padding:12px 16px 24px; display:flex; align-items:center; gap:12px;">
                 <span aria-hidden="true" style="flex:0 0 auto; display:inline-flex; align-items:center; justify-content:center; width:46px; height:46px; border-radius:var(--radius-sm); background:var(--brand-soft); color:var(--text-brand);"><svg fill="none" height="24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block;" viewBox="0 0 24 24" width="24"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"></path><path d="m9 12 2 2 4-4"></path></svg></span>
                 <div style="flex:1; min-width:0;">
                   <div style="display:flex; align-items:baseline; gap:10px; white-space:nowrap; overflow:hidden;">
@@ -526,7 +526,7 @@ class Component extends DCLogic {
   }
   setBuffer(v) { this.setState({ bufferFt: v }); }
   setAllowNearEnds(v) { this.setState({ allowNearEnds: v }); }
-  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { maxHeight: 447, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
   renderValsBase() {
     const R = React.createElement;
     const svg = (w, kids, opts) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: (opts && opts.fill) || 'none', stroke: (opts && opts.fill) ? 'none' : 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);

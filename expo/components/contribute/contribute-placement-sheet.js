@@ -1,6 +1,7 @@
+import { DuoText as Text } from '../design-system/duo-typography';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, Text, useWindowDimensions, View } from 'react-native';
+import { Platform, Pressable, useWindowDimensions, View } from 'react-native';
 import { getCameraFormTags } from '../../lib/osm/camera-presets';
 import { REMOVAL_REASONS } from '../../lib/osm/edit-tags';
 import { Icon } from '../design-system/icon';
@@ -11,6 +12,8 @@ import {
     NativeWindBottomSheetScrollView,
 } from '../map/native-components';
 import { useBottomSheetPresentedState } from '../map/use-bottom-sheet-presented-state';
+import { getContributeMapLayout } from './contribute-layout';
+import { useDuoDevice } from '../root/duo-device-context';
 import { getChangesetSummary } from './changeset-summary';
 import { useContribute } from './contribute-state';
 import { ContributeTourOverlay } from './contribute-tour-overlay';
@@ -25,7 +28,15 @@ export function ContributePlacementSheet({
     screenIsFocused,
     tourTargets,
 }) {
-    const { height } = useWindowDimensions();
+    const { width, height } = useWindowDimensions();
+    const duo = useDuoDevice();
+    const { pane, mapCenter: placementPoint } = getContributeMapLayout({
+        width,
+        height,
+        insets,
+        duoDevice: duo,
+        tabletDevice: Platform.isPad,
+    });
     const {
         contributePlacementIsActive,
         pins,
@@ -97,12 +108,15 @@ export function ContributePlacementSheet({
     const add = useCallback(async () => {
         let coordinate;
         try {
-            coordinate =
-                await locationController.mapViewRef.current?.getCenter();
+            const map = locationController.mapViewRef.current;
+            coordinate = placementPoint
+                ? await map?.getCoordinateFromView(placementPoint)
+                : await map?.getCenter();
         } catch {
             coordinate = null;
         }
         if (!Array.isArray(coordinate)) {
+            if (placementPoint) return;
             const bounds = locationController.currentMapBounds;
             if (bounds?.sw && bounds?.ne)
                 coordinate = [
@@ -119,14 +133,36 @@ export function ContributePlacementSheet({
         tour.dismissPhase('placement');
         tour.dismissStep('placed');
         setPendingPinId(pin.id);
-    }, [locationController, addPinAtCoordinate, pins.length, tour]);
+    }, [
+        locationController,
+        addPinAtCoordinate,
+        pins.length,
+        tour,
+        placementPoint?.[0],
+        placementPoint?.[1],
+    ]);
     if (!mapPreferencesAreLoaded) return null;
     return (
         <>
             {contributePlacementIsActive && screenIsFocused && !expanded ? (
                 <View
                     className="absolute left-3 right-3 z-40 gap-2 rounded-dafMd border border-daf-border bg-white p-2 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] dark:border-daf-border-dark dark:bg-daf-surface-dark"
-                    style={{ bottom: Math.max(insets.bottom + 12, 30) }}
+                    style={
+                        pane
+                            ? {
+                                  left: pane.left,
+                                  right: pane.right,
+                                  bottom: Math.max(
+                                      insets.bottom,
+                                      Platform.isPad ? 28 : 14,
+                                  ),
+                              }
+                            : {
+                                  left: duo ? insets.left + 12 : 12,
+                                  right: duo ? insets.right + 12 : 12,
+                                  bottom: Math.max(insets.bottom + 12, 30),
+                              }
+                    }
                     testID="contribute-placement-sheet"
                 >
                     <View className="flex-row items-center gap-2.5">

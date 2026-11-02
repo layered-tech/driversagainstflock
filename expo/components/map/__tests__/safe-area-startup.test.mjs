@@ -25,6 +25,9 @@ describe('safe-area startup', () => {
             fullScreenSearchSource,
             /const insets = useSafeAreaInsets\(\);/,
         );
-        assert.match(fullScreenSearchSource, /paddingTop: insets\.top \+ 12/);
+        assert.match(
+            fullScreenSearchSource,
+            /paddingTop: pane \? 12 : insets\.top \+ 12/,
+        );
     });
 });

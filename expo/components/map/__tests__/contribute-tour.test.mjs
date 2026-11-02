@@ -27,7 +27,12 @@ import {
 function loadComponent(file, mocks, scheduler) {
     return loadTourModule(
         new URL(`../../contribute/${file}`, import.meta.url),
-        mocks,
+        {
+            '../root/native-navigation': {
+                FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+            },
+            ...mocks,
+        },
         scheduler,
     );
 }
@@ -270,7 +275,7 @@ function createDebugDrawerHarness(
     };
 }
 
-function createScreenHarness() {
+function createScreenHarness({ tablet = false, fold = false } = {}) {
     const dismissals = [];
     const routes = [];
     const focusEffects = [];
@@ -316,6 +321,9 @@ function createScreenHarness() {
                 { type: 'start' },
             ),
         },
+        closeStartSheet: () => {
+            contribution.contributeStatus = 'idle';
+        },
         startPlacing: () => {
             contribution.contributeStatus = 'placing';
         },
@@ -325,6 +333,10 @@ function createScreenHarness() {
         },
     };
     const mocks = {
+        '../root/duo-device-context': {
+            useDuoDevice: () => fold,
+            useDuoPaneContent: () => false,
+        },
         './changeset-summary': { getChangesetSummary },
         '../../lib/osm/camera-presets': {
             getCameraChangeLabel,
@@ -339,7 +351,7 @@ function createScreenHarness() {
         },
         'react-native': {
             KeyboardAvoidingView: 'KeyboardAvoidingView',
-            Platform: { OS: 'android' },
+            Platform: { OS: tablet ? 'ios' : 'android', isPad: tablet },
             Alert: { alert() {} },
             BackHandler: { addEventListener: () => ({ remove() {} }) },
             Pressable: 'Pressable',
@@ -347,7 +359,10 @@ function createScreenHarness() {
             Text: 'Text',
             View: 'View',
             useColorScheme: () => 'light',
-            useWindowDimensions: () => ({ height: 800 }),
+            useWindowDimensions: () => ({
+                height: 883,
+                width: fold ? 852 : 412,
+            }),
         },
         'expo-router': {
             router: {
@@ -394,8 +409,9 @@ function createScreenHarness() {
             NativeWindBottomSheetScrollView: 'ScrollView',
         },
         '../map/use-bottom-sheet-presented-state': {
-            useBottomSheetPresentedState: () => ({
+            useBottomSheetPresentedState: ({ onDismiss } = {}) => ({
                 bottomSheetIsPresented: true,
+                handleBottomSheetDismiss: onDismiss,
             }),
         },
         './contribute-auth-progress': {
@@ -1442,6 +1458,12 @@ describe('contribution screen integration', () => {
         const { default: ChangesetDetailsScreen } = harness.screen(
             'changeset-details-screen.js',
         );
+        const footer = findElement(
+            ChangesetDetailsScreen(),
+            'contribute-changeset-footer',
+        );
+        assert.equal(footer.type, 'FullWidthSafeAreaBand');
+        assert.equal(footer.props.gutter, 16);
         assert.equal(
             getTourOverlays(ChangesetDetailsScreen())[0].phase,
             'changeset',
@@ -1504,6 +1526,12 @@ describe('contribution screen integration', () => {
         const harness = createScreenHarness();
         const { default: ReviewPublishScreen } =
             harness.screen('review-screen.js');
+        const footer = findElement(
+            ReviewPublishScreen(),
+            'contribute-review-footer',
+        );
+        assert.equal(footer.type, 'FullWidthSafeAreaBand');
+        assert.equal(footer.props.gutter, 16);
         let tree = ReviewPublishScreen();
         assert.equal(getTourOverlays(tree)[0].enabled, true);
         assert.equal(getTourOverlays(tree)[0].tour, harness.contribution.tour);
@@ -1563,3 +1591,41 @@ describe('contribution screen integration', () => {
         assert.equal(getTourOverlays(PublishedScreen())[0].enabled, false);
     });
 });
+
+for (const device of [{ tablet: true }, { fold: true }]) {
+    test(`${device.fold ? 'Android Fold' : 'tablet'} start panel has a close action that cannot interrupt OpenStreetMap sign-in`, () => {
+        const harness = createScreenHarness(device);
+        const { ContributeStartSheet } = harness.screen(
+            'contribute-start-sheet.js',
+        );
+        let dismissals = 0;
+        const render = () => {
+            const tree = ContributeStartSheet({
+                insets: { bottom: 10 },
+                mapPreferencesAreLoaded: true,
+            });
+            const sheet = tree.props.children[0];
+            sheet.props.ref.current = {
+                dismiss: () => {
+                    dismissals += 1;
+                    sheet.props.onDismiss();
+                },
+            };
+            return tree;
+        };
+        const close = () =>
+            findElement(render(), 'contribute-start-sheet-close');
+        assert.equal(close().props.disabled, undefined);
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'idle');
+        harness.contribution.contributeStatus = 'start-sheet';
+        harness.auth.isSigningIn = true;
+        assert.equal(close().props.disabled, true);
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'start-sheet');
+        harness.auth.isSigningIn = false;
+        close().props.onPress();
+        assert.equal(harness.contribution.contributeStatus, 'idle');
+        assert.equal(dismissals, 2);
+    });
+}

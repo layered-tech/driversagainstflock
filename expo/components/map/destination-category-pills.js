@@ -39,12 +39,16 @@ const DESTINATION_CATEGORIES = [
     },
 ];
 
-export function DestinationCategoryPills({ onCategoryPress, searchSource }) {
+export function DestinationCategoryPills({
+    compact = false,
+    onCategoryPress,
+    searchSource,
+}) {
     return (
         <Animated.View
             entering={SEARCH_RESULTS_ENTER_ANIMATION}
             exiting={SEARCH_RESULTS_EXIT_ANIMATION}
-            className="z-50 min-w-0 flex-1 pr-[30px]"
+            className={`z-50 min-w-0 flex-1 ${compact ? '' : 'pr-[30px]'}`}
             collapsable={false}
             layout={MAP_OVERLAY_LAYOUT_ANIMATION}
             pointerEvents="box-none"
@@ -57,7 +61,7 @@ export function DestinationCategoryPills({ onCategoryPress, searchSource }) {
                         accessible
                         accessibilityLabel={`Search for ${category.label}`}
                         accessibilityRole="button"
-                        className="dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/80 h-[30px] flex-row items-center rounded-dafPill border border-daf-border-glass bg-white/80 px-3 active:opacity-[0.82]"
+                        className="h-[30px] flex-row items-center rounded-dafPill border border-daf-border-glass bg-white/80 px-3 active:opacity-[0.82] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/80"
                         collapsable={false}
                         onPress={() => onCategoryPress(category.query)}
                         testID={`map-destination-category-${category.key}-${searchSource}`}

@@ -1,11 +1,22 @@
+import { DuoText as Text } from '../design-system/duo-typography';
+import { NativeNavigationAction } from '../root/native-navigation';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, BackHandler, Pressable, Text, View } from 'react-native';
+import {
+    Alert,
+    BackHandler,
+    Platform,
+    Pressable,
+    useWindowDimensions,
+    View,
+} from 'react-native';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getContributeMapLayout } from './contribute-layout';
 import { BottomSheetBackdrop } from '@gorhom/bottom-sheet';
 import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import {
     NativeWindBottomSheetModal,
-    NativeWindBottomSheetView,
+    NativeWindBottomSheetScrollView,
 } from '../map/native-components';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
 import { useContribute } from './contribute-state';
@@ -15,6 +26,15 @@ import { getChangesetSummary } from './changeset-summary';
 
 export function ContributePlacementOverlay({ screenIsFocused, tourTargets }) {
     const insets = useSafeAreaInsets();
+    const duo = useDuoDevice();
+    const { width, height } = useWindowDimensions();
+    const { pane } = getContributeMapLayout({
+        width,
+        height,
+        insets,
+        duoDevice: duo,
+        tabletDevice: Platform.isPad,
+    });
     const {
         discardStoredDraft,
         exitContribute,
@@ -49,17 +69,37 @@ export function ContributePlacementOverlay({ screenIsFocused, tourTargets }) {
         return () => listener.remove();
     }, [screenIsFocused, requestExit]);
     return (
-        <View className="gap-3" pointerEvents="box-none">
+        <View
+            className="gap-3"
+            pointerEvents="box-none"
+            style={
+                pane
+                    ? Platform.isPad && summary.total
+                        ? {
+                              marginLeft: pane.width + 24,
+                              width:
+                                  width -
+                                  pane.left -
+                                  pane.width -
+                                  36 -
+                                  (insets.right ?? 0),
+                          }
+                        : { width: pane.width }
+                    : undefined
+            }
+        >
             <View className="flex-row items-center gap-2 rounded-dafMd border border-daf-border-glass bg-white/90 py-[7px] pl-1.5 pr-2 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] dark:border-daf-border-glass-dark dark:bg-daf-surface-dark/90">
-                <Pressable
-                    className="h-10 w-10 items-center justify-center"
-                    accessibilityRole="button"
-                    accessibilityLabel="Close editor"
-                    onPress={requestExit}
-                    testID="contribute-back-button"
-                >
-                    <Icon name="x" size={20} color="#697583" />
-                </Pressable>
+                <NativeNavigationAction railOnly kind="close" priority={100}>
+                    <Pressable
+                        className="h-10 w-10 items-center justify-center"
+                        accessibilityRole="button"
+                        accessibilityLabel="Close editor"
+                        onPress={requestExit}
+                        testID="contribute-back-button"
+                    >
+                        <Icon name="x" size={20} color="#697583" />
+                    </Pressable>
+                </NativeNavigationAction>
                 <Text className="min-w-0 flex-1 text-[15px] font-semibold text-daf-text-primary dark:text-white">
                     {summary.total ? 'Editing' : 'Editing the map'}
                 </Text>
@@ -81,6 +121,7 @@ export function ContributePlacementOverlay({ screenIsFocused, tourTargets }) {
             />
             <NativeWindBottomSheetModal
                 ref={closeRef}
+                tabletPresentation="confirmation"
                 backdropComponent={(props) => (
                     <BottomSheetBackdrop
                         {...props}
@@ -93,16 +134,14 @@ export function ContributePlacementOverlay({ screenIsFocused, tourTargets }) {
                 backgroundClassName="bg-white dark:bg-daf-surface-dark"
                 onDismiss={() => setCloseOpen(false)}
             >
-                <NativeWindBottomSheetView
+                <NativeWindBottomSheetScrollView
                     className="bg-white dark:bg-daf-surface-dark"
+                    contentContainerStyle={{
+                        paddingBottom: Math.max(insets.bottom + 12, 20),
+                    }}
                     testID="contribute-close-editor-sheet"
                 >
-                    <View
-                        className="gap-3 px-4 pt-1"
-                        style={{
-                            paddingBottom: Math.max(insets.bottom + 12, 20),
-                        }}
-                    >
+                    <View className="gap-3 px-4 pt-1">
                         <Text className="font-dafDisplay text-[21px] font-bold text-daf-text-primary dark:text-white">
                             Close the editor?
                         </Text>
@@ -154,7 +193,7 @@ export function ContributePlacementOverlay({ screenIsFocused, tourTargets }) {
                             Cancel
                         </DafButton>
                     </View>
-                </NativeWindBottomSheetView>
+                </NativeWindBottomSheetScrollView>
             </NativeWindBottomSheetModal>
         </View>
     );

@@ -38,6 +38,10 @@ test('dismissed search results remount their modal before returning from a place
         new URL('../search-results-sheet.js', import.meta.url),
         {
             react: harness.react,
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+            },
             'react-native': {},
             '../design-system/icon': {},
             './map-screen-context': {
@@ -83,6 +87,10 @@ test('dismissed place details remount before returning from directions to the sa
         {
             react: harness.react,
             '@gorhom/bottom-sheet': {},
+            '../root/native-navigation': {
+                NativeNavigationAction: 'NativeNavigationAction',
+                NativeModalContent: 'NativeModalContent',
+            },
             'react-native': { useWindowDimensions: () => ({ height: 800 }) },
             '../design-system/icon': {},
             '../design-system/primitives': {},
@@ -115,4 +123,107 @@ test('dismissed place details remount before returning from directions to the sa
     assert.notEqual(second.key, first.key);
     assert.equal(second.props.ref, sheetRef);
     assert.deepEqual(dismissals, [[{ programmatic: true }]]);
+});
+
+test('tablet submitted search results offer a working close without changing phone controls', () => {
+    for (const tablet of [false, true]) {
+        const harness = createHookHarness();
+        let dismissals = 0;
+        const sheetRef = {
+            current: {
+                dismiss: () => {
+                    dismissals += 1;
+                },
+            },
+        };
+        const { SearchResultsSheet } = loadTourModule(
+            new URL('../search-results-sheet.js', import.meta.url),
+            {
+                react: harness.react,
+                'react-native': { Platform: { isPad: tablet } },
+                '../design-system/icon': {},
+                './map-screen-context': {
+                    useSearchResultsContext: () => ({
+                        insets: { bottom: 0 },
+                        mapPreferencesAreLoaded: true,
+                        submittedSearchResults: [],
+                        submittedSearchResultsSheetRef: sheetRef,
+                        submittedSearchResultsSheetTrackingHandlers: {},
+                    }),
+                },
+                './native-components': { NativeWindBottomSheetModal: 'Modal' },
+                './submitted-search-result-row': {},
+                './use-bottom-sheet-presented-state': {
+                    useBottomSheetPresentedState: () => ({}),
+                },
+            },
+        );
+        const tree = harness.render(SearchResultsSheet);
+        const header = tree.props.children.props.ListHeaderComponent;
+        const findClose = (node) => {
+            if (!node || typeof node !== 'object') return null;
+            if (node.props?.testID === 'submitted-search-results-close')
+                return node;
+            return [node.props?.children]
+                .flat(Infinity)
+                .map(findClose)
+                .find(Boolean);
+        };
+        const close = findClose(header);
+        assert.equal(Boolean(close), tablet);
+        if (close) close.props.onPress();
+        assert.equal(dismissals, tablet ? 1 : 0);
+        harness.cleanup();
+    }
+});
+
+test('unfolded Android place details provide an in-pane Close action', () => {
+    const hooks = createHookHarness();
+    let closes = 0;
+    const { SelectedPlaceSheet } = loadTourModule(
+        new URL('../selected-place-sheet.js', import.meta.url),
+        {
+            react: hooks.react,
+            'react-native': {
+                Platform: { OS: 'android' },
+                View: 'View',
+                Pressable: 'Pressable',
+                useWindowDimensions: () => ({ width: 852, height: 883 }),
+            },
+            '../root/duo-device-context': { useDuoDevice: () => true },
+            '../root/native-navigation': {},
+            '../design-system/icon': {},
+            '../design-system/primitives': {},
+            '../design-system/tokens': { dafSemanticColors: {} },
+            './map-screen-context': {
+                usePlaceSheetContext: () => ({
+                    insets: { bottom: 24 },
+                    mapPreferencesAreLoaded: true,
+                    selectedSearchResult: { id: 'test-place' },
+                    selectedPlaceName: 'A place with a long title',
+                    placeSheetTrackingHandlers: {},
+                    handleClearSelectedSearchResult: () => closes++,
+                }),
+            },
+            './native-components': { NativeWindBottomSheetModal: 'Modal' },
+            './primary-locations': { getPrimaryLocationLabel: () => '' },
+            './use-bottom-sheet-presented-state': {
+                useBottomSheetPresentedState: () => ({
+                    bottomSheetIsPresented: true,
+                }),
+            },
+        },
+    );
+    const nodes = (node) =>
+        !node || typeof node !== 'object'
+            ? []
+            : Array.isArray(node)
+              ? node.flatMap(nodes)
+              : [node, ...nodes(node.props?.children)];
+    const close = nodes(hooks.render(SelectedPlaceSheet)).find(
+        (node) => node.props.testID === 'place-details-close-button',
+    );
+    assert.equal(close.props.accessibilityLabel, 'Close place details');
+    close.props.onPress();
+    assert.equal(closes, 1);
 });

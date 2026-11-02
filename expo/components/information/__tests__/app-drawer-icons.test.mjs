@@ -1,3 +1,4 @@
+import { openDrawerRoot } from '../../root/app-drawer-navigation.js';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { iconPaths } from '../../design-system/icon-paths.js';
@@ -76,13 +77,21 @@ describe('Navigation drawer icons', () => {
     test('uses optical icons for navigation, authentication, and developer rows in both themes', () => {
         for (const isAuthenticated of [false, true]) {
             for (const theme of ['light', 'dark']) {
+                let reportedDrawerState;
                 const { AppDrawerContent } = loadTourModule(
                     new URL(
                         '../../root/app-drawer-content.js',
                         import.meta.url,
                     ),
                     {
+                        react: {
+                            useContext: () => (state) => {
+                                reportedDrawerState = state;
+                            },
+                            useEffect: (effect) => effect(),
+                        },
                         'expo-constants': { nativeAppVersion: 'test' },
+                        './app-drawer-navigation': { openDrawerRoot },
                         'expo-router/drawer': {
                             DrawerContentScrollView: 'ScrollView',
                             DrawerItem: 'DrawerItem',
@@ -121,9 +130,22 @@ describe('Navigation drawer icons', () => {
                 );
                 const rows = drawerRows(
                     AppDrawerContent({
-                        state: { index: 0, routes: [{ name: 'index' }] },
+                        state: {
+                            index: 0,
+                            routes: [{ name: 'index', key: 'map' }],
+                        },
+                        descriptors: {
+                            map: {
+                                options: { swipeEnabled: theme === 'light' },
+                            },
+                        },
                         navigation: {},
                     }),
+                );
+                assert.equal(reportedDrawerState.open, true);
+                assert.equal(
+                    reportedDrawerState.swipeEnabled,
+                    theme === 'light',
                 );
                 const expectedNames = [
                     ...drawerItems.PRIMARY_DRAWER_ITEMS.map(({ icon }) => icon),

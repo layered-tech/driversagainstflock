@@ -8,6 +8,7 @@ import { createAutoPlaySearchCallbackState } from '../../auto-play-template-stat
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
+const { parse } = require('@babel/parser');
 const commonJs = require.resolve('@babel/plugin-transform-modules-commonjs');
 const packageRoot = process.env.AUTO_PLAY_PACKAGE_ROOT
     ? resolve(process.env.AUTO_PLAY_PACKAGE_ROOT)
@@ -56,22 +57,35 @@ test('Dashboard setup works with the upstream void-returning setButtons method',
         new URL('../../auto-play-platform.ios.js', import.meta.url),
         'utf8',
     );
-    const fn = source.match(/function applyDashboardButtons\([\s\S]*?\n\}/)[0];
-    const setup = vm.runInNewContext(`(${fn})`);
-    let buttons;
-    assert.doesNotThrow(() =>
-        setup(
-            {
-                setButtons(value) {
-                    buttons = value;
-                },
-            },
-            (name) => name,
-        ),
+    const declaration = parse(source, {
+        sourceType: 'module',
+    }).program.body.find(
+        (node) =>
+            node.type === 'FunctionDeclaration' &&
+            node.id.name === 'applyDashboardButtons',
     );
+    assert.ok(declaration);
+    const setup = vm.runInNewContext(
+        `(${source.slice(declaration.start, declaration.end)})`,
+    );
+    let buttons;
+    const actions = [];
+    const result = setup({
+        CarPlayDashboard: {
+            setButtons(value) {
+                buttons = value;
+            },
+        },
+        makeGlyphImage: (name) => name,
+        onDashboardAction: (action) => actions.push(action),
+        primaryLocations: {},
+    });
+    assert.equal(result, undefined);
     assert.equal(buttons.length, 1);
     assert.equal(buttons[0].launchHeadUnitScene, true);
-    assert.equal(buttons[0].titleVariants[0], 'Open map');
+    assert.equal(buttons[0].titleVariants[0], 'Search');
+    buttons[0].onPress();
+    assert.deepEqual(actions, ['search']);
 });
 
 test('typing requests autocomplete and clearing text restores saved places', () => {

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Pressable, Text, useColorScheme, View } from 'react-native';
+import { FlatList, Pressable, useColorScheme, View } from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
 import {
     runOnJS,
     useAnimatedReaction,
@@ -80,6 +81,7 @@ export function DrivingStepRow({ item, arrivalLabel, onStepPress }) {
 }
 
 const stepKey = (item) => String(item.stepIndex);
+const COLLAPSED_STEPS_PREVIEW_HEIGHT = 64;
 
 export function DrivingStepsSheet({
     containerHeight,
@@ -88,6 +90,9 @@ export function DrivingStepsSheet({
     onStepFocus,
     bottomSheetRef,
     maneuver,
+    pane,
+    paneTop,
+    paneMaxHeight,
     ...destinationProps
 }) {
     const localSheetRef = useRef(null);
@@ -95,7 +100,8 @@ export function DrivingStepsSheet({
     const listRef = useRef(null);
     const scrollRetryRef = useRef(null);
     const collapsedSectionHeightsRef = useRef({ handle: null, summary: null });
-    const [expanded, setExpanded] = useState(false);
+    const [sheetIsExpanded, setExpanded] = useState(false);
+    const expanded = Boolean(pane) || sheetIsExpanded;
     const animatedIndex = useSharedValue(0);
     useAnimatedReaction(
         () => animatedIndex.value,
@@ -106,6 +112,8 @@ export function DrivingStepsSheet({
         },
     );
     const [stepsAreSynced, setStepsAreSynced] = useState(true);
+    const [stepsContentHeight, setStepsContentHeight] = useState(null);
+    const [summaryHeight, setSummaryHeight] = useState(94);
     const arrivalLabel = formatDirectionsArrivalTime(
         destinationProps.remainingValues?.durationRemaining ??
             destinationProps.routeOption?.duration,
@@ -180,10 +188,16 @@ export function DrivingStepsSheet({
             heights[section] = event.nativeEvent.layout.height;
 
             if (heights.handle !== null && heights.summary !== null) {
-                onCollapsedHeightChange(heights.handle + heights.summary);
+                onCollapsedHeightChange(
+                    heights.handle +
+                        heights.summary +
+                        (!pane && steps.length
+                            ? COLLAPSED_STEPS_PREVIEW_HEIGHT
+                            : 0),
+                );
             }
         },
-        [onCollapsedHeightChange],
+        [onCollapsedHeightChange, pane, steps.length],
     );
     const renderHandle = useCallback(
         () => (
@@ -213,6 +227,105 @@ export function DrivingStepsSheet({
         [expanded, handleCollapsedSectionLayout, sheetRef],
     );
 
+    const StepList = pane ? FlatList : NativeWindBottomSheetFlatList;
+    const stepsHeader = (
+        <View className="flex-row items-center justify-between pb-1 pt-[14px]">
+            <Text className="text-xs font-bold uppercase tracking-widest text-daf-text-tertiary dark:text-neutral-400">
+                Steps
+            </Text>
+            <Text className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400">
+                {steps.length} ·{' '}
+                {formatDirectionsDistance(
+                    destinationProps.remainingValues?.distanceRemaining,
+                )}
+            </Text>
+        </View>
+    );
+    const content = (
+        <View className="flex-1">
+            <View
+                onLayout={(event) => {
+                    if (pane) setSummaryHeight(event.nativeEvent.layout.height);
+                    handleCollapsedSectionLayout('summary', event);
+                }}
+            >
+                <DestinationCard {...destinationProps} pane={pane} />
+            </View>
+            {pane ? (
+                <View className="border-t border-daf-border px-4 dark:border-daf-border-dark">
+                    {stepsHeader}
+                </View>
+            ) : null}
+            <StepList
+                ref={listRef}
+                className={`flex-1 ${pane ? '' : 'border-t border-daf-border dark:border-daf-border-dark'}`}
+                contentContainerClassName="px-4"
+                contentContainerStyle={{
+                    paddingBottom:
+                        (destinationProps.bottomInset ?? 0) +
+                        (stepsAreSynced ? 16 : 76),
+                }}
+                onContentSizeChange={
+                    pane
+                        ? (_width, height) => setStepsContentHeight(height)
+                        : undefined
+                }
+                data={steps}
+                keyExtractor={stepKey}
+                onLayout={scrollToCurrentStep}
+                onScrollBeginDrag={handleScrollBeginDrag}
+                onScrollToIndexFailed={handleScrollToIndexFailed}
+                ListHeaderComponent={pane ? null : stepsHeader}
+                ListEmptyComponent={
+                    <Text className="py-4 text-sm text-daf-text-secondary dark:text-neutral-300">
+                        No direction steps available
+                    </Text>
+                }
+                renderItem={renderStep}
+                showsVerticalScrollIndicator={false}
+                testID="driving-direction-steps"
+            />
+            {expanded && !stepsAreSynced ? (
+                <View
+                    className="absolute self-center"
+                    style={{
+                        bottom: (destinationProps.bottomInset ?? 0) + 12,
+                    }}
+                >
+                    <DafButton
+                        accessibilityLabel="Sync steps with current maneuver"
+                        icon="navigation"
+                        onPress={() => setStepsAreSynced(true)}
+                        testID="driving-steps-sync"
+                    >
+                        Sync
+                    </DafButton>
+                </View>
+            ) : null}
+        </View>
+    );
+
+    if (pane)
+        return (
+            <View
+                className="absolute overflow-hidden rounded-dafXl border border-daf-border-glass bg-white shadow-areaControl dark:border-daf-border-glass-dark dark:bg-[#11151B]"
+                style={{
+                    left: pane.left,
+                    width: pane.width,
+                    top: paneTop,
+                    height: Math.min(
+                        paneMaxHeight,
+                        (summaryHeight ?? 94) +
+                            38 +
+                            (stepsContentHeight ?? steps.length * 64 + 64),
+                    ),
+                }}
+                testID="driving-steps-pane"
+            >
+                {content}
+            </View>
+        );
+
     return (
         <NativeWindBottomSheet
             ref={sheetRef}
@@ -228,69 +341,7 @@ export function DrivingStepsSheet({
             index={0}
             snapPoints={snapPoints}
         >
-            <View className="flex-1">
-                <View
-                    onLayout={(event) =>
-                        handleCollapsedSectionLayout('summary', event)
-                    }
-                >
-                    <DestinationCard {...destinationProps} />
-                </View>
-                <NativeWindBottomSheetFlatList
-                    ref={listRef}
-                    className="flex-1 border-t border-daf-border dark:border-daf-border-dark"
-                    contentContainerClassName="px-4"
-                    contentContainerStyle={{
-                        paddingBottom:
-                            (destinationProps.bottomInset ?? 0) +
-                            (stepsAreSynced ? 16 : 76),
-                    }}
-                    data={steps}
-                    keyExtractor={stepKey}
-                    onLayout={scrollToCurrentStep}
-                    onScrollBeginDrag={handleScrollBeginDrag}
-                    onScrollToIndexFailed={handleScrollToIndexFailed}
-                    ListHeaderComponent={
-                        <View className="flex-row items-center justify-between pb-1 pt-[14px]">
-                            <Text className="text-xs font-bold uppercase tracking-widest text-daf-text-tertiary dark:text-neutral-400">
-                                Steps
-                            </Text>
-                            <Text className="font-dafMono text-xs text-daf-text-tertiary dark:text-neutral-400">
-                                {steps.length} ·{' '}
-                                {formatDirectionsDistance(
-                                    destinationProps.remainingValues
-                                        ?.distanceRemaining,
-                                )}
-                            </Text>
-                        </View>
-                    }
-                    ListEmptyComponent={
-                        <Text className="py-4 text-sm text-daf-text-secondary dark:text-neutral-300">
-                            No direction steps available
-                        </Text>
-                    }
-                    renderItem={renderStep}
-                    showsVerticalScrollIndicator={false}
-                    testID="driving-direction-steps"
-                />
-                {expanded && !stepsAreSynced ? (
-                    <View
-                        className="absolute self-center"
-                        style={{
-                            bottom: (destinationProps.bottomInset ?? 0) + 12,
-                        }}
-                    >
-                        <DafButton
-                            accessibilityLabel="Sync steps with current maneuver"
-                            icon="navigation"
-                            onPress={() => setStepsAreSynced(true)}
-                            testID="driving-steps-sync"
-                        >
-                            Sync
-                        </DafButton>
-                    </View>
-                ) : null}
-            </View>
+            {content}
         </NativeWindBottomSheet>
     );
 }

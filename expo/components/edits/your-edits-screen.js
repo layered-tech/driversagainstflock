@@ -1,3 +1,9 @@
+import { useDuoPaneContent } from '../root/duo-device-context';
+import {
+    FullWidthSafeAreaBand,
+    NativeNavigationAction,
+    useDuoRailEdge,
+} from '../root/native-navigation';
 import { useContribute } from '../contribute/contribute-state';
 import { router, useFocusEffect } from 'expo-router';
 import { useCallback, useState } from 'react';
@@ -262,6 +268,8 @@ function YourEditsFooterNote() {
 export default function YourEditsScreen() {
     const { cacheEditingNode } = useContribute();
     const colorScheme = useColorScheme();
+    const railEdge = useDuoRailEdge();
+    const inDuoPane = useDuoPaneContent();
     const insets = useSafeAreaInsets();
     const { isAuthenticated, openStreetMapAccessToken, user } = useAuth();
     const [errorMessage, setErrorMessage] = useState('');
@@ -273,7 +281,7 @@ export default function YourEditsScreen() {
     const theme = getDafTheme(colorScheme);
     const headerPaddingTop =
         Platform.OS === 'ios'
-            ? Math.max(insets.top + 10, 54)
+            ? Math.max(insets.top + 10, railEdge || inDuoPane ? 14 : 54)
             : Math.max(insets.top + 10, 16);
     const scrollPaddingBottom = Math.max(insets.bottom + 28, 28);
     const userName = user?.name ?? 'you';
@@ -418,24 +426,27 @@ export default function YourEditsScreen() {
             className="flex-1 bg-daf-surface-page dark:bg-[#0B0E12]"
             testID="your-edits-screen"
         >
-            <View
-                className="flex-row items-center gap-1.5 border-b border-daf-border bg-white px-3 pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+            <FullWidthSafeAreaBand
+                gutter={12}
+                className="flex-row items-center gap-1.5 border-b border-daf-border bg-white pb-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
                 style={{ paddingTop: headerPaddingTop }}
             >
-                <Pressable
-                    accessibilityLabel="Back"
-                    accessibilityRole="button"
-                    className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
-                    hitSlop={6}
-                    onPress={() => router.navigate('/')}
-                    testID="your-edits-back-button"
-                >
-                    <Icon
-                        color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
-                        name="chevron-left"
-                        size={20}
-                    />
-                </Pressable>
+                <NativeNavigationAction railOnly kind="back" priority={100}>
+                    <Pressable
+                        accessibilityLabel="Back"
+                        accessibilityRole="button"
+                        className="h-[50px] w-[50px] items-center justify-center rounded-dafPill active:bg-daf-surface-alt dark:active:bg-daf-surface-inverse"
+                        hitSlop={6}
+                        onPress={() => router.navigate('/')}
+                        testID="your-edits-back-button"
+                    >
+                        <Icon
+                            color={isDarkMode ? '#F4F7FA' : '#0B0E12'}
+                            name="chevron-left"
+                            size={20}
+                        />
+                    </Pressable>
+                </NativeNavigationAction>
                 <Text
                     className="min-w-0 flex-1 font-dafDisplay text-lg font-bold leading-6 text-daf-text-primary dark:text-white"
                     numberOfLines={1}
@@ -455,9 +466,13 @@ export default function YourEditsScreen() {
                         </Text>
                     </View>
                 ) : null}
-            </View>
+            </FullWidthSafeAreaBand>
 
-            <View className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt px-4 py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse">
+            <FullWidthSafeAreaBand
+                gutter={16}
+                testID="your-edits-summary-header"
+                className="flex-row items-center gap-2 border-b border-daf-border bg-daf-surface-alt py-[9px] dark:border-daf-border-dark dark:bg-daf-surface-inverse"
+            >
                 <Text
                     className="min-w-0 flex-shrink font-dafMono text-[11px] font-semibold tracking-[0.04em] text-daf-text-brand dark:text-daf-brand"
                     numberOfLines={1}
@@ -470,7 +485,7 @@ export default function YourEditsScreen() {
                 >
                     {model ? model.countsLabel : ''}
                 </Text>
-            </View>
+            </FullWidthSafeAreaBand>
 
             <ScrollView
                 className="flex-1"

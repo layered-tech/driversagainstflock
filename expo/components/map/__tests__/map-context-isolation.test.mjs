@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { test } from 'node:test';
+import { loadTourModule } from './tour-test-helpers.mjs';
 
 const mapCanvasSource = readFileSync(
     new URL('../map-canvas.js', import.meta.url),
@@ -43,6 +44,24 @@ test('car maps without contribution state never mount draft markers', () => {
     assert.match(mapCanvasSource, /contributePlacementIsActive = false/);
     assert.match(
         mapCanvasSource,
-        /\{contributePlacementIsActive \? <ContributeDraftPinMarkers \/> : null\}/,
+        /\{contributePlacementIsActive \?\s*\(?\s*<ContributeDraftPinMarkers \/>\s*\)?\s*:\s*null\}/,
     );
+});
+
+test('hosted contribution markers receive the original canvas context', () => {
+    const { MapCanvasContextBridge } = loadTourModule(
+        new URL('../map-screen-context.js', import.meta.url),
+        {
+            react: {
+                createContext: () => ({ Provider: Symbol('Provider') }),
+                useContext: () => null,
+                useMemo: (create) => create(),
+            },
+        },
+    );
+    const canvas = { contributePins: [{ id: 'draft-camera' }] };
+    const markers = { type: 'ContributeDraftPinMarkers' };
+    const bridge = MapCanvasContextBridge({ value: canvas, children: markers });
+    assert.equal(bridge.props.value, canvas);
+    assert.equal(bridge.props.children, markers);
 });

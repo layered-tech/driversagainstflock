@@ -2,6 +2,9 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
+import { areaCameraCones } from '../area-camera-cones.js';
+import { getDuoPaneLayout } from '../../map/duo-bottom-sheet-layout.js';
+import { getTabletPaneLayout } from '../../map/responsive-map-layout.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -32,7 +35,9 @@ function renderScreen(
             useLocalSearchParams: () => ({ areaId: '2', changeId: '3' }),
         },
         'react-native': {
+            Platform: { isPad: false },
             useColorScheme: () => 'light',
+            useWindowDimensions: () => ({ width: 466, height: 678 }),
             ...Object.fromEntries(
                 ['Pressable', 'RefreshControl', 'ScrollView', 'View'].map(
                     (name) => [name, name],
@@ -42,6 +47,18 @@ function renderScreen(
         '../../lib/safe-area-insets': {
             useSafeAreaInsets: () => ({ top: 0, bottom: 0 }),
         },
+        '../root/native-navigation': {
+            FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+            NativeNavigationAction: 'NativeNavigationAction',
+            useDuoRailEdge: () => null,
+        },
+        '../map/camera-state': { getBoundsFitCameraStop: () => null },
+        '../root/duo-pane-screen': { DuoPaneMap: 'DuoPaneMap' },
+        '../root/duo-pane-content-size': { useDuoPaneContentSize: () => ({}) },
+        '../root/duo-device-context': { useDuoDevice: () => false },
+        '../map/duo-bottom-sheet-layout': { getDuoPaneLayout },
+        '../map/responsive-map-layout': { getTabletPaneLayout },
+        './area-typography': { areaTextClassName: (value) => value },
         '../design-system/icon': { Icon: 'Icon' },
         '../design-system/primitives': { DafIconButton: 'DafIconButton' },
         './area-geometry': { AREA_KINDS: { drawn: 'Drawn' } },
@@ -58,6 +75,7 @@ function renderScreen(
             ].map((name) => [name, name]),
         ),
         './area-map': { AreaMap: 'AreaMap' },
+        './area-camera-cones': { areaCameraCones },
         './areas-api': {},
         './areas-context': { useAreas: () => ({ areas: [], markRead() {} }) },
         './use-area-feed': { useAreaFeed: () => ({ payload, loading: false }) },
@@ -159,6 +177,50 @@ test('area overlays remain visible under night lighting and fade removed camera 
     );
 });
 
+test('area bounds are fitted again when the native map finishes resizing', () => {
+    const target = {
+        bounds: {
+            ne: [-122, 38],
+            sw: [-123, 37],
+            paddingLeft: 360,
+            paddingRight: 40,
+            paddingTop: 40,
+            paddingBottom: 40,
+        },
+    };
+    const { tree } = renderScreen(
+        'area-map.js',
+        null,
+        false,
+        {
+            '@rnmapbox/maps': Object.fromEntries(
+                [
+                    'StyleImport',
+                    'Camera',
+                    'ShapeSource',
+                    'FillLayer',
+                    'LineLayer',
+                    'CircleLayer',
+                ].map((name) => [name, name]),
+            ),
+            '../map/native-components': { NativeWindMapView: 'MapView' },
+            '../map/config': { MAPBOX_ACCESS_TOKEN: 'test' },
+            './area-geometry': { geometryBounds: () => [-123, 37, -122, 38] },
+            './area-map-camera': { areaCameraSettings: () => target },
+            '../root/duo-device-context': { useDuoDevice: () => true },
+        },
+        'AreaMap',
+    );
+    const calls = [];
+    elements(tree, 'Camera')[0].props.ref.current = {
+        setCamera: (settings) => calls.push(settings),
+    };
+    tree.props.onLayout({
+        nativeEvent: { layout: { width: 678, height: 982 } },
+    });
+    assert.deepEqual(calls, [{ ...target, animationDuration: 0 }]);
+});
+
 test('area details show the selected list name before the feed loads and prefer fresh details', () => {
     const saved = {
         id: 2,
@@ -243,8 +305,10 @@ for (const total of [0, 1]) {
             'Map button stays outside the scrolling feed',
         );
         assert.ok(
-            elements(tree, 'View').some(
-                (element) => element.props.testID === 'area-feed-footer',
+            elements(tree, 'FullWidthSafeAreaBand').some(
+                (element) =>
+                    element.props.testID === 'area-feed-footer' &&
+                    element.props.gutter === 16,
             ),
         );
         assert.equal(
@@ -520,3 +584,234 @@ for (const allCameras of [false, true]) {
         },
     );
 }
+
+test('Duo fits a drawn boundary into the map beside its content pane after resizing', () => {
+    const requests = [];
+    const stops = [];
+    const target = { centerCoordinate: [-97.74, 30.27], zoomLevel: 14 };
+    const { tree } = renderScreen(
+        'area-map.js',
+        null,
+        false,
+        {
+            '@rnmapbox/maps': {
+                Camera: 'Camera',
+                StyleImport: 'Import',
+                ShapeSource: 'Source',
+                FillLayer: 'Fill',
+                LineLayer: 'Line',
+                CircleLayer: 'Circle',
+            },
+            react: {
+                useEffect() {},
+                useRef: () => ({
+                    current: { setCamera: (stop) => stops.push(stop) },
+                }),
+                useMemo: (fn) => fn(),
+            },
+            'react-native': {
+                View: 'View',
+                Text: 'Text',
+                useWindowDimensions: () => ({ width: 982, height: 678 }),
+                useColorScheme: () => 'light',
+            },
+            '../root/duo-device-context': { useDuoDevice: () => true },
+            '../root/native-navigation': {
+                FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+                useDuoRailEdge: () => 'trailing',
+            },
+            '../../lib/safe-area-insets': {
+                useSafeAreaInsets: () => ({
+                    left: 0,
+                    right: 84,
+                    top: 0,
+                    bottom: 16,
+                }),
+            },
+            '../map/native-components': { NativeWindMapView: 'Map' },
+            '../map/config': { MAPBOX_ACCESS_TOKEN: 'test' },
+            './area-geometry': { geometryBounds: () => [-98, 30, -97, 31] },
+            './area-map-camera': {
+                areaCameraSettings: ({ fitGeometry, insets }) =>
+                    fitGeometry
+                        ? {
+                              bounds: {
+                                  ne: [-97, 31],
+                                  sw: [-98, 30],
+                                  paddingTop: 40,
+                                  paddingBottom: 40,
+                                  paddingLeft: 40 + insets.left,
+                                  paddingRight: 40 + insets.right,
+                              },
+                          }
+                        : { centerCoordinate: [-97.5, 30.5], zoomLevel: 12 },
+            },
+            '../map/camera-state': {
+                getBoundsFitCameraStop: (args) => {
+                    requests.push(args);
+                    return target;
+                },
+            },
+        },
+        'AreaMap',
+        { geometry: { type: 'Polygon', coordinates: [] }, fitGeometry: false },
+    );
+    tree.props.onLayout();
+    assert.equal(requests.length, 1);
+    assert.deepEqual(requests[0].padding, [40, 124, 40, 489]);
+    assert.equal(requests[0].viewportWidth, 982);
+    assert.equal(requests[0].viewportHeight, 678);
+    assert.deepEqual(stops, [{ ...target, animationDuration: 0 }]);
+});
+
+test('My areas supplies every saved polygon to the open Duo map', () => {
+    const ring = [
+        [-97, 30],
+        [-97, 31],
+        [-98, 31],
+        [-97, 30],
+    ];
+    const areas = [
+        {
+            id: 1,
+            geometry: { type: 'Polygon', coordinates: [ring] },
+            counts: { added: 0, removed: 0 },
+        },
+        {
+            id: 2,
+            geometry: { type: 'MultiPolygon', coordinates: [[ring], [ring]] },
+            counts: { added: 0, removed: 0 },
+        },
+        { id: 3, counts: { added: 0, removed: 0 } },
+    ];
+    const { tree } = renderScreen('areas-screen.js', null, false, {
+        react: { useMemo: (fn) => fn(), useCallback: (fn) => fn() },
+        'expo-router': { router: {}, useFocusEffect() {} },
+        './area-geometry': { AREA_KINDS: {}, ALERT_MODES: [] },
+        './areas-context': {
+            useAreas: () => ({ areas, refresh() {}, timeWindow: '7' }),
+        },
+    });
+    const portal = elements(tree, 'DuoPaneMap')[0];
+    assert.deepEqual(portal.props.children.props.geometry, {
+        type: 'MultiPolygon',
+        coordinates: [[ring], [ring], [ring]],
+    });
+    assert.equal(portal.props.children.props.overview, true);
+});
+
+for (const device of [
+    { name: 'iPad', isPad: true, duo: false, width: 1194, expectedWidth: 406 },
+    {
+        name: 'open Duo',
+        isPad: false,
+        duo: true,
+        width: 982,
+        expectedWidth: 467,
+    },
+    {
+        name: 'phone',
+        isPad: false,
+        duo: false,
+        width: 390,
+        expectedWidth: null,
+    },
+]) {
+    test(`area sheets use the ${device.name} layout without covering the map`, () => {
+        const { tree } = renderScreen(
+            'area-ui.js',
+            null,
+            false,
+            {
+                'react-native': {
+                    Platform: { isPad: device.isPad },
+                    View: 'View',
+                    ScrollView: 'ScrollView',
+                    useWindowDimensions: () => ({
+                        width: device.width,
+                        height: 834,
+                    }),
+                },
+                '../root/duo-device-context': {
+                    useDuoDevice: () => device.duo,
+                },
+                '../../lib/safe-area-insets': {
+                    useSafeAreaInsets: () => ({
+                        top: 42,
+                        bottom: 20,
+                        left: 0,
+                        right: 0,
+                    }),
+                },
+            },
+            'AreaSheet',
+            {
+                title: 'Add an area',
+                subtitle: 'Watch a place',
+                trailing: 'Close',
+            },
+        );
+        if (device.expectedWidth === null) {
+            assert.equal(tree.props.style, undefined);
+            assert.match(tree.props.className, /rounded-t-dafSheet/);
+        } else {
+            assert.equal(tree.props.style.top, 56);
+            assert.equal(
+                device.width -
+                    tree.props.style.marginLeft -
+                    tree.props.style.marginRight,
+                device.expectedWidth,
+            );
+            assert.match(tree.props.className, /rounded-dafXl/);
+            assert.equal(tree.props.style.bottom, undefined);
+        }
+        const scroll = elements(tree, 'ScrollView')[0];
+        assert.equal(scroll.props.keyboardShouldPersistTaps, 'handled');
+        assert.ok(
+            elements(tree, 'View').some((node) =>
+                [].concat(node.props.children).includes('Close'),
+            ),
+        );
+    });
+}
+
+test('tablet area maps reserve the left pane while fitting the real boundary', () => {
+    let cameraInput;
+    const { tree } = renderScreen(
+        'area-map.js',
+        null,
+        false,
+        {
+            'react-native': {
+                Platform: { isPad: true },
+                View: 'View',
+                Text: 'Text',
+                useColorScheme: () => 'light',
+                useWindowDimensions: () => ({ width: 1194, height: 834 }),
+            },
+            '@rnmapbox/maps': {
+                Camera: 'Camera',
+                StyleImport: 'StyleImport',
+                ShapeSource: 'ShapeSource',
+                FillLayer: 'FillLayer',
+                LineLayer: 'LineLayer',
+                CircleLayer: 'CircleLayer',
+            },
+            '../map/native-components': { NativeWindMapView: 'MapView' },
+            '../map/config': { MAPBOX_ACCESS_TOKEN: 'test' },
+            './area-geometry': { geometryBounds: () => [-123, 37, -122, 38] },
+            './area-map-camera': {
+                areaCameraSettings: (input) => {
+                    cameraInput = input;
+                    return { centerCoordinate: [-122.5, 37.5] };
+                },
+            },
+        },
+        'AreaMap',
+        { geometry: { type: 'Polygon', coordinates: [] } },
+    );
+    assert.equal(cameraInput.insets.left, 430);
+    assert.equal(cameraInput.bottomInset, 0);
+    assert.equal(tree.props.logoPosition.left, 430);
+    assert.equal(typeof tree.props.onLayout, 'function');
+});

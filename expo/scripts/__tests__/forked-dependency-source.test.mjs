@@ -31,35 +31,6 @@ const packages = [
             'android/build.gradle',
         ],
     },
-    {
-        name: 'expo-location',
-        version: '57.0.20',
-        repository: 'expo',
-        files: [
-            'build/index.js',
-            'app.plugin.js',
-            'expo-module.config.json',
-            'ios/ExpoLocation.podspec',
-            'android/build.gradle',
-        ],
-    },
-    {
-        name: 'expo-modules-jsi',
-        version: '57.1.1',
-        repository: 'expo',
-        files: [
-            'index.js',
-            'expo-module.config.json',
-            'apple/ExpoModulesJSI.podspec',
-            'apple/scripts/build-xcframework.sh',
-        ],
-    },
-    {
-        name: 'query-string',
-        version: '7.1.3',
-        repository: 'query-string',
-        files: ['index.js', 'index.d.ts'],
-    },
 ];
 
 for (const { name, version, repository, files } of packages) {
@@ -107,6 +78,43 @@ for (const { name, version, repository, files } of packages) {
     });
 }
 
+test('the Mapbox fork uses the default ProGuard configuration supported by AGP 9', () => {
+    const source = readFileSync(
+        new URL('node_modules/@rnmapbox/maps/android/build.gradle', expoRoot),
+        'utf8',
+    );
+    assert.doesNotMatch(
+        source,
+        /getDefaultProguardFile\(['"]proguard-android\.txt['"]\)/,
+    );
+    assert.match(
+        source,
+        /getDefaultProguardFile\(['"]proguard-android-optimize\.txt['"]\)/,
+    );
+});
+
+test('the Mapbox fork checks nullable bitmap copies before using them', () => {
+    const source = readFileSync(
+        new URL(
+            'node_modules/@rnmapbox/maps/android/src/main/java/com/rnmapbox/rnmbx/utils/DownloadMapImageTask.kt',
+            expoRoot,
+        ),
+        'utf8',
+    );
+    assert.ok(
+        /val bitmap = requireNotNull\(image\.underlyingBitmap\?\.copy\(Bitmap\.Config\.ARGB_8888, true\)\)\s*\{/.test(
+            source,
+        ),
+        'Guard both the nullable source bitmap and copy before setting density or adding the image.',
+    );
+    assert.ok(
+        /catch \(e: Throwable\) \{[\s\S]*?Log\.e\(LOG_TAG, "Failed to load image: \$uri", e\)\s*null\s*\} finally \{\s*dataSource\.close\(\)\s*result\?\.let \{ CloseableReference\.closeSafely\(it\) \}/.test(
+            source,
+        ),
+        'Failed bitmap copies must use the existing error handling and release image resources.',
+    );
+});
+
 test('installation no longer depends on patch-package or local patch files', () => {
     assert.equal(manifest.scripts.postinstall, undefined);
     assert.equal(manifest.devDependencies['patch-package'], undefined);
@@ -132,4 +140,21 @@ test('the Firebase fork removes the unused Photos framework access', () => {
             /Photos\/Photos\.h|PHAsset|fetchAssetForPath/,
         );
     }
+});
+
+test('SDK 58 uses matching upstream Expo modules and no legacy query-string fork', () => {
+    for (const name of [
+        'expo',
+        'expo-router',
+        'expo-location',
+        'expo-modules-jsi',
+    ]) {
+        assert.match(
+            readJson(`node_modules/${name}/package.json`).version,
+            /^58\./,
+        );
+    }
+    assert.equal(manifest.overrides['expo-modules-jsi'], undefined);
+    assert.equal(manifest.overrides['query-string'], undefined);
+    assert.equal(lock.packages['node_modules/query-string'], undefined);
 });

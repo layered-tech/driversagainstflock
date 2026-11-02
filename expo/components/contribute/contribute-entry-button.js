@@ -1,3 +1,4 @@
+import { useDuoRailEdge } from '../root/native-navigation';
 import { useState } from 'react';
 import { Pressable, Text, View } from 'react-native';
 import { dafSemanticColors } from '../design-system/tokens';
@@ -15,6 +16,7 @@ const CONTRIBUTE_ENTRY_FOOTPRINT_SIZE =
     MAP_CONTROL_BUTTON_SIZE + CONTRIBUTE_ENTRY_HALO_PADDING * 2;
 
 export function ContributeEntryButton({ isDarkMapLayer = false }) {
+    const railEdge = useDuoRailEdge();
     const { drivingModeIsActive } = useSharedMapState();
     const {
         coachMarkIsDismissed,
@@ -56,7 +58,9 @@ export function ContributeEntryButton({ isDarkMapLayer = false }) {
 
     return (
         <View className="relative">
-            <View className="rounded-dafMd bg-daf-brand/15 p-1">
+            <View
+                className={railEdge ? '' : 'rounded-dafMd bg-daf-brand/15 p-1'}
+            >
                 <MapControlButton
                     accessibilityLabel={
                         storedDraftSummary
@@ -73,6 +77,12 @@ export function ContributeEntryButton({ isDarkMapLayer = false }) {
                     glassColorScheme={isDarkMapLayer ? 'dark' : 'light'}
                     glassBorderClassName="border-daf-brand"
                     onPress={handleContributePress}
+                    nativeGroup="activity"
+                    nativeOrder={0}
+                    nativeVisibilityPriority={
+                        storedDraftSummary ? 'high' : 'standard'
+                    }
+                    nativeBadge={storedDraftSummary?.pinCount}
                     testID="map-contribute-button"
                 >
                     <MapControlIcon
@@ -80,7 +90,7 @@ export function ContributeEntryButton({ isDarkMapLayer = false }) {
                         name="pencil"
                     />
                 </MapControlButton>
-                {storedDraftSummary ? (
+                {storedDraftSummary && !railEdge ? (
                     <View
                         testID="contribute-draft-count"
                         className={`absolute -right-1 -top-1 h-7 min-w-7 items-center justify-center rounded-full border-2 bg-daf-brand px-1.5 ${isDarkMapLayer ? 'border-daf-surface-dark' : 'border-white'}`}
@@ -100,7 +110,7 @@ export function ContributeEntryButton({ isDarkMapLayer = false }) {
                             : 'Contribute. Edit the map.'
                     }
                     accessibilityRole="button"
-                    className={`absolute right-[62px] w-[198px] rounded-dafMd border px-3 py-2.5 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] ${isDarkMapLayer ? 'border-daf-border-dark bg-daf-surface-dark' : 'border-daf-border bg-white'}`}
+                    className={`absolute ${railEdge ? 'right-0' : 'right-[62px]'} w-[198px] rounded-dafMd border px-3 py-2.5 shadow-[0px_4px_18px_rgba(11,14,18,0.16)] ${isDarkMapLayer ? 'border-daf-border-dark bg-daf-surface-dark' : 'border-daf-border bg-white'}`}
                     onLayout={(event) =>
                         setCoachMarkHeight(event.nativeEvent.layout.height)
                     }
@@ -110,7 +120,7 @@ export function ContributeEntryButton({ isDarkMapLayer = false }) {
                     }}
                     style={{
                         opacity: coachMarkHeight > 0 ? 1 : 0,
-                        top: coachMarkTopOffset,
+                        top: railEdge ? 0 : coachMarkTopOffset,
                     }}
                     testID="contribute-coach-mark"
                 >

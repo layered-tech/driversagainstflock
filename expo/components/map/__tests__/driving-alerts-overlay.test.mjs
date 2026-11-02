@@ -95,6 +95,7 @@ function createOverlayHarness(
     };
     const jsx = (type, props) => ({ type, props });
     const mocks = {
+        '../design-system/duo-typography': { DuoText: 'Text' },
         react,
         'react/jsx-runtime': { jsx, jsxs: jsx },
         'react-native': { Pressable: 'Pressable', Text: 'Text', View: 'View' },
