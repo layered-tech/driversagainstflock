@@ -1,0 +1,3 @@
+<resources>
+    <string-array name="android_wear_capabilities"><item>daf_phone_v1</item></string-array>
+</resources>

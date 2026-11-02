@@ -1,6 +1,24 @@
 import assert from 'node:assert/strict';
+import { existsSync, readFileSync } from 'node:fs';
 import test from 'node:test';
 import { loadTourModule } from './tour-test-helpers.mjs';
+
+test('Expo Router navigation imports resolve to published files', () => {
+    const source = readFileSync(
+        new URL('../persistent-map-host.js', import.meta.url),
+        'utf8',
+    );
+    const imports = source.matchAll(
+        /from ['"](expo-router\/build\/react-navigation\/[^'"]+)['"]/g,
+    );
+
+    for (const [, specifier] of imports) {
+        assert.ok(
+            existsSync(new URL(import.meta.resolve(specifier))),
+            `${specifier} must resolve to a published file`,
+        );
+    }
+});
 
 // Expo Router's focus providers must travel with retained scenes. Otherwise an
 // inactive panel inherits the root's focus and can take ownership of the map.
@@ -37,7 +55,7 @@ test('retained scenes preserve their route focus instead of inheriting host focu
         '@rnmapbox/maps': { MapView: 'MapView' },
         './config': { APP_ENVIRONMENT: 'test' },
         './persistent-map-state': {},
-        'expo-router/build/react-navigation/core': {
+        'expo-router/build/react-navigation/core/index': {
             NavigationContext: context(),
             NavigationRouteContext: context(),
         },

@@ -295,7 +295,11 @@ export function AppDrawerContent({ onOpenDebugDrawer, ...props }) {
                     </View>
                 ) : null}
                 <View className="px-0 pt-2.5">
-                    {PRIMARY_DRAWER_ITEMS.map((item) => (
+                    {PRIMARY_DRAWER_ITEMS.filter(
+                        (item) =>
+                            item.routeName !== 'watch-settings' ||
+                            Platform.OS === 'android',
+                    ).map((item) => (
                         <DrawerNavigationItem
                             activeRouteName={activeRouteName}
                             isDarkMode={isDarkMode}

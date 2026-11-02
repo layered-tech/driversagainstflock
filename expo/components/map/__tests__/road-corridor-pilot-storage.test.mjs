@@ -21,6 +21,7 @@ function harness({
     files = new Map(),
     storage = new Map(),
     noV2 = false,
+    mocksEnabled = false,
 } = {}) {
     const timers = new Map();
     const events = [];
@@ -153,6 +154,9 @@ function harness({
                 return [{ id: 'service' }];
             },
         },
+        './api-mocks': {
+            mapApiMocksAreEnabled: () => mocksEnabled,
+        },
         './road-graph': {
             createDirectedRoadGraph: (ways) => ({ edges: ways }),
         },
@@ -240,9 +244,32 @@ function harness({
                 offline = true;
             },
             counts: () => ({ requests, services }),
+            setMocksEnabled: (enabled) => {
+                mocksEnabled = enabled;
+            },
         };
     });
 }
+
+test('mocked drives bypass downloaded roads and release refreshes', async () => {
+    const h = await harness();
+    await h.load();
+    await new Promise(setImmediate);
+    h.setMocksEnabled(true);
+    const before = h.httpRequests.length;
+    assert.deepEqual(await h.load(), [{ id: 'service' }]);
+    assert.equal(h.getRevision(), 0);
+    await new Promise(setImmediate);
+    assert.equal(h.httpRequests.length, before);
+});
+
+test('mocked drives never load tile storage or request a live manifest', async () => {
+    const h = await harness({ mocksEnabled: true });
+    assert.deepEqual(await h.load(), [{ id: 'service' }]);
+    assert.equal(h.getRevision(), 0);
+    assert.equal(h.httpRequests.length, 0);
+    assert.equal(h.files.size, 0);
+});
 
 test('verified gzip downloads survive offline reuse; corrupt cache cannot feed matcher', async () => {
     const h = await harness();

@@ -1,0 +1,20 @@
+{
+  "repository": "https://github.com/mapbox/directions-icons",
+  "revision": "9016ba92176cf1a8207cc1c4005b951fe49d59cb",
+  "license": "CC0-1.0",
+  "icons": {
+    "left": "src/svg/turn_left.svg",
+    "right": "src/svg/turn_right.svg",
+    "sharp-left": "src/svg/turn_sharp_left.svg",
+    "sharp-right": "src/svg/turn_sharp_right.svg",
+    "slight-left": "src/svg/turn_slight_left.svg",
+    "slight-right": "src/svg/turn_slight_right.svg",
+    "keep-left": "src/svg/fork_slight_left.svg",
+    "keep-right": "src/svg/fork_slight_right.svg",
+    "straight": "src/svg/turn_straight.svg",
+    "roundabout": "src/svg/roundabout.svg",
+    "uturn": "src/svg/uturn.svg",
+    "depart": "src/svg/depart.svg",
+    "arrive": "src/svg/arrive.svg"
+  }
+}

@@ -26,6 +26,27 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('device setup grants local network access after clearing app state', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.suite = {
+            appId: 'test.app',
+            location: { longitude: -88.24, latitude: 43.12 },
+        };
+        const commands = [];
+        runner.adb = (args) => commands.push(args);
+        runner.prepareDevice();
+        const clearIndex = commands.findIndex((args) => args[2] === 'clear');
+        assert.ok(clearIndex >= 0);
+        assert.ok(
+            commands.findIndex(
+                (args) =>
+                    args[2] === 'grant' &&
+                    args[4] === 'android.permission.ACCESS_LOCAL_NETWORK',
+            ) > clearIndex,
+            'Grant local network access after clearing app state',
+        );
+    });
+
     test('day/night tests temporarily use car-controlled maps and restore the prior setting on cleanup', async () => {
         const runner = Object.create(Runner.prototype);
         runner.suite = { tests: [{ steps: [{ command: 'day' }] }] };

@@ -51,14 +51,18 @@ export function startSharedNavigationController() {
     };
 }
 
-function subscribeStatus(listener) {
+export function subscribeSharedNavigationRerouting(listener) {
     statusListeners.add(listener);
     return () => statusListeners.delete(listener);
 }
 
+export function getSharedNavigationRerouting() {
+    return rerouting;
+}
+
 export function useSharedNavigationRerouting() {
     return useSyncExternalStore(
-        subscribeStatus,
+        subscribeSharedNavigationRerouting,
         () => rerouting,
         () => false,
     );

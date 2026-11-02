@@ -2,6 +2,7 @@ const EMPTY_AUTOPLAY_MAP_CONTROL_HANDLERS = {
     getE2EMapSnapshot: async () => ({ ready: false }),
     handleDrivingMapViewPress: () => {},
     handleLocationTrackingPress: () => {},
+    handleManeuverFocus: async () => false,
     handlePan: () => {},
     handlePanningInterfaceChanged: () => {},
     handleZoomGesture: () => {},

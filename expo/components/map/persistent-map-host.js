@@ -2,7 +2,7 @@ import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import {
     NavigationContext,
     NavigationRouteContext,
-} from 'expo-router/build/react-navigation/core';
+} from 'expo-router/build/react-navigation/core/index';
 import { NavigationBuilderContext } from 'expo-router/build/react-navigation/core/NavigationBuilderContext';
 import { NavigationStateContext } from 'expo-router/build/react-navigation/core/NavigationStateContext';
 import { NavigationFocusedRouteStateContext } from 'expo-router/build/react-navigation/core/NavigationFocusedRouteStateContext';

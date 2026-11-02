@@ -1656,6 +1656,69 @@ function useAutoPlayMapController({
         }
     }, [followLocationMode, isDrivingMode, setTrackingMode]);
 
+    const handleManeuverFocus = useCallback(
+        async (coordinate, { heading, shouldApply = () => true } = {}) => {
+            const canApply = getCameraUpdateGuard();
+            if (
+                !isDrivingMode ||
+                !canApply() ||
+                !shouldApply() ||
+                !isMapReadyRef.current ||
+                !cameraRef.current ||
+                !Array.isArray(coordinate) ||
+                coordinate.length < 2 ||
+                !coordinate.slice(0, 2).every(Number.isFinite) ||
+                Math.abs(coordinate[0]) > 180 ||
+                Math.abs(coordinate[1]) > 90
+            ) {
+                return false;
+            }
+
+            const generation = ++manualMapGestureGenerationRef.current;
+            presenceInterruptRef.current?.(true);
+            followLocationMode.pauseUntilRecenter();
+            try {
+                if (
+                    (await locationPuckCameraFollowReleaseRef.current?.()) ===
+                    false
+                ) {
+                    return false;
+                }
+            } catch {
+                return false;
+            }
+
+            if (
+                !canApply() ||
+                !shouldApply() ||
+                generation !== manualMapGestureGenerationRef.current ||
+                !isMapReadyRef.current ||
+                !cameraRef.current
+            ) {
+                return false;
+            }
+
+            markerLoadsEnabledRef.current = true;
+            currentZoomRef.current = 16;
+            cameraRef.current.setCamera({
+                centerCoordinate: coordinate.slice(0, 2),
+                heading: Number.isFinite(heading) ? heading : 0,
+                zoomLevel: 16,
+                pitch: 0,
+                padding: getViewportCameraPadding(),
+                animationDuration: 900,
+                animationMode: 'flyTo',
+            });
+            return true;
+        },
+        [
+            followLocationMode,
+            getCameraUpdateGuard,
+            getViewportCameraPadding,
+            isDrivingMode,
+        ],
+    );
+
     const fitDrivingCameraToBounds = useCallback(
         async (bounds, { shouldApply = () => true, ...options } = {}) => {
             if (!isDrivingMode || !shouldApply()) {
@@ -1772,6 +1835,7 @@ function useAutoPlayMapController({
         handleDrivingRecenterPress,
         handleLocationRecenterPress,
         handleLocationTrackingPress,
+        handleManeuverFocus,
         handleMapLoaded,
         handleMarkerSourcePress,
         handlePan,
@@ -2317,6 +2381,7 @@ export function AutoPlayMapSurfaceContent({
                       ? controller.handleDrivingRecenterPress
                       : controller.handleLocationTrackingPress,
             handlePan: controller.handlePan,
+            handleManeuverFocus: controller.handleManeuverFocus,
             handlePanningInterfaceChanged:
                 controller.handlePanningInterfaceChanged,
             handleZoomGesture: controller.handleZoomGesture,
@@ -2332,6 +2397,7 @@ export function AutoPlayMapSurfaceContent({
         viewportMetrics,
         controller.handleLocationTrackingPress,
         controller.handlePan,
+        controller.handleManeuverFocus,
         controller.handlePanningInterfaceChanged,
         controller.handleZoomGesture,
         controller.handleZoomPress,

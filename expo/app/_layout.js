@@ -196,6 +196,10 @@ function RootLayoutContents() {
                                                 }}
                                             />
                                             <Drawer.Screen
+                                                name="watch-settings"
+                                                options={{ title: 'Watch' }}
+                                            />
+                                            <Drawer.Screen
                                                 name="hotlist"
                                                 options={{
                                                     drawerLabel: 'Hotlist',

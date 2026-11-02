@@ -136,6 +136,11 @@ module.exports = {
         [
             'expo-build-properties',
             {
+                android: {
+                    // Auto Play instantiates its Nitro implementations through JNI class names.
+                    extraProguardRules:
+                        '-keep class com.margelo.nitro.swe.iternio.reactnativeautoplay.Hybrid* { *; }',
+                },
                 ios: {
                     // ExpoUI uses Fabric headers absent from the prebuilt React framework.
                     buildReactNativeFromSource: true,

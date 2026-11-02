@@ -14,7 +14,12 @@ const tap = (name, label, extra = {}) => ({
     timeout: 10000,
     ...extra,
 });
-const control = (name, extra = {}) => ({ type: 'tapControl', name, ...extra });
+const control = (name, extra = {}) => ({
+    type: 'tapControl',
+    name,
+    ...(name === 'search' ? { expectText: ['Where to?'] } : {}),
+    ...extra,
+});
 const back = { type: 'hostBack' };
 const checkText = (name, contains, notContains = []) => [
     shot(name),
@@ -631,6 +636,68 @@ export function getAndroidAutoKeyboardPoints(shot, query) {
                             y,
                         }),
                     );
+            }
+        }
+    }
+    if (top.length < 2) {
+        const numbers = shot.textBounds
+            .filter(
+                ({ text, y }) => /^[0-9]$/.test(text) && y > shot.height * 0.4,
+            )
+            .map((point) => ({
+                ...point,
+                column: '1234567890'.indexOf(point.text),
+            }))
+            .sort((a, b) => a.column - b.column);
+        if (numbers.length >= 3) {
+            const first = numbers[0],
+                last = numbers.at(-1);
+            const pitch = (last.x - first.x) / (last.column - first.column);
+            const origin = first.x - first.column * pitch;
+            const aligned =
+                pitch > 20 &&
+                numbers.every(
+                    (point) =>
+                        Math.abs(point.y - first.y) < 15 &&
+                        Math.abs(point.x - origin - point.column * pitch) <
+                            pitch * 0.15,
+                );
+            const evidence = aligned
+                ? rows.flatMap((row, index) =>
+                      clusters(
+                          row,
+                          (point, column) =>
+                              Math.abs(
+                                  point.x -
+                                      origin -
+                                      (column + [0, 0.5, 1][index]) * pitch,
+                              ) <
+                                  pitch * 0.25 &&
+                              (point.y - first.y) / (index + 1) > pitch * 0.4 &&
+                              (point.y - first.y) / (index + 1) < pitch * 1.3,
+                      ).map((point) => ({
+                          row: index,
+                          gap: (point.y - first.y) / (index + 1),
+                      })),
+                  )
+                : [];
+            const gap =
+                evidence.reduce((sum, point) => sum + point.gap, 0) /
+                evidence.length;
+            if (
+                new Set(evidence.map((point) => point.row)).size >= 2 &&
+                evidence.every(
+                    (point) => Math.abs(point.gap - gap) < pitch * 0.15,
+                )
+            ) {
+                rows.forEach((row, index) =>
+                    [...row].forEach((key, column) =>
+                        keys.set(key, {
+                            x: origin + (column + [0, 0.5, 1][index]) * pitch,
+                            y: first.y + (index + 1) * gap,
+                        }),
+                    ),
+                );
             }
         }
     }

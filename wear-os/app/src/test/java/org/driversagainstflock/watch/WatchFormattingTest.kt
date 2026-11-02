@@ -1,0 +1,48 @@
+package org.driversagainstflock.watch
+
+import org.junit.Assert.assertEquals
+import org.junit.Test
+
+class WatchFormattingTest {
+    @Test fun areasFooterUsesTheSourceSyncTime() {
+        val now = 200_000_000L
+        assertEquals("Synced just now", areasSyncLabel(now, now))
+        assertEquals("Synced just now", areasSyncLabel(now + 1000, now))
+        assertEquals("Last synced 5 s ago", areasSyncLabel(now - 5000, now))
+        assertEquals("Last synced 40 s ago", areasSyncLabel(now - 40_000, now))
+        assertEquals("Last synced 1 min ago", areasSyncLabel(now - 60_000, now))
+        assertEquals("Last synced 3h ago", areasSyncLabel(now - 10_800_000, now))
+        assertEquals("Last synced 1d ago", areasSyncLabel(now - 86_400_000, now))
+        assertEquals("Last sync unavailable", areasSyncLabel(null, now))
+        assertEquals("Last sync unavailable", areasSyncLabel(0, now))
+    }
+    @Test fun distanceEstimatesMatchPhoneThresholds() {
+        assertEquals("—", distance(null))
+        assertEquals("0 ft", distance(0.0))
+        assertEquals("50 ft", distance(1.0))
+        assertEquals("150 ft", distance(43.043388))
+        assertEquals("400 ft", distance(120.0))
+        assertEquals("500 ft", distance(160.0))
+        assertEquals("0.1 mi", distance(161.0))
+        assertEquals("1.2 mi", distance(1985.84))
+        assertEquals("10 mi", distance(16093.44))
+        assertEquals("—", traveledDistance(null))
+        assertEquals("0.0 mi", traveledDistance(0.0028))
+        assertEquals("4.0 mi", traveledDistance(6400.0))
+    }
+    @Test fun remainingTimeMatchesPhoneRoundingAndHourDisplay() {
+        assertEquals("—", duration(null))
+        assertEquals("1 min", duration(0.0))
+        assertEquals("3 min", duration(193.864))
+        assertEquals("4 min", duration(210.0))
+        assertEquals("1 hr", duration(3599.0))
+        assertEquals("1 hr 1 min", duration(3660.0))
+        assertEquals("18:42", elapsed(1122.0))
+        assertEquals("—", elapsed(null))
+    }
+    @Test fun ambientAndOngoingUseTheRoadName() {
+        assertEquals("Market St", roadName("Turn right onto Market St"))
+        assertEquals("I-80", roadName("Keep left toward I-80"))
+        assertEquals("Make a U-turn", roadName("Make a U-turn"))
+    }
+}

@@ -706,6 +706,7 @@ export class Runner {
             'android.permission.ACCESS_COARSE_LOCATION',
             'android.permission.ACCESS_FINE_LOCATION',
             'android.permission.POST_NOTIFICATIONS',
+            'android.permission.ACCESS_LOCAL_NETWORK',
         ]) {
             this.adb(['shell', 'pm', 'grant', this.suite.appId, permission], {
                 allowFailure: true,
@@ -2056,6 +2057,9 @@ export class Runner {
                     return;
                 }
                 const actual = await this.autoPlayCommand('state');
+                if (step.name === 'search' && actual.statusLabel === 'Search') {
+                    return;
+                }
                 if (step.name !== 'searchMap')
                     await this.runStep({ type: 'tapMap' });
                 const shot = await this.captureScreenshot(

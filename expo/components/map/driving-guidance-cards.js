@@ -18,70 +18,8 @@ import {
     formatDirectionsManeuverDistance,
     getDirectionsManeuverCoordinate,
 } from './directions';
-import { getRoundaboutExitNumber } from './roundabout-guidance';
+import { ManeuverIcon } from './maneuver-icon';
 import { NativeWindBottomSheetTouchableOpacity } from './native-components';
-
-function RoundaboutExitIcon({ exitNumber }) {
-    return (
-        <View
-            accessibilityLabel={`Roundabout exit ${exitNumber}`}
-            accessible
-            className="h-[34px] w-[34px] items-center justify-center rounded-full border-[3px] border-white"
-        >
-            <Text
-                className={`${exitNumber >= 10 ? 'text-[15px]' : 'text-[20px]'} font-dafMono font-extrabold leading-[20px] text-white`}
-            >
-                {exitNumber}
-            </Text>
-        </View>
-    );
-}
-
-export function getManeuverIcon(maneuver) {
-    const maneuverType = Number(maneuver?.type);
-    const modifier =
-        typeof maneuver?.maneuver?.modifier === 'string'
-            ? maneuver.maneuver.modifier.toLowerCase()
-            : '';
-    const instruction =
-        typeof maneuver?.instruction === 'string'
-            ? maneuver.instruction.toLowerCase()
-            : '';
-
-    if (maneuverType === 10) {
-        return 'flag';
-    }
-
-    if (maneuverType === 0 || maneuverType === 2 || maneuverType === 4) {
-        return 'corner-up-left';
-    }
-
-    if (maneuverType === 1 || maneuverType === 3 || maneuverType === 5) {
-        return 'corner-up-right';
-    }
-
-    if (maneuverType === 9 || maneuverType === 12) {
-        return 'corner-up-left';
-    }
-
-    if (maneuverType === 13) {
-        return 'corner-up-right';
-    }
-
-    if (modifier.includes('left') || instruction.includes('left')) {
-        return 'corner-up-left';
-    }
-
-    if (modifier.includes('right') || instruction.includes('right')) {
-        return 'corner-up-right';
-    }
-
-    if (maneuverType === 6 || maneuverType === 11) {
-        return 'arrow-up';
-    }
-
-    return 'corner-up-right';
-}
 
 export function ManeuverInstruction({ instruction }) {
     const { fontScale } = useWindowDimensions();
@@ -158,7 +96,6 @@ export function ManeuverCard({
             : maneuverDistanceLabel
               ? maneuverDistanceLabel
               : maneuverLabel;
-    const roundaboutExitNumber = getRoundaboutExitNumber(maneuver);
     const coordinate = getDirectionsManeuverCoordinate(
         directionsRoute,
         maneuver,
@@ -207,19 +144,12 @@ export function ManeuverCard({
                         style={{ boxShadow: floatingShadow }}
                         testID="driving-maneuver-card"
                     >
-                        <View className="h-[52px] w-[52px] items-center justify-center rounded-dafMd bg-daf-brand">
-                            {roundaboutExitNumber === null ? (
-                                <Icon
-                                    color={dafSemanticColors.brandContrast}
-                                    name={getManeuverIcon(maneuver)}
-                                    size={30}
-                                    stroke={2.4}
-                                />
-                            ) : (
-                                <RoundaboutExitIcon
-                                    exitNumber={roundaboutExitNumber}
-                                />
-                            )}
+                        <View className="h-[52px] min-w-[52px] shrink-0 items-center justify-center rounded-dafMd bg-daf-brand px-1">
+                            <ManeuverIcon
+                                color={dafSemanticColors.brandContrast}
+                                maneuver={maneuver}
+                                size={30}
+                            />
                         </View>
                         <View
                             className="min-w-0 flex-1 justify-center"
@@ -272,9 +202,9 @@ export function ManeuverCard({
                     testID="driving-maneuver-next-step-bar"
                     style={{ boxShadow: floatingShadow }}
                 >
-                    <Icon
+                    <ManeuverIcon
                         color="#828D9B"
-                        name={getManeuverIcon(nextManeuver)}
+                        maneuver={nextManeuver}
                         size={16}
                     />
                     <Text
