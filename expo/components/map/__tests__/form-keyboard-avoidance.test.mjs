@@ -28,10 +28,18 @@ function loadForm(file, platform, extraMocks = {}) {
     );
     const exports = loadTourModule(new URL(`../../${file}`, import.meta.url), {
         react: hooks.react,
+        '../root/native-navigation': {
+            FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+            NativeNavigationAction: 'NativeNavigationAction',
+            NativeModalContent: 'NativeModalContent',
+        },
+        '../root/duo-pane-screen': { DuoPaneMap: 'DuoPaneMap' },
+        './area-map': { AreaMap: 'Map' },
         'react-native': {
             ...components,
             Platform: { OS: platform },
             useColorScheme: () => 'light',
+            useWindowDimensions: () => ({ width: 390, height: 844 }),
         },
         'expo-router': {
             router: {},
@@ -71,67 +79,121 @@ function assertAvoidance(tree, platform) {
 }
 
 for (const platform of ['ios', 'android']) {
-    test(`full-screen location search guards its result list on ${platform}`, () => {
-        const { exports, render } = loadForm(
-            'map/map-full-screen-search.js',
-            platform,
-            {
-                './directions': { DIRECTIONS_MODE_DIRECTIONS: 'directions' },
-                './directions-current-location-option': {},
-                './google-results-footer': {},
-                './place-search-result-row': {},
-                './primary-location-cards': {},
-                './primary-locations': {},
-                './saved-location-section': {},
-                './submitted-search-result-row': {},
-                './map-screen-context': {
-                    useMapSearchContext: () => ({
-                        mapPreferencesAreLoaded: true,
-                        searchPageIsVisible: true,
-                        searchSource: 'phone',
-                        searchValue: '',
-                        trimmedSearchValue: '',
-                        searchFavoriteLocations: [],
-                        searchRecentLocations: [],
-                        submittedSearchResults: [],
-                    }),
+    for (const duo of platform === 'ios' ? [false, true] : [false])
+        test(`full-screen location search guards its result list on ${platform}, Duo pane ${duo}`, () => {
+            const { exports, render } = loadForm(
+                'map/map-full-screen-search.js',
+                platform,
+                {
+                    '../root/duo-device-context': { useDuoDevice: () => duo },
+                    './duo-bottom-sheet-layout': {
+                        getDuoPaneLayout: () =>
+                            duo ? { left: 12, right: 514, width: 400 } : null,
+                    },
+                    '../../lib/safe-area-insets': {
+                        useSafeAreaInsets: () => ({
+                            top: 24,
+                            bottom: 20,
+                            left: 12,
+                            right: 84,
+                        }),
+                    },
+                    './directions': {
+                        DIRECTIONS_MODE_DIRECTIONS: 'directions',
+                    },
+                    './directions-current-location-option': {},
+                    './google-results-footer': {},
+                    './place-search-result-row': {},
+                    './primary-location-cards': {},
+                    './primary-locations': {},
+                    './saved-location-section': {},
+                    './submitted-search-result-row': {},
+                    './map-screen-context': {
+                        useMapSearchContext: () => ({
+                            mapPreferencesAreLoaded: true,
+                            searchPageIsVisible: true,
+                            searchSource: 'phone',
+                            searchValue: '',
+                            trimmedSearchValue: '',
+                            searchFavoriteLocations: [],
+                            searchRecentLocations: [],
+                            submittedSearchResults: [],
+                        }),
+                    },
                 },
-            },
-        );
-        assertAvoidance(
-            render(() => exports.MapFullScreenSearch()),
-            platform,
-        );
-    });
+            );
+            const tree = render(() => exports.MapFullScreenSearch());
+            const searchInput = find(
+                tree,
+                (node) =>
+                    node.props?.testID === 'map-full-screen-search-input-phone',
+            );
+            assert.match(searchInput.props.className, /leading-6/);
+            assert.equal(searchInput.props.multiline, false);
+            assert.equal(searchInput.props.numberOfLines, 1);
+            const { guard, scroll } = assertAvoidance(tree, platform);
+            assert.equal(
+                scroll.props.contentContainerStyle.paddingLeft,
+                duo ? 0 : 12,
+            );
+            assert.equal(
+                scroll.props.contentContainerStyle.paddingRight,
+                duo ? 0 : 84,
+            );
+            if (duo) {
+                assert.equal(guard.props.style.left, 12);
+                assert.equal(guard.props.style.right, 514);
+                assert.equal(guard.props.style.maxHeight, 786);
+                assert.match(scroll.props.className, /shrink grow-0/);
+            } else assert.match(scroll.props.className, /flex-1/);
+            const close = find(
+                tree,
+                (node) =>
+                    node.type === 'NativeNavigationAction' &&
+                    node.props.kind === 'close',
+            );
+            assert.equal(close.props.railOnly, true);
+            assert.equal(close.props.priority, 300);
+            assert.equal(
+                close.props.children.props.accessibilityLabel,
+                'Cancel search',
+            );
+        });
 
-    test(`area creation guards its search sheet on ${platform}`, () => {
-        const { exports, render } = loadForm(
-            'areas/add-area-screen.js',
-            platform,
-            {
-                'expo-location': {},
-                './area-geometry': {
-                    AREA_KINDS: {},
-                    geometrySquareMiles: () => 0,
+    for (const duo of [false, true])
+        test(`area creation guards its search sheet on ${platform}, Duo ${duo}`, () => {
+            const { exports, render } = loadForm(
+                'areas/add-area-screen.js',
+                platform,
+                {
+                    'expo-location': {},
+                    '../root/duo-device-context': { useDuoDevice: () => duo },
+                    './area-geometry': {
+                        AREA_KINDS: {},
+                        geometrySquareMiles: () => 0,
+                    },
+                    './area-map': { AreaMap: 'Map' },
+                    './area-radius-control': { AreaRadiusControl: 'Radius' },
+                    './areas-api': {},
+                    './areas-context': { useAreas: () => ({}) },
+                    './area-ui': {
+                        AreaButton: 'Button',
+                        AreaSheet: 'Sheet',
+                        AreaText: 'Text',
+                        AreaSegmentedControl: 'Segments',
+                    },
                 },
-                './area-map': { AreaMap: 'Map' },
-                './area-radius-control': { AreaRadiusControl: 'Radius' },
-                './areas-api': {},
-                './areas-context': { useAreas: () => ({}) },
-                './area-ui': {
-                    AreaButton: 'Button',
-                    AreaSheet: 'Sheet',
-                    AreaText: 'Text',
-                    AreaSegmentedControl: 'Segments',
-                },
-            },
-        );
-        const tree = render(() => exports.default());
-        assert.equal(tree.type, 'KeyboardAvoidingView');
-        assert.equal(tree.props.behavior, 'padding');
-        const sheet = find(tree, (node) => node.type === 'Sheet');
-        assert.ok(find(sheet, (node) => node.type === 'TextInput'));
-    });
+            );
+            const tree = render(() => exports.default());
+            assert.equal(tree.type, 'KeyboardAvoidingView');
+            assert.equal(tree.props.behavior, 'padding');
+            assert.equal(
+                tree.props.children[0].props.className,
+                duo ? 'absolute inset-0' : '-mb-[22px] min-h-[150px] flex-1',
+            );
+            const sheet = find(tree, (node) => node.type === 'Sheet');
+            assert.ok(find(sheet, (node) => node.type === 'TextInput'));
+        });
 
     test(`help search keeps its result list usable while typing on ${platform}`, () => {
         const { exports, render } = loadForm(
@@ -299,17 +361,74 @@ for (const platform of ['ios', 'android']) {
     });
 }
 
-test('permission search uses the sheet keyboard input and allows scrolling to the search action', () => {
+for (const railEdge of [null, 'trailing', 'leading']) {
+    test(`permission search remains scrollable with ${railEdge ?? 'no'} rail`, () => {
+        const { exports } = loadForm(
+            'map/location-permission-sheet.js',
+            'ios',
+            {
+                '../root/native-navigation': {
+                    FullWidthSafeAreaBand: 'FullWidthSafeAreaBand',
+                    useDuoRailEdge: () => railEdge,
+                },
+                './location-acquisition-view': {
+                    LocationAcquisitionView: 'Acquisition',
+                },
+                './map-screen-context': {
+                    usePermissionSheetContext: () => ({
+                        mapPreferencesAreLoaded: true,
+                        locationAccessSearchValue: '',
+                        insets: { top: railEdge ? 0 : 24, bottom: 20 },
+                        bottomSheetRef: { current: {} },
+                        permissionSheetTrackingHandlers: {},
+                    }),
+                },
+                './native-components': {
+                    NativeWindBottomSheetModal: 'Sheet',
+                    NativeWindBottomSheetScrollView: 'ScrollView',
+                    NativeWindBottomSheetTextInput: 'SheetInput',
+                },
+            },
+        );
+        const tree = exports.LocationPermissionSheet();
+        assert.equal(tree.props.keyboardBlurBehavior, 'restore');
+        const scroll = find(tree, (node) => node.type === 'ScrollView');
+        assert.equal(scroll.props.keyboardShouldPersistTaps, 'handled');
+        assert.equal(scroll.props.automaticallyAdjustKeyboardInsets, true);
+        assert.equal(
+            scroll.props.contentContainerStyle.paddingTop,
+            railEdge ? 24 : 80,
+        );
+        assert.ok(find(scroll, (node) => node.type === 'SheetInput'));
+        assert.ok(
+            find(
+                scroll,
+                (node) =>
+                    node.props?.accessibilityLabel ===
+                        'Search a place or ZIP' && node.type === 'Button',
+            ),
+        );
+    });
+}
+
+test('iPad location fallback uses compact centered-card padding while search remains usable', () => {
+    let dismissed = 0;
     const { exports } = loadForm('map/location-permission-sheet.js', 'ios', {
+        'react-native': {
+            Platform: { OS: 'ios', isPad: true },
+            View: 'View',
+            useWindowDimensions: () => ({ width: 1194, height: 834 }),
+        },
+        '../root/native-navigation': { useDuoRailEdge: () => null },
         './location-acquisition-view': {
             LocationAcquisitionView: 'Acquisition',
         },
         './map-screen-context': {
             usePermissionSheetContext: () => ({
                 mapPreferencesAreLoaded: true,
-                locationAccessSearchValue: '',
+                locationAccessSearchValue: '94111',
                 insets: { top: 24, bottom: 20 },
-                bottomSheetRef: { current: {} },
+                bottomSheetRef: { current: { dismiss: () => dismissed++ } },
                 permissionSheetTrackingHandlers: {},
             }),
         },
@@ -320,16 +439,15 @@ test('permission search uses the sheet keyboard input and allows scrolling to th
         },
     });
     const tree = exports.LocationPermissionSheet();
-    assert.equal(tree.props.keyboardBlurBehavior, 'restore');
     const scroll = find(tree, (node) => node.type === 'ScrollView');
+    assert.equal(scroll.props.contentContainerStyle.paddingTop, 20);
+    assert.equal(scroll.props.contentContainerStyle.paddingBottom, 28);
+    assert.match(scroll.props.contentContainerClassName, /px-\[28px\]/);
     assert.equal(scroll.props.keyboardShouldPersistTaps, 'handled');
-    assert.ok(find(scroll, (node) => node.type === 'SheetInput'));
-    assert.ok(
-        find(
-            scroll,
-            (node) =>
-                node.props?.accessibilityLabel === 'Search a place or ZIP' &&
-                node.type === 'Button',
-        ),
-    );
+    find(
+        scroll,
+        (node) =>
+            node.props?.accessibilityLabel === 'Continue without location',
+    ).props.onPress();
+    assert.equal(dismissed, 1);
 });

@@ -25,6 +25,51 @@ const mapScreenContextSource = readFileSync(
     'utf8',
 );
 
+test('native Duo controls use the design recenter and filter glyphs and retain the edit accent', () => {
+    const { MapControlButton } = loadTourModule(
+        new URL('../map-control-button.js', import.meta.url),
+        {
+            'react-native': { Pressable: 'Pressable' },
+            '../root/native-navigation': { NativeNavigationAction: 'Action' },
+            './constants': { MAP_CONTROL_BUTTON_SIZE: 48 },
+            './duo-rail-icons': {
+                getDuoRailIcon: (symbol) => ({
+                    type: 'templateSource',
+                    templateSource: symbol,
+                }),
+            },
+            './map-liquid-glass': { mapLiquidGlassIsAvailable: () => false },
+            './native-components': {},
+        },
+    );
+    const recenter = MapControlButton({
+        children: { props: { name: 'locate-fixed' } },
+        nativeGroup: 'map',
+        nativeOrder: 3,
+        nativeVisibilityPriority: 'high',
+        nativeSharesBackground: true,
+        nativeOverflowOnly: true,
+    });
+    assert.equal(recenter.props.symbol, 'scope');
+    assert.equal(recenter.props.group, 'map');
+    assert.equal(recenter.props.order, 3);
+    assert.equal(recenter.props.visibilityPriority, 'high');
+    assert.equal(recenter.props.sharesBackground, true);
+    assert.equal(recenter.props.overflowOnly, true);
+    assert.equal(recenter.props.children.props.nativeGroup, undefined);
+    assert.deepEqual(recenter.props.icon, {
+        type: 'templateSource',
+        templateSource: 'scope',
+    });
+    const filters = MapControlButton({ children: { props: {} } });
+    assert.equal(filters.props.symbol, 'slider.vertical.3');
+    const pencil = MapControlButton({
+        children: { props: { name: 'pencil', color: '#1FBF6B' } },
+    });
+    assert.equal(pencil.props.tintColor, '#1FBF6B');
+    assert.match(mapControlsOverlaySource, /nativeSymbol="scope"/);
+});
+
 describe('MapControlsOverlay', () => {
     test('hides the free-drive control during route navigation', () => {
         assert.match(mapControlsOverlaySource, /showFreeDriveButton = true/);
@@ -172,4 +217,72 @@ describe('MapControlsOverlay', () => {
             /handleDrivingRecenterPressOverride \?\?[\s\S]*?locationController\.handleDrivingRecenterPress/,
         );
     });
+});
+
+test('map controls declare native groups without changing their existing press handlers', () => {
+    const calls = [];
+    const { MapControlsOverlay } = loadTourModule(
+        new URL('../map-controls-overlay.js', import.meta.url),
+        {
+            'react-native': {
+                ActivityIndicator: 'ActivityIndicator',
+                View: 'View',
+            },
+            '../contribute/contribute-entry-button': {
+                ContributeEntryButton: 'Contribute',
+            },
+            './constants': { MAP_CONTROL_BUTTON_CLASS_NAME: '', ZOOM_STEP: 1 },
+            './driving-map-view': {
+                getDrivingMapViewPresentation: () => ({
+                    label: 'Overview',
+                    iconName: 'map',
+                }),
+                getNextDrivingMapViewMode: () => 'overview',
+            },
+            './map-control-button': { MapControlButton: 'Button' },
+            './map-control-icon': { MapControlIcon: 'Icon' },
+            './map-layer-controls': { MapLayerButton: 'Layers' },
+            './marker-loading-indicator': { MarkerLoadingIndicator: 'Loading' },
+            './map-screen-context': {
+                useMapControlsContext: () => ({
+                    mapPreferencesAreLoaded: true,
+                    drivingMapViewControlIsVisible: true,
+                    handleZoomPress: (value) => calls.push(value),
+                    handleLocationTrackingPress: () => calls.push('recenter'),
+                    handleStartFreeDrive: () => calls.push('start'),
+                }),
+            },
+        },
+    );
+    const tree = MapControlsOverlay({ showDrawerButton: true });
+    const buttons = tree.props.children.filter(
+        (child) => child?.type === 'Button',
+    );
+    assert.deepEqual(
+        buttons.map((child) => child.props.nativeGroup),
+        ['navigation', 'activity', 'activity', 'map', 'map', 'map'],
+    );
+    const map = buttons.filter((child) => child.props.nativeGroup === 'map');
+    assert.deepEqual(
+        map.map((child) => child.props.nativeOrder),
+        [1, 2, 3],
+    );
+    assert.deepEqual(
+        map.map((child) => child.props.nativeVisibilityPriority),
+        ['low', 'low', 'high'],
+    );
+    assert.deepEqual(
+        map.map((child) => Boolean(child.props.nativeSharesBackground)),
+        [true, true, false],
+    );
+    map.forEach((child) => child.props.onPress());
+    assert.deepEqual(calls, [1, -1, 'recenter']);
+    const start = buttons.find(
+        (child) => child.props.testID === 'start-free-drive-button',
+    );
+    assert.equal(start.props.nativeOverflowOnly, undefined);
+    assert.equal(start.props.nativeVisibilityPriority, 'standard');
+    assert.equal(start.props.nativeGroup, 'activity');
+    start.props.onPress();
+    assert.equal(calls.at(-1), 'start');
 });

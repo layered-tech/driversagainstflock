@@ -1,8 +1,10 @@
 import { createContext, createElement, useContext, useMemo } from 'react';
-import { Platform } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets as useNativeSafeAreaInsets } from 'react-native-safe-area-context';
+import { useDuoDevice } from '../components/root/duo-device-context';
 
 export const IOS_BOTTOM_SAFE_AREA_OFFSET = 16;
+export const DUO_CORNER_SAFE_AREA_PADDING = 24;
 const EMPTY_SAFE_AREA_INSETS = {
     bottom: 0,
     left: 0,
@@ -19,6 +21,14 @@ function getInsetValue(value) {
     const numericValue = Number(value);
 
     return Number.isFinite(numericValue) ? Math.max(0, numericValue) : 0;
+}
+
+function getCornerSafeAreaInset(value, cornerPadding) {
+    const inset = getInsetValue(value);
+
+    return Platform.OS === 'android'
+        ? Math.max(inset, cornerPadding)
+        : inset + cornerPadding;
 }
 
 function normalizeInsets(insets) {
@@ -47,22 +57,33 @@ export function SafeAreaInsetsOverrideProvider({ children, insets }) {
     );
 }
 
-export function useSafeAreaInsets() {
-    const overrideInsets = useContext(SafeAreaInsetsOverrideContext);
+export function useSafeAreaInsets({ ignoreOverride = false } = {}) {
+    const duo = useDuoDevice();
+    const { width, height } = useWindowDimensions();
+    const inheritedInsets = useContext(SafeAreaInsetsOverrideContext);
+    const overrideInsets = ignoreOverride ? null : inheritedInsets;
     const insets = useNativeSafeAreaInsets();
     const bottomOffset = getBottomSafeAreaOffset();
     const sourceInsets = overrideInsets ?? insets ?? EMPTY_SAFE_AREA_INSETS;
     const resolvedBottomOffset = overrideInsets ? 0 : bottomOffset;
+    const cornerPadding =
+        !overrideInsets && duo && Math.min(width, height) >= 600
+            ? DUO_CORNER_SAFE_AREA_PADDING
+            : 0;
 
     return useMemo(
         () => ({
-            bottom: getInsetValue(sourceInsets.bottom) + resolvedBottomOffset,
-            left: getInsetValue(sourceInsets.left),
-            right: getInsetValue(sourceInsets.right),
-            top: getInsetValue(sourceInsets.top),
+            bottom: getCornerSafeAreaInset(
+                getInsetValue(sourceInsets.bottom) + resolvedBottomOffset,
+                cornerPadding,
+            ),
+            left: getCornerSafeAreaInset(sourceInsets.left, cornerPadding),
+            right: getCornerSafeAreaInset(sourceInsets.right, cornerPadding),
+            top: getCornerSafeAreaInset(sourceInsets.top, cornerPadding),
         }),
         [
             resolvedBottomOffset,
+            cornerPadding,
             sourceInsets.bottom,
             sourceInsets.left,
             sourceInsets.right,

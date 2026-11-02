@@ -87,7 +87,7 @@
           <div data-screen-label="11 Open a changeset" style="position:relative; width:100%; height:100%; overflow:hidden; font-family:var(--font-ui);">
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; inset:0; background:rgba(11,14,18,0.28);"></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,500px" subtitle="Edit camera data on OpenStreetMap" title="Open a changeset">
                 <div style="display:flex; align-items:center; gap:12px; padding:11px 12px; background:var(--surface-card-alt); border-radius:var(--radius-md); margin-bottom:14px;">
                   <span style="width:40px; height:40px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; flex:0 0 auto;"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg></span>
@@ -121,8 +121,7 @@
             <div style="position:absolute; left:50%; top:47%; transform:translate(-50%,-50%); z-index:6; pointer-events:none;">
               <svg fill="none" height="58" stroke="var(--brand)" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.2" style="display:block; filter:drop-shadow(0 2px 6px rgba(11,14,18,0.35));" viewBox="0 0 24 24" width="58"><circle cx="12" cy="12" r="10"></circle><line x1="22" x2="18" y1="12" y2="12"></line><line x1="6" x2="2" y1="12" y2="12"></line><line x1="12" x2="12" y1="6" y2="2"></line><line x1="12" x2="12" y1="22" y2="18"></line><circle cx="12" cy="12" fill="var(--brand)" r="1.4" stroke="none"></circle></svg>
             </div>
-            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Close editor" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 14px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
               <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Editing the map</span>
             </div>
             <!-- changeset tray, collapsed — the add action lives here; the crosshair marks where -->
@@ -133,6 +132,7 @@
               </button>
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" disabled="{{ true }}" hint-size="auto,46px" size="md" variant="ghost">Review</x-import>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close editor" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -144,16 +144,16 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">Pick the camera you see · preset writes the standard tags · hold a photo → 13a · → 12</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="13 Add a camera" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="13 Add a camera" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Add camera</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">new node</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 100px 9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
               <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">37.7841, -122.4194</span>
               <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">Market St &amp; 5th St</span>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px; display:flex; flex-direction:column; gap:20px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px 100px 16px 16px; display:flex; flex-direction:column; gap:20px;">
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Preset</div>
                 <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">
@@ -222,7 +222,7 @@
                 <x-import component-from-global-scope="DesignSystem_c71fad.Button" hint-size="auto,36px" leading-icon="{{ plusIcon }}" size="sm" variant="ghost">Add tag</x-import>
               </div>
             </div>
-            <div style="padding:12px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="padding:12px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" leading-icon="{{ plusIcon }}" size="lg" variant="primary">Add to changeset</x-import>
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:9px 0 0;">Staged on your phone — nothing publishes until you review.</p>
             </div>
@@ -304,16 +304,16 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">Same form, Custom preset · raw key=value editor · → 12</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="14 Add a camera — custom tags" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="14 Add a camera — custom tags" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Add camera</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">new node</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 100px 9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
               <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">37.7836, -122.4170</span>
               <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">Market St &amp; 5th St</span>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px; display:flex; flex-direction:column; gap:20px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px 100px 16px 16px; display:flex; flex-direction:column; gap:20px;">
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Preset</div>
                 <div style="display:grid; grid-template-columns:repeat(3, minmax(0,1fr)); gap:8px;">
@@ -405,7 +405,7 @@
                 <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:10px 0 0; text-wrap:pretty;">The dial writes camera:direction above — drag it or type the bearing, whichever is quicker.</p>
               </div>
             </div>
-            <div style="padding:12px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="padding:12px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" leading-icon="{{ plusIcon }}" size="lg" variant="primary">Add to changeset</x-import>
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); text-align:center; margin:9px 0 0;">Staged on your phone — nothing publishes until you review.</p>
             </div>
@@ -425,12 +425,11 @@
             <dc-import hint-size="100%,100%" name="SchematicMap" style="position:absolute; inset:0;"></dc-import>
             <div style="position:absolute; left:30%; top:34%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="130" hint-size="40px,40px" inactive="{{ true }}" variant="camera"></x-import></div>
             <div style="position:absolute; left:58%; top:36%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="310" hint-size="40px,40px" selected="{{ true }}" variant="camera"></x-import></div>
-            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Close editor" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 14px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
               <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Editing</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">2 changes</span>
             </div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,420px" subtitle="node/11640217 · v3 · Valencia St &amp; 24th St" title="ALPR reader · Flock Safety">
                 <div style="background:var(--surface-card-alt); border-radius:var(--radius-md); padding:2px 14px; margin-bottom:12px;">
                   <div style="display:flex; align-items:center; justify-content:space-between; gap:12px; padding:8px 0; border-bottom:1px solid var(--border); font-family:var(--font-mono); font-size:12px;"><span style="color:var(--text-tertiary);">man_made</span><span style="color:var(--text-primary); font-weight:600;">surveillance</span></div>
@@ -448,6 +447,7 @@
                 </div>
               </x-import>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close editor" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -464,7 +464,7 @@
             <div style="position:absolute; left:30%; top:34%; transform:translate(-50%,-50%); z-index:4;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="130" hint-size="40px,40px" inactive="{{ true }}" variant="camera"></x-import></div>
             <div style="position:absolute; left:58%; top:36%; transform:translate(-50%,-50%); z-index:5;"><x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="310" hint-size="40px,40px" selected="{{ true }}" variant="camera"></x-import></div>
             <div style="position:absolute; inset:0; z-index:6; background:rgba(11,14,18,0.28);"></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,420px" subtitle="node/11640217 · Valencia St &amp; 24th St" title="Delete this camera?">
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Why delete it?</div>
                 <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:16px;">
@@ -507,12 +507,11 @@
               <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="310" hint-size="40px,40px" inactive="{{ true }}" variant="camera"></x-import>
               <span style="position:absolute; left:calc(50% + 4px); top:calc(50% - 20px); width:18px; height:18px; border-radius:50%; background:var(--alert-500); color:#fff; border:2px solid var(--surface-card); display:flex; align-items:center; justify-content:center; z-index:5;"><svg fill="none" height="11" stroke="currentColor" stroke-linecap="round" stroke-width="3.2" style="display:block;" viewBox="0 0 24 24" width="11"><path d="M5 12h14"></path></svg></span>
             </div>
-            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Close editor" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 14px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
               <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Editing</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">3 changes</span>
             </div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,440px" subtitle="2 added · 1 deleted · nothing published yet" title="3 changes staged">
                 <div style="display:flex; flex-direction:column; margin-bottom:14px;">
                   <div style="display:flex; align-items:center; gap:12px; padding:10px 0; border-bottom:1px solid var(--border);">
@@ -536,6 +535,7 @@
                 <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="ghost">Keep editing</x-import>
               </x-import>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close editor" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -561,13 +561,12 @@
               <x-import component-from-global-scope="DesignSystem_c71fad.MapMarker" heading="310" hint-size="40px,40px" inactive="{{ true }}" variant="camera"></x-import>
               <span style="position:absolute; left:calc(50% + 4px); top:calc(50% - 20px); width:18px; height:18px; border-radius:50%; background:var(--alert-500); color:#fff; border:2px solid var(--surface-card); display:flex; align-items:center; justify-content:center; z-index:5;"><svg fill="none" height="11" stroke="currentColor" stroke-linecap="round" stroke-width="3.2" style="display:block;" viewBox="0 0 24 24" width="11"><path d="M5 12h14"></path></svg></span>
             </div>
-            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 6px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
-              <x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="40px,40px" label="Close editor" size="md" variant="plain"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import>
+            <div style="position:absolute; top:14px; left:12px; right:96px; z-index:10; display:flex; align-items:center; gap:8px; padding:7px 8px 7px 14px; background:var(--surface-glass); backdrop-filter:blur(var(--blur-glass)); -webkit-backdrop-filter:blur(var(--blur-glass)); border:1px solid var(--border-glass); border-radius:var(--radius-md); box-shadow:var(--shadow-float);">
               <span style="flex:1; min-width:0; font-size:var(--fs-body); font-weight:var(--fw-semibold); color:var(--text-primary);">Editing</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">3 changes</span>
             </div>
             <div style="position:absolute; inset:0; z-index:6; background:rgba(11,14,18,0.28);"></div>
-            <div style="position:absolute; left:0; right:0; bottom:0; z-index:10;">
+            <div style="position:absolute; left:0; right:84px; bottom:0; z-index:10;">
               <x-import component-from-global-scope="DesignSystem_c71fad.BottomSheet" dc-props="{{ duoSheet }}" hint-size="100%,380px" subtitle="3 changes staged · nothing published" title="Close the editor?">
                 <p style="font-size:var(--fs-body-sm); line-height:1.5; color:var(--text-secondary); margin:0 0 16px; text-wrap:pretty;">Keep them as a draft and pick up where you left off — the pencil on the map shows what's pending. Drafts stay on this phone until you publish or discard them.</p>
                 <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Keep as draft</x-import>
@@ -577,6 +576,7 @@
                 <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="ghost">Cancel</x-import>
               </x-import>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Close editor" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M18 6 6 18"></path><path d="M6 6l12 12"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -619,12 +619,12 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">Once per changeset · comment &amp; source → 19</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="18 Changeset details" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="18 Changeset details" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Changeset details</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">3 changes</span>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px; display:flex; flex-direction:column; gap:18px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px 100px 16px 16px; display:flex; flex-direction:column; gap:18px;">
               <div>
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:8px;">Comment</div>
                 <div style="min-height:84px; padding:12px 14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-sm); font-size:var(--fs-body-sm); color:var(--text-primary); line-height:1.5;">Added 2 ALPR cameras at Market St &amp; 5th St; removed the Valencia &amp; 24th reader — pole is bare. Surveyed on foot, Oct 2026.</div>
@@ -647,7 +647,7 @@
                 <span style="font-size:var(--fs-body-sm); color:var(--text-primary);"><b>2 nodes</b> added and <b>1</b> deleted on OpenStreetMap.</span>
               </div>
             </div>
-            <div style="padding:12px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="padding:12px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Next: review &amp; publish</x-import>
             </div>
             <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Back" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="m15 18-6-6 6-6"></path></svg></x-import></div>
@@ -662,12 +662,12 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">The full diff · tap Publish → 20</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="19 Review and publish" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="19 Review and publish" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Review &amp; publish</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand); background:var(--brand-soft); border:1px solid transparent; padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">3 changes</span>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px; display:flex; flex-direction:column; gap:16px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:16px 100px 16px 16px; display:flex; flex-direction:column; gap:16px;">
               <div style="padding:14px; background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md);">
                 <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-tertiary); margin-bottom:6px;">Comment</div>
                 <div style="font-family:var(--font-display); font-size:var(--fs-body-lg); font-weight:var(--fw-medium); line-height:1.35; color:var(--text-primary); text-wrap:pretty;">Added 2 ALPR cameras at Market St &amp; 5th St; removed the Valencia &amp; 24th reader — pole is bare.</div>
@@ -696,7 +696,7 @@
                 <span style="font-size:var(--fs-caption); color:var(--text-secondary); line-height:1.5;">Edits are public and credited to <b style="color:var(--text-primary);">@daf_mapper</b>. Map only what you can verify.</span>
               </div>
             </div>
-            <div style="padding:12px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="padding:12px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" leading-icon="{{ uploadIcon }}" size="lg" variant="primary">Publish to OpenStreetMap</x-import>
               <div style="height:10px;"></div>
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,46px" size="md" variant="ghost">Save as draft</x-import>
@@ -713,8 +713,8 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">Status only · Done returns to the map</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="20 Published" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px 24px 24px; text-align:center;">
+          <div data-screen-label="20 Published" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; display:flex; flex-direction:column; align-items:center; justify-content:center; padding:14px 108px 24px 24px; text-align:center;">
               <span style="width:72px; height:72px; border-radius:var(--radius-pill); background:var(--brand-soft); color:var(--text-brand); display:inline-flex; align-items:center; justify-content:center; margin-bottom:18px;"><svg fill="none" height="34" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2.4" style="display:block;" viewBox="0 0 24 24" width="34"><path d="M20 6 9 17l-5-5"></path></svg></span>
               <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-h3); letter-spacing:var(--ls-heading); line-height:var(--lh-h3);">Changeset published</div>
               <div style="font-family:var(--font-mono); font-size:var(--fs-caption); color:var(--text-brand); margin-top:6px;">changeset/171,224,908</div>
@@ -738,7 +738,7 @@
               </div>
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:14px 0 0;">Live on OpenStreetMap. Explore and the Hotlist pick it up within minutes.</p>
             </div>
-            <div style="padding:12px 16px 18px; border-top:1px solid var(--border); background:var(--surface-card);">
+            <div style="padding:12px 100px 18px 16px; border-top:1px solid var(--border); background:var(--surface-card);">
               <x-import component-from-global-scope="DesignSystem_c71fad.Button" full-width="{{ true }}" hint-size="100%,52px" size="lg" variant="primary">Done</x-import>
             </div>
           </div>
@@ -757,12 +757,12 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">Where every publish lands — yours on top</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="21 Hotlist" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 16px 14px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="21 Hotlist" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 100px 14px 16px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <div style="display:flex; align-items:flex-start; justify-content:space-between; gap:10px; margin-bottom:14px;">
                 <div style="min-width:0;">
                   <div style="font-size:var(--fs-label); letter-spacing:var(--ls-label); text-transform:uppercase; color:var(--text-brand); font-weight:var(--fw-bold); margin-bottom:4px;">Hotlist</div>
-                  <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading); line-height:1.1;">Recently added</div>
+                  <div style="font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading); line-height:1.1; white-space:nowrap;">Recently added</div>
                 </div>
                 <span style="display:inline-flex; align-items:center; gap:7px; flex:0 0 auto; background:var(--surface-card-alt); border:1px solid var(--border); border-radius:var(--radius-pill); padding:6px 11px; margin-top:2px;">
                   <span style="width:6px; height:6px; border-radius:50%; background:var(--text-brand); flex:0 0 auto;"></span>
@@ -771,7 +771,7 @@
               </div>
               <x-import component-from-global-scope="DesignSystem_c71fad.SegmentedControl" hint-size="100%,40px" onChange="{{ setHotWin }}" options="{{ hotWinOptions }}" style="width:100%;" tone="light" value="{{ hotWin }}"></x-import>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding-right:84px;">
               <div style="display:grid; grid-template-columns:1fr 1fr; gap:10px; padding:14px 16px 6px;">
                 <sc-for as="s" hint-placeholder-count="2" list="{{ hotStats }}">
                   <div style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); padding:12px 14px;">
@@ -807,6 +807,7 @@
                 <span style="font-size:var(--fs-caption);">Data from OpenStreetMap contributors</span>
               </div>
             </div>
+            <div data-duo-rail="" style="position:absolute; right:0; top:140px; width:84px; z-index:10; display:flex; flex-direction:column; align-items:center; gap:10px;"><x-import component-from-global-scope="DesignSystem_c71fad.IconButton" hint-size="44px,44px" label="Menu" size="md" variant="glass"><svg fill="none" height="20" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" style="display:block;" viewBox="0 0 24 24" width="20"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></x-import></div>
           </div>
         <div aria-hidden="true" style="position:absolute; top:0; right:0; width:84px; height:140px; z-index:55; pointer-events:none; display:flex; flex-direction:column; align-items:center; font-family:-apple-system, system-ui, sans-serif;"><span style="display:block; width:22px; height:66px; border-radius:11px; background:#000; margin-top:12px;"></span><span style="margin-top:10px; font-size:13px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1;">9:41</span><span style="margin-top:6px; display:inline-flex; align-items:center; gap:4px;"><svg fill="currentColor" height="9" style="display:block;" viewBox="0 0 19 12" width="13"><rect height="4.5" rx="0.7" width="3.2" x="0" y="7.5"></rect><rect height="7" rx="0.7" width="3.2" x="4.8" y="5"></rect><rect height="9.5" rx="0.7" width="3.2" x="9.6" y="2.5"></rect><rect height="12" rx="0.7" width="3.2" x="14.4" y="0"></rect></svg><svg height="10" style="display:block;" viewBox="0 0 27 13" width="20"><rect fill="none" height="12" rx="3.5" stroke="currentColor" stroke-opacity="0.35" width="23" x="0.5" y="0.5"></rect><rect fill="currentColor" height="9" rx="2" width="20" x="2" y="2"></rect><path d="M25 4.5V8.5C25.8 8.2 26.5 7.2 26.5 6.5C26.5 5.8 25.8 4.8 25 4.5Z" fill="currentColor" fill-opacity="0.4"></path></svg></span></div><div aria-hidden="true" style="position:absolute; left:50%; bottom:8px; transform:translateX(-50%); width:120px; height:5px; border-radius:3px; background:currentColor; opacity:0.3; z-index:60; pointer-events:none;"></div></div></div>
       </div>
@@ -824,16 +825,16 @@
           <div style="font-family:var(--font-mono); font-size:11px; letter-spacing:0.04em; color:var(--text-tertiary); margin-top:4px; max-width:390px; text-wrap:pretty;">From 11's account card · Edit tags → 13 · Delete → 16</div>
         </div>
 <div style="position:relative; flex:0 0 auto; width:486px; height:698px; padding:10px; border-radius:40px; background:#0b0d10; box-shadow:0 30px 80px rgba(0,0,0,0.22), 0 0 0 1px rgba(0,0,0,0.16);"><div style="position:relative; width:466px; height:678px; border-radius:30px; overflow:hidden; background:var(--surface-page); color:var(--text-primary); font-family:var(--font-ui);">
-          <div data-screen-label="22 Your edits" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui); padding-right:84px;">
-            <div style="padding:14px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
+          <div data-screen-label="22 Your edits" style="position:relative; width:100%; height:100%; background:var(--surface-page); display:flex; flex-direction:column; font-family:var(--font-ui);">
+            <div style="padding:14px 96px 12px 12px; display:flex; align-items:center; gap:6px; background:var(--surface-card); border-bottom:1px solid var(--border);">
               <span style="flex:1; min-width:0; font-family:var(--font-display); font-weight:700; font-size:var(--fs-title); letter-spacing:var(--ls-heading);">Your edits</span>
               <span style="display:inline-flex; align-items:center; flex:0 0 auto; font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-secondary); background:var(--surface-card-alt); border:1px solid var(--border); padding:4px 9px; border-radius:var(--radius-pill); white-space:nowrap;">5 live</span>
             </div>
-            <div style="display:flex; align-items:center; gap:8px; padding:9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
+            <div style="display:flex; align-items:center; gap:8px; padding:9px 100px 9px 16px; background:var(--surface-card-alt); border-bottom:1px solid var(--border);">
               <span style="font-family:var(--font-mono); font-size:11px; font-weight:600; letter-spacing:0.04em; color:var(--text-brand);">@daf_mapper</span>
               <span style="font-family:var(--font-mono); font-size:11px; color:var(--text-tertiary); margin-left:auto;">6 changes · 3 changesets</span>
             </div>
-            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 16px;">
+            <div style="flex:1; min-height:0; overflow-x:hidden; overflow-y:auto; scrollbar-width:none; padding:14px 100px 14px 16px;">
               <p style="font-size:var(--fs-caption); color:var(--text-tertiary); margin:0 0 16px;">Open a camera's ⋯ menu to edit or delete it in a new changeset.</p>
               <sc-for as="cs" hint-placeholder-count="3" list="{{ changesets }}">
                 <section style="background:var(--surface-card); border:1px solid var(--border); border-radius:var(--radius-md); overflow:hidden; margin-bottom:16px;">
@@ -899,7 +900,7 @@ class Component extends DCLogic {
   setTheme(t) { try { sessionStorage.setItem('daf-gallery-theme', t); } catch (_) {} this.setState({ themeOverride: t }); }
   componentDidMount() { try { const t = sessionStorage.getItem('daf-gallery-theme'); if (t && t !== (this.props.theme ?? 'light')) this.setState({ themeOverride: t }); } catch (_) {} if (super.componentDidMount) super.componentDidMount(); }
   state = { themeOverride: null, openMenu: 'node/12100882' };
-  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { paddingRight: 'calc(var(--space-4) + 84px)', maxHeight: 568, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
+  renderVals() { return { ...this.renderValsBase(), duoSheet: { style: { maxHeight: 447, overflowX: 'hidden', overflowY: 'auto', scrollbarWidth: 'none' } } }; }
   renderValsBase() {
     const R = React.createElement;
     const svg = (w, kids) => R('svg', { width: w, height: w, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 2, strokeLinecap: 'round', strokeLinejoin: 'round', style: { display: 'block' } }, kids);

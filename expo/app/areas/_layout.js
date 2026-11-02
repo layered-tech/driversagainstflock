@@ -1,4 +1,9 @@
+import {
+    PersistentMapScene,
+    usePersistentMapEnabled,
+} from '../../components/map/persistent-map-host';
 import { Stack } from 'expo-router/stack';
+import { DuoPaneScreen } from '../../components/root/duo-pane-screen';
 import { useFonts } from 'expo-font';
 import { ActivityIndicator, useColorScheme, View } from 'react-native';
 import { getDafTheme } from '../../components/design-system/tokens';
@@ -14,18 +19,46 @@ const AREA_FONTS = {
     'JetBrainsMono-Bold': require('../../assets/fonts/JetBrainsMono-Bold.ttf'),
 };
 
+function screenLayout({ children, route }) {
+    return (
+        <PersistentMapScene>
+            {['index', '[areaId]/index', '[areaId]/alerts'].includes(
+                route.name,
+            ) ? (
+                <DuoPaneScreen>{children}</DuoPaneScreen>
+            ) : (
+                children
+            )}
+        </PersistentMapScene>
+    );
+}
+
 export default function AreasLayout() {
+    const persistentMap = usePersistentMapEnabled();
     const theme = getDafTheme(useColorScheme());
     const [fontsLoaded, fontError] = useFonts(AREA_FONTS);
     return (
-        <View className="flex-1 bg-daf-surface-page dark:bg-daf-surface-inverse">
+        <View
+            pointerEvents={persistentMap ? 'box-none' : 'auto'}
+            className={
+                persistentMap
+                    ? 'flex-1'
+                    : 'flex-1 bg-daf-surface-page dark:bg-daf-surface-inverse'
+            }
+        >
             {!fontsLoaded && !fontError ? (
                 <ActivityIndicator className="flex-1" color="#1FBF6B" />
             ) : (
                 <Stack
+                    screenLayout={screenLayout}
                     screenOptions={{
                         headerShown: false,
-                        contentStyle: { backgroundColor: theme.surface.page },
+                        contentStyle: {
+                            pointerEvents: persistentMap ? 'box-none' : 'auto',
+                            backgroundColor: persistentMap
+                                ? 'transparent'
+                                : theme.surface.page,
+                        },
                     }}
                 />
             )}

@@ -1,3 +1,4 @@
+import { FullWidthSafeAreaBand } from '../root/native-navigation';
 import { useState } from 'react';
 import {
     KeyboardAvoidingView,
@@ -38,7 +39,10 @@ export function FaqScreen() {
             testID="faq-screen"
         >
             <InformationHeader answerCount={faqItems.length} title="FAQ" />
-            <View className="border-b border-daf-border bg-white px-4 py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark">
+            <FullWidthSafeAreaBand
+                gutter={16}
+                className="border-b border-daf-border bg-white py-3 dark:border-daf-border-dark dark:bg-daf-surface-dark"
+            >
                 <View className="h-[46px] flex-row items-center gap-2.5 rounded-dafPill border border-daf-border bg-daf-surface-alt px-4 dark:border-daf-border-dark dark:bg-daf-surface-inverse">
                     <Icon color="#828D9B" name="search" size={18} />
                     <TextInput
@@ -52,7 +56,7 @@ export function FaqScreen() {
                         value={searchQuery}
                     />
                 </View>
-            </View>
+            </FullWidthSafeAreaBand>
             <ScrollView keyboardShouldPersistTaps="handled">
                 <ScrollView
                     className="flex-grow-0"

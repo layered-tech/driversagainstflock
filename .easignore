@@ -1,5 +1,7 @@
 /.phpunit.cache
 /node_modules
+/expo/ios
+/expo/android
 /public/build
 /public/hot
 /public/storage

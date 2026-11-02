@@ -1,4 +1,5 @@
-import { Pressable, Text, View } from 'react-native';
+import { DuoText as Text } from '../design-system/duo-typography';
+import { Pressable, View } from 'react-native';
 import { Icon } from '../design-system/icon';
 import { formatSavedLocationDescription } from './saved-locations';
 

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
 import * as advancedSettings from '../advanced-route-settings.js';
+import * as responsiveMapLayout from '../responsive-map-layout.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -16,6 +17,17 @@ function loadModule(filename, mocks, globals = {}) {
         configFile: false,
         plugins: [[jsx, { runtime: 'automatic' }], commonjs],
     });
+    mocks = {
+        '../design-system/duo-typography': {
+            DuoText: 'Text',
+            DuoTextInput: 'TextInput',
+        },
+        '../root/native-navigation': {
+            NativeNavigationAction: ({ children }) => children,
+        },
+        './responsive-map-layout': responsiveMapLayout,
+        ...mocks,
+    };
     const module = { exports: {} };
     new Function('require', 'module', 'exports', ...Object.keys(globals), code)(
         (name) => {
@@ -35,7 +47,12 @@ function flatten(node) {
     return [node, ...children.flatMap(flatten)];
 }
 
-function createSheetHarness(avoidanceMode = 'directional', form = false) {
+function createSheetHarness(
+    avoidanceMode = 'directional',
+    form = false,
+    duo = false,
+    width = 982,
+) {
     const state = [];
     let cursor = 0;
     const applied = [];
@@ -60,6 +77,11 @@ function createSheetHarness(avoidanceMode = 'directional', form = false) {
     const element = (type, props) =>
         typeof type === 'function' ? type(props) : { type, props };
     const mocks = {
+        '../root/duo-device-context': { useDuoDevice: () => duo },
+        './duo-bottom-sheet-layout': {
+            getDuoPaneLayout: () =>
+                width >= 620 ? { width: 400, left: 36, right: 546 } : null,
+        },
         'react/jsx-runtime': { jsx: element, jsxs: element },
         react: {
             useEffect: () => {},
@@ -83,7 +105,7 @@ function createSheetHarness(avoidanceMode = 'directional', form = false) {
             Text: 'Text',
             View: 'View',
             ScrollView: 'ScrollView',
-            useWindowDimensions: () => ({ height: 844 }),
+            useWindowDimensions: () => ({ height: 844, width }),
         },
         '@gorhom/bottom-sheet': { BottomSheetScrollView: 'ScrollView' },
         '../design-system/icon': { Icon: 'Icon' },
@@ -112,6 +134,7 @@ function createSheetHarness(avoidanceMode = 'directional', form = false) {
         './native-components': {
             NativeWindBottomSheetModal: 'Modal',
             NativeWindBottomSheetView: 'View',
+            NativeWindBottomSheetScrollView: 'BottomSheetScrollView',
         },
         './route-option-card': { RouteOptionCard: 'RouteOptionCard' },
         './use-bottom-sheet-presented-state': {
@@ -127,6 +150,7 @@ function createSheetHarness(avoidanceMode = 'directional', form = false) {
         './directions-field': { DirectionsField: 'DirectionsField' },
         './layout-animations': {},
         './search-glass-shell': { SearchGlassShell: 'GlassShell' },
+        './duo-rail-icons': { getDuoRailIcon: () => undefined },
     };
     mocks['./advanced-route-settings-controls'] = loadModule(
         '../advanced-route-settings-controls.js',
@@ -148,8 +172,46 @@ function createSheetHarness(avoidanceMode = 'directional', form = false) {
             ? 'map-directions-map-advanced-settings-toggle'
             : 'directions-route-advanced-settings-toggle',
     ).onPress();
-    return { control, context, applied };
+    return { control, context, applied, render };
 }
+
+test('Duo directions keep one working submit button inside the scrollable form', () => {
+    for (const [duo, width] of [
+        [false, 466],
+        [true, 466],
+        [true, 982],
+    ]) {
+        const { render, context } = createSheetHarness(
+            'directional',
+            true,
+            duo,
+            width,
+        );
+        let submitted = 0;
+        context.directionsRouteCanSubmit = true;
+        context.handleDirectionsSubmit = () => submitted++;
+        const nodes = render();
+        const submitButtons = nodes.filter(
+            (node) => node.props.testID === 'map-directions-submit-button-map',
+        );
+        assert.equal(submitButtons.length, 1);
+        const form = nodes.find((node) => node.type === 'ScrollView');
+        assert.equal(
+            flatten(form).includes(submitButtons[0]),
+            duo && width >= 620,
+        );
+        submitButtons[0].props.onPress();
+        assert.equal(submitted, 1);
+        context.directionsRouteCanSubmit = false;
+        assert.equal(
+            render().find(
+                (node) =>
+                    node.props.testID === 'map-directions-submit-button-map',
+            ).props.disabled,
+            true,
+        );
+    }
+});
 
 test('renders accessible shape choices and applies circular mode with the other settings', () => {
     const { control, context, applied } = createSheetHarness();

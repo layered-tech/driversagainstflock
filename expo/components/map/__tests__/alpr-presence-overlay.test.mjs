@@ -25,6 +25,7 @@ const { code } = require('@babel/core').transformSync(
 let speedLimit = { speedLimitMph: 35 };
 const mocks = {
     'react-native': {
+        Platform: { OS: 'android' },
         View: 'View',
         Text: 'Text',
         ActivityIndicator: 'ActivityIndicator',
@@ -68,60 +69,63 @@ const flatten = (node) =>
         ? []
         : [node, ...[node.props?.children].flat(Infinity).flatMap(flatten)];
 
-test('confirmation hides road and speed status, preserves the puck anchor, then restores previous visibility', () => {
-    const onLocationAnchorLayout = () => {};
-    const props = {
-        freeDriveIsActive: true,
-        markerLoader: {},
-        presentation: { mapControlLayoutInsets: {} },
-        viewportMetrics: { cameraPadding: {} },
-        onLocationAnchorLayout,
-    };
-    for (const limit of [{ speedLimitMph: 35 }, null]) {
-        speedLimit = limit;
-        for (const confirmationIsActive of [false, true, false]) {
-            const nodes = flatten(
-                exports.AutoPlayMapStatusOverlay({
-                    ...props,
-                    confirmationIsActive,
-                }),
-            );
-            const stack = nodes.find(
-                (node) => node.type === 'DrivingLocationRoadStack',
-            );
-            assert.ok(stack, 'keep the puck anchor mounted');
-            assert.equal(
-                stack.props.onLocationAnchorLayout,
-                onLocationAnchorLayout,
-            );
-            assert.equal(
-                stack.props.currentRoadPillIsVisible,
-                !confirmationIsActive,
-            );
-            assert.equal(
-                nodes.some((node) => node.type === 'SpeedLimitSign'),
-                !confirmationIsActive,
-            );
+for (const platform of ['android', 'ios']) {
+    test(`${platform} confirmation hides road and speed status, preserves the puck anchor, then restores previous visibility`, () => {
+        mocks['react-native'].Platform.OS = platform;
+        const onLocationAnchorLayout = () => {};
+        const props = {
+            freeDriveIsActive: true,
+            markerLoader: {},
+            presentation: { mapControlLayoutInsets: {} },
+            viewportMetrics: { cameraPadding: {} },
+            onLocationAnchorLayout,
+        };
+        for (const limit of [{ speedLimitMph: 35 }, null]) {
+            speedLimit = limit;
+            for (const confirmationIsActive of [false, true, false]) {
+                const nodes = flatten(
+                    exports.AutoPlayMapStatusOverlay({
+                        ...props,
+                        confirmationIsActive,
+                    }),
+                );
+                const stack = nodes.find(
+                    (node) => node.type === 'DrivingLocationRoadStack',
+                );
+                assert.ok(stack, 'keep the puck anchor mounted');
+                assert.equal(
+                    stack.props.onLocationAnchorLayout,
+                    onLocationAnchorLayout,
+                );
+                assert.equal(
+                    stack.props.currentRoadPillIsVisible,
+                    !confirmationIsActive,
+                );
+                assert.equal(
+                    nodes.some((node) => node.type === 'SpeedLimitSign'),
+                    !confirmationIsActive,
+                );
+            }
         }
-    }
-    const hidden = flatten(
-        exports.AutoPlayMapStatusOverlay({
-            ...props,
-            confirmationIsActive: false,
-            rendersSpeedLimit: false,
-            statusChromeIsVisible: false,
-        }),
-    );
-    assert.equal(
-        hidden.find((node) => node.type === 'DrivingLocationRoadStack').props
-            .currentRoadPillIsVisible,
-        false,
-    );
-    assert.equal(
-        hidden.some((node) => node.type === 'SpeedLimitSign'),
-        false,
-    );
-});
+        const hidden = flatten(
+            exports.AutoPlayMapStatusOverlay({
+                ...props,
+                confirmationIsActive: false,
+                rendersSpeedLimit: false,
+                statusChromeIsVisible: false,
+            }),
+        );
+        assert.equal(
+            hidden.find((node) => node.type === 'DrivingLocationRoadStack')
+                .props.currentRoadPillIsVisible,
+            false,
+        );
+        assert.equal(
+            hidden.some((node) => node.type === 'SpeedLimitSign'),
+            false,
+        );
+    });
+}
 
 test('confirmation highlight pulses on a schedule only while a node is shown', (t) => {
     t.mock.timers.enable({ apis: ['setInterval'] });

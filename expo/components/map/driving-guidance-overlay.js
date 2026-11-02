@@ -1,6 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useColorScheme, useWindowDimensions, View } from 'react-native';
+import {
+    Platform,
+    useColorScheme,
+    useWindowDimensions,
+    View,
+} from 'react-native';
 import { useSafeAreaInsets } from '../../lib/safe-area-insets';
+import { useDuoDevice } from '../root/duo-device-context';
+import { getDuoPaneLayout } from './duo-bottom-sheet-layout';
+import { getTabletPaneLayout } from './responsive-map-layout';
 import { logMapDrivingStopped } from './analytics';
 import {
     createDirectionsRouteProgressTracker,
@@ -91,6 +99,7 @@ export function DrivingGuidanceOverlay({
     navigationPuckSize,
     onLocationAnchorLayout,
     onRouteExport,
+    onResumeGuidance,
     onStepFocus,
     routeExportIsAvailable,
     topOverlay = null,
@@ -109,7 +118,11 @@ export function DrivingGuidanceOverlay({
     }, [cameraIsFollowingUser]);
     const insets = useSafeAreaInsets();
     const stepsSheetRef = useRef(null);
-    const { height: windowHeight } = useWindowDimensions();
+    const { height: windowHeight, width } = useWindowDimensions();
+    const duo = useDuoDevice();
+    const tabletPane = Platform?.isPad && getTabletPaneLayout(width, insets);
+    const pane = tabletPane || (duo && getDuoPaneLayout(width, insets));
+    const paneTop = insets.top + (tabletPane ? 32 : 14);
     const [containerHeight, setContainerHeight] = useState(windowHeight);
     const [collapsedHeight, setCollapsedHeight] = useState(156 + insets.bottom);
     const [guidanceHeight, setGuidanceHeight] = useState(88);
@@ -132,9 +145,14 @@ export function DrivingGuidanceOverlay({
             const didFocus = onStepFocus(coordinate, {
                 heading: getDirectionsStepHeading(directionsRoute, stepIndex),
                 padding: {
-                    paddingTop: insets.top + guidanceHeight + 12,
-                    paddingBottom: collapsedHeight + 12,
-                    paddingLeft: insets.left + 12,
+                    paddingTop:
+                        insets.top + (pane ? 14 : 0) + guidanceHeight + 12,
+                    paddingBottom: pane
+                        ? insets.bottom + 12
+                        : collapsedHeight + 12,
+                    paddingLeft: pane
+                        ? pane.left + pane.width + 24
+                        : insets.left + 12,
                     paddingRight: insets.right + 12,
                 },
             });
@@ -151,6 +169,9 @@ export function DrivingGuidanceOverlay({
             insets.top,
             insets.left,
             insets.right,
+            insets.bottom,
+            pane?.left,
+            pane?.width,
             onStepFocus,
         ],
     );
@@ -240,11 +261,19 @@ export function DrivingGuidanceOverlay({
         >
             <NativeWindSafeAreaView
                 className="absolute inset-0"
-                edges={['top', 'right', 'left']}
+                edges={pane ? ['right'] : ['top', 'right', 'left']}
+                style={
+                    pane
+                        ? {
+                              left: pane.left + pane.width + 12,
+                              top: paneTop,
+                          }
+                        : undefined
+                }
                 pointerEvents="box-none"
             >
                 <View
-                    className="px-3 pt-3"
+                    className={pane ? 'px-3' : 'px-3 pt-3'}
                     onLayout={(event) =>
                         setGuidanceHeight(event.nativeEvent.layout.height)
                     }
@@ -338,13 +367,21 @@ export function DrivingGuidanceOverlay({
                 <View
                     pointerEvents="none"
                     style={{
-                        height: routeIsActive ? collapsedHeight : insets.bottom,
+                        height:
+                            routeIsActive && !pane
+                                ? collapsedHeight
+                                : insets.bottom,
                     }}
                 />
             </NativeWindSafeAreaView>
             {routeIsActive ? (
                 <DrivingStepsSheet
-                    bottomInset={insets.bottom}
+                    bottomInset={pane ? 0 : insets.bottom}
+                    pane={pane}
+                    paneTop={paneTop}
+                    paneMaxHeight={
+                        containerHeight - paneTop - Math.max(insets.bottom, 14)
+                    }
                     bottomSheetRef={stepsSheetRef}
                     collapsedHeight={collapsedHeight}
                     containerHeight={containerHeight}
@@ -352,6 +389,14 @@ export function DrivingGuidanceOverlay({
                     maneuver={maneuver}
                     onCollapsedHeightChange={setCollapsedHeight}
                     onCancelRoute={handleCancelRoute}
+                    onResumeGuidance={
+                        (duo || tabletPane) && focusedStep
+                            ? () => {
+                                  setFocusedStepIndex(null);
+                                  onResumeGuidance?.();
+                              }
+                            : undefined
+                    }
                     onExportRoute={onRouteExport}
                     onStepFocus={handleStepFocus}
                     routeExportIsAvailable={routeExportIsAvailable}

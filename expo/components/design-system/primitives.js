@@ -1,10 +1,5 @@
-import {
-    ActivityIndicator,
-    Pressable,
-    Text,
-    TextInput,
-    View,
-} from 'react-native';
+import { DuoText as Text, DuoTextInput as TextInput } from './duo-typography';
+import { ActivityIndicator, Pressable, View } from 'react-native';
 import { Icon } from './icon';
 import { dafColors, dafSemanticColors } from './tokens';
 
@@ -16,19 +11,19 @@ const TONE_COLORS = {
         text: 'text-daf-alert',
     },
     amber: {
-        background: 'bg-daf-amber/12 dark:bg-daf-amber/15',
+        background: 'bg-daf-amber/[0.12] dark:bg-daf-amber/15',
         border: 'border-daf-amber/35',
         icon: dafSemanticColors.warning,
         text: 'text-amber-700 dark:text-daf-amber',
     },
     azure: {
-        background: 'bg-daf-azure/12 dark:bg-daf-azure/15',
+        background: 'bg-daf-azure/[0.12] dark:bg-daf-azure/15',
         border: 'border-daf-azure/35',
         icon: dafSemanticColors.routeFast,
         text: 'text-daf-azure',
     },
     brand: {
-        background: 'bg-daf-brand/12 dark:bg-daf-brand/15',
+        background: 'bg-daf-brand/[0.12] dark:bg-daf-brand/15',
         border: 'border-daf-brand/35',
         icon: dafSemanticColors.brand,
         text: 'text-daf-text-brand dark:text-daf-brand',
@@ -40,7 +35,7 @@ const TONE_COLORS = {
         text: 'text-daf-text-secondary dark:text-neutral-200',
     },
     violet: {
-        background: 'bg-daf-violet/12 dark:bg-daf-violet/15',
+        background: 'bg-daf-violet/[0.12] dark:bg-daf-violet/15',
         border: 'border-daf-violet/35',
         icon: dafSemanticColors.markerDestination,
         text: 'text-daf-violet',
@@ -188,6 +183,7 @@ export function DafChip({
     selected = false,
     testID,
     tone = 'neutral',
+    textClassName = '',
 }) {
     const colors = TONE_COLORS[tone] ?? TONE_COLORS.neutral;
     const Component = onPress ? Pressable : View;
@@ -212,7 +208,7 @@ export function DafChip({
         >
             {icon ? <Icon color={colors.icon} name={icon} size={14} /> : null}
             <Text
-                className={`text-[13px] font-semibold ${selected ? colors.text : 'text-daf-text-primary dark:text-white'}`}
+                className={`text-[13px] font-semibold ${selected ? colors.text : 'text-daf-text-primary dark:text-white'} ${textClassName}`}
                 numberOfLines={1}
             >
                 {children}

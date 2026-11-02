@@ -108,6 +108,7 @@ import {
 } from './map-marker-views';
 import { recordMapPerformanceSignpost } from './map-performance-signposts';
 import {
+    MapCanvasContextBridge,
     useMapCanvasContext,
     useMapLocationContext,
     usePlaceSheetContext,
@@ -152,9 +153,8 @@ function MapLocationProvider({
     mapViewRef,
     onNativeProviderStatusChange,
     usesSharedLocationProvider,
+    userLocation,
 }) {
-    const { userLocation } = useMapLocationContext();
-
     return (
         <DrivingLocationProvider
             attachmentKey={attachmentKey}
@@ -493,8 +493,11 @@ export function renderMarkerPointLayers({
 
 export const MapCanvas = memo(function MapCanvas({
     children,
+    onLayout,
     weatherEffectsEnabled = true,
 } = {}) {
+    const { userLocation } = useMapLocationContext();
+    const canvasContext = useMapCanvasContext();
     const {
         handleCameraChanged,
         handleMapLoaded,
@@ -541,7 +544,7 @@ export const MapCanvas = memo(function MapCanvas({
         submittedSearchResults,
         userLocationPuckVisible = true,
         usesSharedLocationProvider = false,
-    } = useMapCanvasContext();
+    } = canvasContext;
     const systemColorScheme = useColorScheme();
     const {
         directionsWaypointMarkers,
@@ -1134,6 +1137,9 @@ export const MapCanvas = memo(function MapCanvas({
 
     return (
         <NativeWindMapView
+            persistentBase
+            persistent={navigationPuckVariant !== 'auto-play'}
+            onLayout={onLayout}
             attributionEnabled={mapboxBrandingIsVisible}
             attributionPosition={mapboxAttributionPosition}
             className="flex-1"
@@ -1176,6 +1182,7 @@ export const MapCanvas = memo(function MapCanvas({
             {locationAccessGranted &&
             (isDrivingMode || usesSharedLocationProvider) ? (
                 <MapLocationProvider
+                    userLocation={userLocation}
                     attachmentKey={locationPuckMapLoadEpoch}
                     isDrivingMode={isDrivingMode}
                     mapViewRef={mapViewRef}
@@ -1796,7 +1803,11 @@ export const MapCanvas = memo(function MapCanvas({
                     </Pressable>
                 </Mapbox.MarkerView>
             ) : null}
-            {contributePlacementIsActive ? <ContributeDraftPinMarkers /> : null}
+            <MapCanvasContextBridge value={canvasContext}>
+                {contributePlacementIsActive ? (
+                    <ContributeDraftPinMarkers />
+                ) : null}
+            </MapCanvasContextBridge>
             {children}
         </NativeWindMapView>
     );

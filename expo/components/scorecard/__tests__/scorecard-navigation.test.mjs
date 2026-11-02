@@ -99,3 +99,14 @@ describe('scorecard navigation', () => {
         );
     });
 });
+
+test('operator toggle shares a full-width safe-area band with the timeline header', () => {
+    const source = readFileSync(
+        new URL('../scorecard-timeline-screen.js', import.meta.url),
+        'utf8',
+    );
+    assert.match(
+        source,
+        /<FullWidthSafeAreaBand\s+gutter=\{16\}\s+testID="scorecard-operator-header"/,
+    );
+});

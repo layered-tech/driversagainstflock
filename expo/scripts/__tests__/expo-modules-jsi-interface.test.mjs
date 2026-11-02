@@ -11,7 +11,7 @@ const buildScript = readFileSync(
     'utf8',
 );
 const cleanupExpression = buildScript.match(
-    /sed '([^']+)' "\$swiftinterface"/,
+    /sed(?: -E)? '([^']+)' "\$swiftinterface"/,
 )[1];
 
 for (const namespace of [
@@ -22,7 +22,7 @@ for (const namespace of [
         const publicDeclaration =
             'public struct ScriptEvaluationError : Swift.Error {}\n';
         const input = `${publicDeclaration}extension ${namespace} : Swift.Error {\n  public var message: Swift.String {\n    get\n  }\n}\n${publicDeclaration}`;
-        const result = execFileSync('sed', [cleanupExpression], {
+        const result = execFileSync('sed', ['-E', cleanupExpression], {
             input,
             encoding: 'utf8',
         });
