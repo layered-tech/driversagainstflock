@@ -39,6 +39,9 @@ function configureWatchProject(project, options = {}) {
                 settings.DAF_APP_GROUP = quote(group);
                 settings.MARKETING_VERSION = quote(options.version ?? '2.9.4');
                 settings.CURRENT_PROJECT_VERSION = quote(options.buildNumber ?? '1');
+                if (unquote(target.name) === APP_TARGET) {
+                    settings.ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR = 'all';
+                }
                 if (options.team) settings.DEVELOPMENT_TEAM = quote(options.team);
             }
         }
@@ -92,7 +95,10 @@ function configureWatchProject(project, options = {}) {
                 ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS: 'NO',
             };
             if (isWidget) settings.APPLICATION_EXTENSION_API_ONLY = 'YES';
-            else settings.ASSETCATALOG_COMPILER_APPICON_NAME = 'AppIcon';
+            else {
+                settings.ASSETCATALOG_COMPILER_APPICON_NAME = 'AppIcon';
+                settings.ASSETCATALOG_COMPILER_STANDALONE_ICON_BEHAVIOR = 'all';
+            }
             if (options.phoneTargetId) {
                 settings.DAF_PHONE_BUNDLE_IDENTIFIER = quote(phoneBundle);
                 settings.DAF_APP_GROUP = quote(group);
