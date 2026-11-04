@@ -92,3 +92,42 @@ test('production keeps its existing icon artwork', () => {
         monochromeImage: './assets/images/logos/android-icon-monochrome.png',
     });
 });
+
+test('Apple Watch app icons have no alpha channel or PNG transparency', () => {
+    const iconDirectory = resolve(
+        expoDirectory,
+        '../watch-os/WatchApp/Resources/Assets.xcassets/AppIcon.appiconset',
+    );
+    const catalog = JSON.parse(
+        readFileSync(resolve(iconDirectory, 'Contents.json'), 'utf8'),
+    );
+
+    for (const { filename, size, scale = '1x' } of catalog.images) {
+        const contents = readFileSync(resolve(iconDirectory, filename));
+        const [width, height] = size.split('x').map(Number);
+        const multiplier = Number.parseFloat(scale);
+
+        assert.deepEqual(
+            contents.subarray(0, 8),
+            Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]),
+        );
+        assert.equal(contents.readUInt32BE(16), width * multiplier, filename);
+        assert.equal(contents.readUInt32BE(20), height * multiplier, filename);
+        assert.ok(
+            [0, 2, 3].includes(contents[25]),
+            `${filename} must not contain an alpha channel`,
+        );
+
+        for (let offset = 8; offset < contents.length;) {
+            const length = contents.readUInt32BE(offset);
+            const type = contents.subarray(offset + 4, offset + 8).toString();
+
+            assert.notEqual(
+                type,
+                'tRNS',
+                `${filename} must not contain PNG transparency`,
+            );
+            offset += length + 12;
+        }
+    }
+});

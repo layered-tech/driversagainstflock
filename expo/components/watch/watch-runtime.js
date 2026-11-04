@@ -66,7 +66,7 @@ let initialized = false;
 export function initializeWatchRuntime() {
     if (
         initialized ||
-        Platform.OS !== 'android' ||
+        !['android', 'ios'].includes(Platform.OS) ||
         !watchEnvironmentIsSupported(APP_ENVIRONMENT)
     )
         return;

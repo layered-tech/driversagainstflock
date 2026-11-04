@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleDisplayName</key><string>DAF</string>
+    <key>CFBundleExecutable</key><string>$(EXECUTABLE_NAME)</string>
+    <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleIconName</key><string>$(ASSETCATALOG_COMPILER_APPICON_NAME)</string>
+    <key>CFBundleIconFiles</key><array>
+        <string>AppIcon40x40</string><string>AppIcon44x44</string><string>AppIcon46x46</string>
+        <string>AppIcon50x50</string><string>AppIcon51x51</string><string>AppIcon54x54</string>
+    </array>
+    <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>$(MARKETING_VERSION)</string>
+    <key>CFBundleVersion</key><string>$(CURRENT_PROJECT_VERSION)</string>
+    <key>WKApplication</key><true/>
+    <key>WKCompanionAppBundleIdentifier</key><string>$(DAF_PHONE_BUNDLE_IDENTIFIER)</string>
+    <key>WKRunsIndependentlyOfCompanionApp</key><false/>
+    <key>DAFAppGroup</key><string>$(DAF_APP_GROUP)</string>
+    <key>ITSAppUsesNonExemptEncryption</key><false/>
+    <key>UIAppFonts</key><array><string>HankenGrotesk-SemiBold.ttf</string><string>JetBrainsMono-SemiBold.ttf</string></array>
+    <key>CFBundleURLTypes</key><array><dict><key>CFBundleURLSchemes</key><array><string>daf-watch</string></array></dict></array>
+</dict></plist>

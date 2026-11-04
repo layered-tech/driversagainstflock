@@ -24,7 +24,8 @@ import {
 import { refreshWatchAreas } from '../watch/watch-areas-runtime';
 
 const syncWatchAreas = (force = false) => {
-    if (Platform.OS === 'android') refreshWatchAreas({ force }).catch(() => {});
+    if (['android', 'ios'].includes(Platform.OS))
+        refreshWatchAreas({ force }).catch(() => {});
 };
 
 const AreasContext = createContext(null);
@@ -78,6 +79,7 @@ export function AreasProvider({ children }) {
                     setAreas(result.areas);
                     boundaryCache.replace(result.areas).catch(() => {});
                     setError(null);
+                    syncWatchAreas();
                     return result.areas;
                 })
                 .catch((failure) => {
