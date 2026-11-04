@@ -204,11 +204,31 @@ test('TV release uses the existing Play app ID and the TV form factor', () => {
         'utf8',
     );
     assert.match(gradle, /applicationId = "com\.anonymous\.drivefree"/);
-    assert.match(gradle, /debug \{ applicationIdSuffix = "\.dev" \}/);
+    assert.match(gradle, /debug\s*\{\s*applicationIdSuffix = "\.dev"/);
     assert.match(
         manifest,
         /android\.software\.leanback" android:required="true"/,
     );
+});
+
+test('TV launcher declares an icon and a full-size home screen banner', () => {
+    const resources = new URL(
+        '../../../android-tv/app/src/main/',
+        import.meta.url,
+    );
+    const manifest = readFileSync(
+        new URL('AndroidManifest.xml', resources),
+        'utf8',
+    );
+    assert.match(manifest, /android:icon="@drawable\/app_logo"/);
+    assert.match(manifest, /android:banner="@drawable\/tv_banner"/);
+    assert.match(manifest, /android.intent.category.LEANBACK_LAUNCHER/);
+    const banner = readFileSync(
+        new URL('res/drawable-xhdpi/tv_banner.png', resources),
+    );
+    assert.equal(banner.subarray(0, 8).toString('hex'), '89504e470d0a1a0a');
+    assert.equal(banner.readUInt32BE(16), 320);
+    assert.equal(banner.readUInt32BE(20), 180);
 });
 
 test('TV release signing accepts the phone upload key and defaults the version name', (t) => {

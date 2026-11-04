@@ -138,3 +138,82 @@ test('phone can clear its credential after unpairing from the TV', async () => {
     await client.unpair();
     assert.equal(cleared, true);
 });
+
+for (const failure of [
+    'TV identity changed. Scan its QR code again.',
+    'Connection refused',
+    'Request timed out',
+]) {
+    test(`phone unpairs when the TV request fails: ${failure}`, async () => {
+        let saved = { ...parseTvPairingUri(uri), token: 'old' };
+        let notified = false;
+        const client = createTvClient({
+            transport: {
+                async request() {
+                    assert.equal(saved, null);
+                    notified = true;
+                    throw new Error(failure);
+                },
+            },
+            credentials: {
+                async get() {
+                    return saved;
+                },
+                async clear() {
+                    saved = null;
+                },
+            },
+        });
+        await client.unpair();
+        assert.equal(saved, null);
+        assert.equal(notified, true);
+        assert.equal(await client.sync({}), false);
+        assert.deepEqual(await client.poll(), []);
+    });
+}
+
+test('phone unpairs without waiting for a TV response', async () => {
+    let cleared = false;
+    let complete;
+    const response = new Promise((resolve) => {
+        complete = resolve;
+    });
+    const client = createTvClient({
+        transport: { request: () => response },
+        credentials: {
+            async get() {
+                return { ...parseTvPairingUri(uri), token: 'old' };
+            },
+            async clear() {
+                cleared = true;
+            },
+        },
+    });
+    try {
+        const result = await Promise.race([
+            client.unpair().then(() => 'unpaired'),
+            new Promise((resolve) => setTimeout(() => resolve('blocked'), 100)),
+        ]);
+        assert.equal(result, 'unpaired');
+        assert.equal(cleared, true);
+    } finally {
+        complete(JSON.stringify({ ok: true, protocolVersion: 1 }));
+    }
+});
+
+test('phone reports storage failures instead of claiming to unpair', async () => {
+    const client = createTvClient({
+        transport: {
+            request: () => assert.fail('TV notified before local clear'),
+        },
+        credentials: {
+            async get() {
+                return { ...parseTvPairingUri(uri), token: 'old' };
+            },
+            async clear() {
+                throw new Error('Storage unavailable');
+            },
+        },
+    });
+    await assert.rejects(client.unpair(), /Storage unavailable/);
+});

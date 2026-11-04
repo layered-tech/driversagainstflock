@@ -127,14 +127,13 @@ export function createTvClient({ transport, credentials, clock = Date.now }) {
         },
         async unpair() {
             const peer = await credentials.get();
-            if (peer) {
-                try {
-                    await send(peer, 'unpair', { token: peer.token });
-                } catch (error) {
-                    if (error.code !== 'not-paired') throw error;
-                }
-            }
             await credentials.clear();
+            if (peer) {
+                // Forget locally even when the TV is offline or its identity changed.
+                void send(peer, 'unpair', { token: peer.token }).catch(
+                    () => {},
+                );
+            }
         },
     };
 }
