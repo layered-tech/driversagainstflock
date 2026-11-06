@@ -213,6 +213,7 @@ module.exports = {
         ],
         './plugins/withMapboxImageScale',
         './plugins/withLocationChannelName',
+        './plugins/withAndroidLocationSpeed',
         [
             'expo-location',
             {

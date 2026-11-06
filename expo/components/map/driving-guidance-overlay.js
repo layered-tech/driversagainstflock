@@ -35,8 +35,8 @@ import {
     useSharedMapState,
 } from './shared-map-state';
 import {
-    getRouteCurrentSpeedMps,
     SpeedLimitSign,
+    useDisplayedCurrentSpeedMps,
     useRouteSpeedLimit,
 } from './speed-limit';
 import { MOBILE_SPEED_LIMIT_BADGE_SIZE } from './speed-limit-layout';
@@ -228,6 +228,10 @@ export function DrivingGuidanceOverlay({
         routeIsActive: true,
         userLocation,
     });
+    const currentSpeedMps = useDisplayedCurrentSpeedMps({
+        enabled: statusChromeIsVisible,
+        userLocation,
+    });
     const handleCancelRoute = useCallback(() => {
         cancelSharedNavigationRerouting();
         const searchResultRestore =
@@ -331,9 +335,7 @@ export function DrivingGuidanceOverlay({
                         testID="driving-speed-status"
                     >
                         <SpeedLimitSign
-                            currentSpeedMps={getRouteCurrentSpeedMps(
-                                userLocation,
-                            )}
+                            currentSpeedMps={currentSpeedMps}
                             currentSpeedPlacement="bottom-right"
                             currentSpeedVisible
                             isDarkMode={colorScheme === 'dark'}

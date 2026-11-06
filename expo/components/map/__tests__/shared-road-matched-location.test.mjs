@@ -44,8 +44,56 @@ function createHarness({ simulationIsActive = false } = {}) {
     return {
         ...load(new URL('../shared-road-matched-location.js', import.meta.url)),
         ...load(new URL('../shared-map-preferences-sync.js', import.meta.url)),
+        ...load(new URL('../geo.js', import.meta.url)),
+        ...load(new URL('../driving-motion-state.js', import.meta.url)),
     };
 }
+
+test('raw and road-matched fixes preserve unavailable speed instead of reporting a stop', () => {
+    for (const roadMatched of [false, true]) {
+        for (const missing of [undefined, null, -1]) {
+            const harness = createHarness();
+            const fix = position(1000);
+            fix.coords.speed = missing;
+            if (!roadMatched) delete fix.roadMatch;
+
+            assert.equal(harness.getLocationUpdate(fix).speed, undefined);
+            harness.publishSharedRoadMatchedLocation(fix);
+            assert.equal(harness.getSharedMapUserLocation().speed, undefined);
+        }
+    }
+});
+
+test('missing speed uses coordinate movement while genuine zero takes precedence', () => {
+    const harness = createHarness();
+    const previousLocation = {
+        latitude: 41,
+        longitude: -87,
+        recordedAt: 1000,
+        speed: 10,
+    };
+    const nextLocation = {
+        latitude: 41.0001,
+        longitude: -87,
+        recordedAt: 2000,
+    };
+    const resolve = (overrides) =>
+        harness.getDrivingMotionState({
+            previousLocation,
+            nextLocation: { ...nextLocation, ...overrides },
+            fallbackCourseHeading: 0,
+            locationCourseHeading: null,
+        });
+
+    const derived = resolve({ speed: undefined });
+    assert.ok(derived.speed > 10 && derived.speed < 12);
+    assert.equal(derived.isMoving, true);
+    assert.equal(resolve({ speed: 0 }).speed, 0);
+    assert.equal(resolve({ speed: 0 }).isMoving, false);
+    assert.equal(resolve({ latitude: 41.000001 }).speed, null);
+    assert.equal(resolve({ recordedAt: 7000 }).speed, null);
+    assert.equal(resolve({ recordedAt: 1000 }).speed, null);
+});
 
 test('the retained real GPS session cannot overwrite an auto-drive simulation', () => {
     const harness = createHarness({ simulationIsActive: true });

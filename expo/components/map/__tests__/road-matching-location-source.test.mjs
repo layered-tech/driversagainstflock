@@ -540,6 +540,47 @@ describe('road matching location source policy', () => {
 });
 
 describe('road matching location source integration', () => {
+    test('unmatched and matched session delivery retain a missing speed field', async () => {
+        const deliveredLocations = [];
+        const harness = createRoadMatchingSessionHarness({
+            createDirectedRoadGraph: createUsableRoadGraph,
+            createRoadMatcherWithHistory: createUpdatingRoadMatcher,
+            getRoadCorridor: async () => [{ id: 'way-1' }],
+        });
+        const listener =
+            harness.roadMatchingSession.addRoadMatchedLocationListener(
+                (location) => deliveredLocations.push(location),
+            );
+        const handle =
+            await harness.roadMatchingSession.retainRoadMatchingSessionAsync();
+        try {
+            await waitFor(
+                () => harness.foregroundLocationCallbacks.length === 1,
+            );
+            const fix = makeLocation(41, -87, 1000);
+            delete fix.coords.speed;
+            harness.foregroundLocationCallbacks[0](fix);
+            await waitFor(() =>
+                deliveredLocations.some(
+                    (location) =>
+                        location.locationProvider === 'in-house-road-matcher',
+                ),
+            );
+            assert.ok(
+                deliveredLocations.some(
+                    (location) =>
+                        location.locationProvider === 'expo-location-unmatched',
+                ),
+            );
+            for (const location of deliveredLocations) {
+                assert.equal(location.coords.speed, undefined);
+            }
+        } finally {
+            listener.remove();
+            handle.remove();
+        }
+    });
+
     test('a car runtime publishes fixes with no phone or root map subscriber', async () => {
         const sharedFixes = [];
         const harness = createRoadMatchingSessionHarness({

@@ -3,6 +3,8 @@ import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
 import { getNavigationPuckAnchorY } from '../navigation-puck-layout.js';
+import { createHookHarness } from './tour-test-helpers.mjs';
+import { loadSpeedDisplayModules } from './speed-display-test-helpers.mjs';
 
 const drivingGuidanceOverlaySource = readFileSync(
     new URL('../driving-guidance-overlay.js', import.meta.url),
@@ -184,12 +186,72 @@ function loadOverlay(overrides = {}) {
             useSharedMapLocationState: () => ({}),
         },
         './speed-limit': {
-            getRouteCurrentSpeedMps: () => 10,
+            useDisplayedCurrentSpeedMps: () => 10,
             useRouteSpeedLimit: () => 35,
             SpeedLimitSign: 'SpeedLimitSign',
         },
         './speed-limit-layout': { MOBILE_SPEED_LIMIT_BADGE_SIZE: 80 },
         ...overrides,
+    });
+}
+
+for (const withLimit of [true, false]) {
+    test(`phone retains only display speed and preserves badge visibility (limit: ${withLimit})`, (t) => {
+        t.mock.timers.enable({ apis: ['Date', 'setTimeout'], now: 10000 });
+        const hooks = createHookHarness();
+        t.after(() => hooks.cleanup());
+        const speedModule = loadSpeedDisplayModules(hooks.react);
+        let userLocation = {
+            recordedAt: 1000,
+            speed: 20,
+            roadMatch: { speedLimit: withLimit ? { speedLimitMph: 35 } : null },
+        };
+        const { DrivingGuidanceOverlay } = loadOverlay({
+            react: hooks.react,
+            './speed-limit': speedModule,
+            './shared-map-state': {
+                useSharedMapState: () => ({}),
+                useSharedMapLocationState: () => ({ userLocation }),
+            },
+        });
+        function render(props = {}) {
+            const tree = hooks.render(() => DrivingGuidanceOverlay(props));
+            const sign = nodes(tree).find(
+                (node) => node.type === speedModule.SpeedLimitSign,
+            );
+            const renderedSign = nodes(sign.type(sign.props));
+            return {
+                speed: sign.props.currentSpeedMps,
+                label: renderedSign.find(
+                    (node) =>
+                        node.props.testID ===
+                        'driving-speed-limit-sign-current-speed-value',
+                )?.props.children,
+            };
+        }
+
+        assert.deepEqual(render(), {
+            speed: 20,
+            label: withLimit ? 45 : undefined,
+        });
+        t.mock.timers.tick(500);
+        userLocation = { ...userLocation, speed: undefined, recordedAt: 2000 };
+        assert.deepEqual(render(), {
+            speed: 20,
+            label: withLimit ? 45 : undefined,
+        });
+        assert.equal(userLocation.speed, undefined);
+        t.mock.timers.tick(1500);
+        assert.deepEqual(render(), { speed: null, label: undefined });
+        userLocation = { ...userLocation, speed: 0, recordedAt: 3000 };
+        assert.deepEqual(render(), {
+            speed: 0,
+            label: withLimit ? 0 : undefined,
+        });
+        userLocation = { ...userLocation, speed: undefined, recordedAt: 4000 };
+        assert.equal(render().speed, 0);
+        assert.equal(render({ cameraIsFollowingUser: false }).speed, null);
+        assert.equal(render().speed, null);
     });
 }
 
