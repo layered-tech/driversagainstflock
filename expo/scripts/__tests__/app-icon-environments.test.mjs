@@ -102,6 +102,14 @@ test('Apple Watch app icons have no alpha channel or PNG transparency', () => {
         readFileSync(resolve(iconDirectory, 'Contents.json'), 'utf8'),
     );
 
+    const marketingIcon = catalog.images.find(
+        ({ idiom }) => idiom === 'watch-marketing',
+    );
+    assert.ok(marketingIcon, 'watch catalog must include an App Store icon');
+    assert.equal(marketingIcon.size, '1024x1024');
+    assert.equal(marketingIcon.scale, '1x');
+    assert.ok(marketingIcon.filename, 'App Store icon must reference a PNG');
+
     for (const { filename, size, scale = '1x' } of catalog.images) {
         const contents = readFileSync(resolve(iconDirectory, filename));
         const [width, height] = size.split('x').map(Number);
