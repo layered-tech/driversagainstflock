@@ -32,7 +32,6 @@ yarn-error.log
 /.ai/mcp
 /database/schema
 .ai/tmp
-/android-tv
 
 # Terraform runtime artifacts
 **/.terraform/*
