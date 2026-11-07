@@ -559,6 +559,39 @@ test('sparse portrait keys require aligned number keys and evidence from two let
     }
 });
 
+test('sparse fullscreen keyboard uses grouped number observations without guessing missing letters', () => {
+    const shot = {
+        height: 720,
+        textBounds: [
+            { text: '2 3', x: 429, y: 449 },
+            { text: '4', x: 532, y: 453 },
+            { text: '7', x: 743, y: 450 },
+            { text: 'W', x: 394, y: 509 },
+            { text: 'a', x: 359, y: 564 },
+            { text: 'Z', x: 393, y: 621 },
+            { text: 'm', x: 808, y: 620 },
+        ],
+    };
+    const hide = getAndroidAutoKeyboardDismissPoint(shot);
+    assert.ok(Math.abs(hide.x - 325) < 5);
+    assert.ok(Math.abs(hide.y - 675) < 10);
+    for (const textBounds of [
+        shot.textBounds.filter(({ text }) => text !== '2 3'),
+        shot.textBounds.map((point) =>
+            point.text === '2 3' ? { ...point, text: '3 2' } : point,
+        ),
+        shot.textBounds.map((point) =>
+            point.text === '2 3' ? { ...point, x: 600 } : point,
+        ),
+        shot.textBounds.filter(({ text }) => !['a', 'Z', 'm'].includes(text)),
+    ]) {
+        assert.throws(
+            () => getAndroidAutoKeyboardDismissPoint({ ...shot, textBounds }),
+            /not visible/,
+        );
+    }
+});
+
 test('state requests ignore stale Metro samples and return only post-request state', async () => {
     const runner = Object.create(Runner.prototype);
     runner.suite = { appId: 'test.app' };

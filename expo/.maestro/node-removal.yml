@@ -70,14 +70,27 @@ tags:
     id: 'contribute-keep-editing'
     retryTapIfNoChange: false
 - openLink: 'driversagainstflock://edits/1234567890'
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-camera-details-screen'
+    timeout: 10000
 - assertVisible:
     id: 'contribute-next-changeset-button'
 - tapOn:
     id: 'contribute-back-button'
     retryTapIfNoChange: false
+- extendedWaitUntil:
+    notVisible:
+      id: 'contribute-camera-details-screen'
+    timeout: 10000
+- waitForAnimationToEnd
 - tapOn:
     id: 'contribute-next-details-button'
     retryTapIfNoChange: false
+- extendedWaitUntil:
+    visible:
+      id: 'contribute-changeset-details-screen'
+    timeout: 10000
 - tapOn:
     id: 'contribute-comment-input'
 - inputText: 'Removed missing camera after survey'
