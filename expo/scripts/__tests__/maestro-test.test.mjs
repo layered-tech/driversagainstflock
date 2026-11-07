@@ -375,6 +375,33 @@ R58M offline
         );
     });
 
+    test('grants local network access after clearing Android app state', () => {
+        const runner = new MaestroTestRunner({ environment: {} });
+        runner.target = { platform: 'android', id: 'emulator-5554' };
+        runner.report = () => {};
+        const commands = [];
+        runner.adb = (args, options) => commands.push({ args, options });
+
+        runner.clearAppStateForBootstrap();
+
+        assert.deepEqual(commands, [
+            {
+                args: ['shell', 'pm', 'clear', runner.appId],
+                options: undefined,
+            },
+            {
+                args: [
+                    'shell',
+                    'pm',
+                    'grant',
+                    runner.appId,
+                    'android.permission.ACCESS_LOCAL_NETWORK',
+                ],
+                options: { allowFailure: true },
+            },
+        ]);
+    });
+
     test('collapses Android system UI before every flow attempt', () => {
         assert.deepEqual(createAndroidCollapseStatusBarArgs(), [
             'shell',
@@ -555,7 +582,7 @@ R58M offline
         for (const layer of ['standard-satellite', 'standard']) {
             assert.ok(
                 source.includes(
-                    `- scrollUntilVisible:\n    element:\n      id: 'map-layer-option-${layer}'\n    direction: DOWN\n    centerElement: true\n    timeout: 20000\n- tapOn:\n    id: 'map-layer-option-${layer}'`,
+                    `- scrollUntilVisible:\n    element:\n      id: 'map-layer-option-${layer}'\n    direction: DOWN\n    centerElement: true\n    timeout: 20000\n    waitToSettleTimeoutMs: 500\n- tapOn:\n    id: 'map-layer-option-${layer}'`,
                 ),
                 `${layer} must be fully visible before tapping`,
             );

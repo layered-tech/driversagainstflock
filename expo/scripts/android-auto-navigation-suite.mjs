@@ -641,15 +641,31 @@ export function getAndroidAutoKeyboardPoints(shot, query) {
     }
     if (top.length < 2) {
         const numbers = shot.textBounds
-            .filter(
-                ({ text, y }) => /^[0-9]$/.test(text) && y > shot.height * 0.4,
-            )
-            .map((point) => ({
-                ...point,
-                column: '1234567890'.indexOf(point.text),
-            }))
+            .flatMap((point) => {
+                if (point.y <= shot.height * 0.4) return [];
+                const digits = point.text.trim().split(/\s+/);
+                if (!digits.every((digit) => /^[0-9]$/.test(digit))) return [];
+                const columns = digits.map((digit) =>
+                    '1234567890'.indexOf(digit),
+                );
+                if (
+                    !columns.every(
+                        (column, index) =>
+                            index === 0 || column === columns[index - 1] + 1,
+                    )
+                )
+                    return [];
+                return [
+                    {
+                        ...point,
+                        column:
+                            columns.reduce((sum, column) => sum + column, 0) /
+                            columns.length,
+                    },
+                ];
+            })
             .sort((a, b) => a.column - b.column);
-        if (numbers.length >= 3) {
+        if (new Set(numbers.map((point) => point.column)).size >= 3) {
             const first = numbers[0],
                 last = numbers.at(-1);
             const pitch = (last.x - first.x) / (last.column - first.column);

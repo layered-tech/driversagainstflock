@@ -171,6 +171,7 @@ tags:
     direction: DOWN
     centerElement: true
     timeout: 20000
+    waitToSettleTimeoutMs: 500
 - tapOn:
     id: 'map-layer-option-standard-satellite'
     retryTapIfNoChange: false
@@ -199,6 +200,7 @@ tags:
     direction: DOWN
     centerElement: true
     timeout: 20000
+    waitToSettleTimeoutMs: 500
 - tapOn:
     id: 'map-layer-option-standard'
     retryTapIfNoChange: false

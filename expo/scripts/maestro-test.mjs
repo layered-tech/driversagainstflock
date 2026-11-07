@@ -660,6 +660,16 @@ export class MaestroTestRunner {
             'Clearing Android app state before development-client bootstrap',
         );
         this.adb(createAndroidClearAppStateArgs(this.appId));
+        this.adb(
+            [
+                'shell',
+                'pm',
+                'grant',
+                this.appId,
+                'android.permission.ACCESS_LOCAL_NETWORK',
+            ],
+            { allowFailure: true },
+        );
     }
 
     openDevelopmentClient() {
