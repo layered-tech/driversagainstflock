@@ -537,9 +537,9 @@ test('national operation assets and scheduled bootstrap are pinned end to end', 
         'utf8',
     );
     const currentWorkflow = readFileSync(
-        path.join(operation, '../../scheduled-builder/v1.3.0/run-build.sh'),
+        path.join(operation, '../../scheduled-builder/v1.4.0/run-build.sh'),
     );
-    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.3.0"'));
+    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.4.0"'));
     assert.ok(
         bootstrap.includes(`BOOTSTRAP_SHA256="${hash(currentWorkflow)}"`),
     );

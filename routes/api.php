@@ -18,8 +18,6 @@ use App\Http\Controllers\Api\V1\PublishedOsmNodeSyncController;
 use App\Http\Controllers\Api\V1\RegionalRoadCorridorManifestController;
 use App\Http\Controllers\Api\V1\RegionalRoadCorridorTileController;
 use App\Http\Controllers\Api\V1\RoadCorridorController;
-use App\Http\Controllers\Api\V1\RoadCorridorManifestController;
-use App\Http\Controllers\Api\V1\RoadCorridorTileController;
 use App\Http\Controllers\Api\V1\SpeedLimitController;
 use App\Http\Controllers\Api\V1\StateGasPricesController;
 use App\Http\Controllers\HotlistController;
@@ -63,8 +61,6 @@ Route::group(['middleware' => ['throttle:road-corridors']], function (Router $ro
     $route->get('v2/road-corridor-manifest', RegionalRoadCorridorManifestController::class);
     $route->get('v2/road-corridor-tiles/{tile}', RegionalRoadCorridorTileController::class);
     $route->get('v1/road-corridor', RoadCorridorController::class);
-    $route->get('v1/road-corridor-manifest', RoadCorridorManifestController::class);
-    $route->get('v1/road-corridor-tiles/{tile}', RoadCorridorTileController::class);
 });
 
 Route::group(['middleware' => ['throttle:police-alerts']], function (Router $route) {

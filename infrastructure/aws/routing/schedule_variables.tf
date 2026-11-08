@@ -38,7 +38,7 @@ variable "graph_build_schedule_timezone" {
 }
 
 variable "national_corridor_builds_enabled" {
-  description = "Export and validate nationwide corridors with bounded source-defect quarantine, preserving the Wisconsin publication for existing clients."
+  description = "Export and validate nationwide corridors with bounded source-defect quarantine; disabling this runs routing graph builds only."
   type        = bool
   default     = true
 }

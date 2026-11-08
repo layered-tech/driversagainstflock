@@ -5,7 +5,7 @@ use Illuminate\Support\Facades\Storage;
 
 beforeEach(function () {
     Cache::flush();
-    config(['road-corridor.release_pointer_key' => null, 'road-corridor.regional_pointer_key' => 'national-pointer.json']);
+    config(['road-corridor.regional_pointer_key' => 'national-pointer.json']);
     Storage::fake('road-corridors');
 });
 
@@ -36,15 +36,12 @@ test('regional discovery serves bounded catalogs including Alaska and Hawaii', f
         ->assertJsonPath('catalog.region', $region)->assertJsonPath('catalog.release', 'national-release');
 })->with(['-45_21', '-61_18', '-75_30', '-79_10']);
 
-test('legacy discovery and regional fallback still serve Wisconsin', function () {
+test('missing national catalogs never fall back to Wisconsin', function () {
     publishRegionalCorridorFixture();
-    foreach (['/api/v1/road-corridor-manifest', '/api/v2/road-corridor-manifest?region=0_0'] as $url) {
-        $this->getJson($url)->assertOk()->assertJsonPath('catalog.release', config('road-corridor.bundled_release'));
-    }
+    $this->getJson('/api/v2/road-corridor-manifest?region=0_0')->assertServiceUnavailable();
     Storage::disk('road-corridors')->delete('national-pointer.json');
     Cache::flush();
-    $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')->assertOk()
-        ->assertJsonPath('catalog.release', config('road-corridor.bundled_release'));
+    $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')->assertServiceUnavailable();
 });
 
 test('regional catalogs have independent conditional responses', function () {
@@ -84,7 +81,7 @@ test('global and regional rollback controls stop national downloads', function (
     publishRegionalCorridorFixture();
     config(['road-corridor.regional_downloads_enabled' => false]);
     $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')->assertOk()
-        ->assertJsonPath('catalog.release', config('road-corridor.bundled_release'));
+        ->assertExactJson(['enabled' => false]);
     $tile = '-883_430-'.str_repeat('a', 64).'.jsonl.gz';
     $this->getJson("/api/v2/road-corridor-tiles/{$tile}?region=-45_21&release=national-release")->assertStatus(503);
     config(['road-corridor.downloads_enabled' => false]);

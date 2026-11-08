@@ -252,12 +252,6 @@ test('scheduled assets, workflow, and bootstrap are consistently checksum pinned
             .toString()
             .includes(`CORRIDOR_ASSETS_SHA256="${hash(assetsBytes)}"`),
     );
-    const bootstrap = readFileSync(
-        new URL('scheduled-builder-user-data.sh', root),
-        'utf8',
-    );
-    assert.ok(bootstrap.includes(`BOOTSTRAP_SHA256="${hash(workflow)}"`));
-    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.1.0"'));
     for (const [versioned, source] of [
         ['RoadCorridorExporter.java', 'build/v1.4.0/RoadCorridorExporter.java'],
         ['road-corridor-contract.mjs', 'road-corridor-contract.mjs'],
@@ -269,7 +263,7 @@ test('scheduled assets, workflow, and bootstrap are consistently checksum pinned
         );
 });
 
-test('deployment preserves the old workflow and builder AMI, and uploads operations before switching the template', () => {
+test('deployment retains routing-only rollback and uploads national operations before switching the template', () => {
     const root = new URL('../../', import.meta.url);
     const operations = readFileSync(new URL('operations.tf', root), 'utf8');
     const compute = readFileSync(new URL('compute.tf', root), 'utf8');
@@ -280,7 +274,7 @@ test('deployment preserves the old workflow and builder AMI, and uploads operati
     );
     assert.match(
         operations,
-        /scheduled_builder_corridor\s*=\s*\{[^}]*scheduled-builder\/v1\.1\.0\/run-build\.sh/s,
+        /scheduled_builder_national\s*=\s*\{[^}]*scheduled-builder\/v1\.4\.0\/run-build\.sh/s,
     );
     assert.match(compute, /image_id\s*=\s*var\.builder_ami_id/);
     assert.match(

@@ -77,7 +77,7 @@ class RegionalRoadCorridorReleases
     /** @return array<string, mixed> */
     public function index(string $release, string $checksum): array
     {
-        abort_unless(app(RoadCorridorReleases::class)->validRelease($release) && preg_match('/\A[a-f0-9]{64}\z/', $checksum), 503);
+        abort_unless(preg_match('/\A[A-Za-z0-9][A-Za-z0-9_-]{0,79}\z/', $release) && preg_match('/\A[a-f0-9]{64}\z/', $checksum), 503);
 
         return Cache::remember('road-corridor.regional-index.'.$release.'.'.$checksum, 300, function () use ($release, $checksum): array {
             $index = $this->read("experimental/road-corridors/{$release}/us/index.json", $checksum);

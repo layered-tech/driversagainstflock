@@ -17,13 +17,41 @@ import { hash } from '../corridor/v1.3.0/regional-catalogs.mjs';
 const root = fileURLToPath(new URL('../', import.meta.url));
 const bundle = path.join(root, 'corridor/v1.3.0');
 const workflow = readFileSync(
-    path.join(root, 'scheduled-builder/v1.3.0/run-build.sh'),
+    path.join(root, 'scheduled-builder/v1.4.0/run-build.sh'),
     'utf8',
 );
 const stage = workflow.slice(
     workflow.indexOf('run_national_corridor_operation()'),
     workflow.indexOf('CURRENT_STAGE="deployment"'),
 );
+
+test('scheduled national builds never run a separate Wisconsin publication', () => {
+    assert.doesNotMatch(
+        workflow,
+        /run_corridor_operation|readonly CORRIDOR_ASSETS_|notify_failure corridor_failed/,
+    );
+    const operations = readFileSync(
+        path.join(root, '../operations.tf'),
+        'utf8',
+    );
+    assert.doesNotMatch(
+        operations,
+        /scheduled_builder_corridor|operations\/corridor\/v1\.0\.0/,
+    );
+});
+
+test('disabling national builds selects a checksum-pinned routing-only workflow', () => {
+    const routingOnly = readFileSync(
+        path.join(root, 'scheduled-builder/v1.0.0/run-build.sh'),
+    );
+    const bootstrap = readFileSync(
+        path.join(root, 'scheduled-builder-user-data.sh'),
+        'utf8',
+    );
+    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.0.0"'));
+    assert.ok(bootstrap.includes(`BOOTSTRAP_SHA256="${hash(routingOnly)}"`));
+    assert.ok(!routingOnly.toString().includes('run_corridor_operation'));
+});
 
 for (const unsafe of [false, true]) {
     test(`reviewed runner ${unsafe ? 'saves failure evidence without publishing unsafe exclusions' : 'publishes bounded exclusions and finishes diagnostics'}`, (t) => {
@@ -178,7 +206,7 @@ test('scheduled builder and Terraform use the complete checksum-pinned reviewed 
         path.join(root, 'scheduled-builder-national-user-data.sh'),
         'utf8',
     );
-    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.3.0"'));
+    assert.ok(bootstrap.includes('BOOTSTRAP_VERSION="v1.4.0"'));
     assert.ok(
         bootstrap.includes(`BOOTSTRAP_SHA256="${hash(Buffer.from(workflow))}"`),
     );
@@ -188,7 +216,7 @@ test('scheduled builder and Terraform use the complete checksum-pinned reviewed 
     );
     assert.match(
         operations,
-        /operations\/scheduled-builder\/v1\.3\.0\/run-build.sh/,
+        /operations\/scheduled-builder\/v1\.4\.0\/run-build.sh/,
     );
     for (const asset of assets)
         assert.ok(operations.includes(`"${asset.name}"`));

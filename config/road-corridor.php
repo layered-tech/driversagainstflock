@@ -4,11 +4,6 @@ return [
     'downloads_enabled' => (bool) env('ROAD_CORRIDOR_DOWNLOADS_ENABLED', true),
     'regional_downloads_enabled' => (bool) env('ROAD_CORRIDOR_REGIONAL_DOWNLOADS_ENABLED', true),
     'regional_pointer_key' => env('ROAD_CORRIDOR_REGIONAL_POINTER_KEY', 'experimental/road-corridors/us/current.json'),
-    'bundled_release' => '20261019T043000Z-us-v1',
-    // An explicit release pins the API for operator rollback; otherwise follow the validated build pointer.
-    'active_release' => env('ROAD_CORRIDOR_ACTIVE_RELEASE'),
-    'release_pointer_key' => env('ROAD_CORRIDOR_RELEASE_POINTER_KEY', 'experimental/road-corridors/wisconsin/current.json'),
-    'previous_release' => env('ROAD_CORRIDOR_PREVIOUS_RELEASE'),
     'overpass_url' => env(
         'ROAD_CORRIDOR_OVERPASS_URL',
         env('DIRECTIONS_OVERPASS_URL', 'https://overpass-api.de/api/interpreter'),
