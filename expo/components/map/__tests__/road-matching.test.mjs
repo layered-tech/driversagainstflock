@@ -26,6 +26,23 @@ function assertApproximately(actual, expected, tolerance) {
     );
 }
 
+test('road matching preserves unavailable speed and genuine zero', () => {
+    for (const speed of [undefined, null, -1, 0, 12]) {
+        const matcher = createRoadMatcher(createRoadMatchingFixtureGraph());
+        const observation = makeFixtureObservation({
+            x: 50,
+            y: 0,
+            timestamp: 1000,
+        });
+        observation.speed = speed;
+        const result = matcher.update(observation);
+        assert.equal(
+            result.speed,
+            speed >= 0 && speed !== null ? speed : undefined,
+        );
+    }
+});
+
 describe('directed road graph', () => {
     test('assigns direction-specific speed limits to two-way edges', () => {
         const graph = createDirectedRoadGraph([

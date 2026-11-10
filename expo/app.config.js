@@ -129,6 +129,7 @@ module.exports = {
         './plugins/withGradleJvmMemory',
         './plugins/withCanonicalReactNativeWorkletsPath',
         './plugins/withAndroidAuto',
+        './plugins/withAppleWatch',
         // Injects the React Native Firebase compatibility shims required by `useFrameworks: "dynamic"`
         // (below). No-op under static linking. See the plugin for details.
         './plugins/withDynamicFrameworksCompat',
@@ -136,6 +137,11 @@ module.exports = {
         [
             'expo-build-properties',
             {
+                android: {
+                    // Auto Play instantiates its Nitro implementations through JNI class names.
+                    extraProguardRules:
+                        '-keep class com.margelo.nitro.swe.iternio.reactnativeautoplay.Hybrid* { *; }',
+                },
                 ios: {
                     // ExpoUI uses Fabric headers absent from the prebuilt React framework.
                     buildReactNativeFromSource: true,
@@ -207,6 +213,7 @@ module.exports = {
         ],
         './plugins/withMapboxImageScale',
         './plugins/withLocationChannelName',
+        './plugins/withAndroidLocationSpeed',
         [
             'expo-location',
             {

@@ -1,0 +1,478 @@
+{
+  "v": 1,
+  "mode": "omelette",
+  "root": "project/",
+  "title": "DAF",
+  "entry": "WatchFoundations.dc.html",
+  "pages": [
+    {
+      "path": "WatchFoundations.dc.html",
+      "title": "WatchFoundations",
+      "kind": "page"
+    },
+    {
+      "path": "WatchApp.dc.html",
+      "title": "WatchApp",
+      "kind": "page"
+    },
+    {
+      "path": "MobileApp.dc.html",
+      "title": "MobileApp",
+      "kind": "page"
+    },
+    {
+      "path": "DuoApp.dc.html",
+      "title": "DuoApp",
+      "kind": "page"
+    },
+    {
+      "path": "DuoAreas.dc.html",
+      "title": "DuoAreas",
+      "kind": "page"
+    },
+    {
+      "path": "DuoSettings.dc.html",
+      "title": "DuoSettings",
+      "kind": "page"
+    },
+    {
+      "path": "DuoContribute.dc.html",
+      "title": "DuoContribute",
+      "kind": "page"
+    },
+    {
+      "path": "DuoScorecard.dc.html",
+      "title": "DuoScorecard",
+      "kind": "page"
+    },
+    {
+      "path": "DuoNavigate.dc.html",
+      "title": "DuoNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "DuoExplore.dc.html",
+      "title": "DuoExplore",
+      "kind": "page"
+    },
+    {
+      "path": "TabletSettings.dc.html",
+      "title": "TabletSettings",
+      "kind": "page"
+    },
+    {
+      "path": "TabletContribute.dc.html",
+      "title": "TabletContribute",
+      "kind": "page"
+    },
+    {
+      "path": "TabletScorecard.dc.html",
+      "title": "TabletScorecard",
+      "kind": "page"
+    },
+    {
+      "path": "TabletNavigate.dc.html",
+      "title": "TabletNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "TabletExplore.dc.html",
+      "title": "TabletExplore",
+      "kind": "page"
+    },
+    {
+      "path": "TabletApp.dc.html",
+      "title": "TabletApp",
+      "kind": "page"
+    },
+    {
+      "path": "FoldSettings.dc.html",
+      "title": "FoldSettings",
+      "kind": "page"
+    },
+    {
+      "path": "FoldContribute.dc.html",
+      "title": "FoldContribute",
+      "kind": "page"
+    },
+    {
+      "path": "FoldScorecard.dc.html",
+      "title": "FoldScorecard",
+      "kind": "page"
+    },
+    {
+      "path": "FoldNavigate.dc.html",
+      "title": "FoldNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "FoldExplore.dc.html",
+      "title": "FoldExplore",
+      "kind": "page"
+    },
+    {
+      "path": "FoldApp.dc.html",
+      "title": "FoldApp",
+      "kind": "page"
+    },
+    {
+      "path": "MobileAreas.dc.html",
+      "title": "MobileAreas",
+      "kind": "page"
+    },
+    {
+      "path": "TabletAreas.dc.html",
+      "title": "TabletAreas",
+      "kind": "page"
+    },
+    {
+      "path": "FoldAreas.dc.html",
+      "title": "FoldAreas",
+      "kind": "page"
+    },
+    {
+      "path": "MobileSettings.dc.html",
+      "title": "MobileSettings",
+      "kind": "page"
+    },
+    {
+      "path": "MobileContribute.dc.html",
+      "title": "MobileContribute",
+      "kind": "page"
+    },
+    {
+      "path": "MobileScorecard.dc.html",
+      "title": "MobileScorecard",
+      "kind": "page"
+    },
+    {
+      "path": "MobileNavigate.dc.html",
+      "title": "MobileNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "MobileExplore.dc.html",
+      "title": "MobileExplore",
+      "kind": "page"
+    },
+    {
+      "path": "Motion - Scorecard.dc.html",
+      "title": "Motion - Scorecard",
+      "kind": "page"
+    },
+    {
+      "path": "Motion - Put It on the Map.dc.html",
+      "title": "Motion - Put It on the Map",
+      "kind": "page"
+    },
+    {
+      "path": "Motion - Watch an Area.dc.html",
+      "title": "Motion - Watch an Area",
+      "kind": "page"
+    },
+    {
+      "path": "Motion - Find & Go.dc.html",
+      "title": "Motion - Find & Go",
+      "kind": "page"
+    },
+    {
+      "path": "MotionClips.dc.html",
+      "title": "MotionClips",
+      "kind": "page"
+    },
+    {
+      "path": "Moderation.dc.html",
+      "title": "Moderation",
+      "kind": "page"
+    },
+    {
+      "path": "Login.dc.html",
+      "title": "Login",
+      "kind": "page"
+    },
+    {
+      "path": "Hotlist.dc.html",
+      "title": "Hotlist",
+      "kind": "page"
+    },
+    {
+      "path": "WebLanding.dc.html",
+      "title": "WebLanding",
+      "kind": "page"
+    },
+    {
+      "path": "MobileInfo.dc.html",
+      "title": "MobileInfo",
+      "kind": "page"
+    },
+    {
+      "path": "WebFullMap.dc.html",
+      "title": "WebFullMap",
+      "kind": "page"
+    },
+    {
+      "path": "WebMapMobile.dc.html",
+      "title": "WebMapMobile",
+      "kind": "page"
+    },
+    {
+      "path": "TermsOfUse.dc.html",
+      "title": "TermsOfUse",
+      "kind": "page"
+    },
+    {
+      "path": "SchematicMap.dc.html",
+      "title": "SchematicMap",
+      "kind": "component"
+    },
+    {
+      "path": "PrivacyPolicy.dc.html",
+      "title": "PrivacyPolicy",
+      "kind": "page"
+    },
+    {
+      "path": "Help.dc.html",
+      "title": "Help",
+      "kind": "page"
+    },
+    {
+      "path": "DirectionDial.dc.html",
+      "title": "DirectionDial",
+      "kind": "component"
+    },
+    {
+      "path": "Blog.dc.html",
+      "title": "Blog",
+      "kind": "page"
+    },
+    {
+      "path": "AutoRail.dc.html",
+      "title": "AutoRail",
+      "kind": "page"
+    },
+    {
+      "path": "AutoMap.dc.html",
+      "title": "AutoMap",
+      "kind": "page"
+    },
+    {
+      "path": "Article.dc.html",
+      "title": "Article",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/Article.dc.html",
+      "title": "Article",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/Blog.dc.html",
+      "title": "Blog",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/Help.dc.html",
+      "title": "Help",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/Hotlist.dc.html",
+      "title": "Hotlist",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileAndroid.dc.html",
+      "title": "MobileAndroid",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileAndroidAuto.dc.html",
+      "title": "MobileAndroidAuto",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileApp.dc.html",
+      "title": "MobileApp",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileContribute.dc.html",
+      "title": "MobileContribute",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileExplore.dc.html",
+      "title": "MobileExplore",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileNavigate.dc.html",
+      "title": "MobileNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/MobileSettings.dc.html",
+      "title": "MobileSettings",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/PrivacyPolicy.dc.html",
+      "title": "PrivacyPolicy",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/TermsOfUse.dc.html",
+      "title": "TermsOfUse",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/WebFullMap.dc.html",
+      "title": "WebFullMap",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/WebLanding.dc.html",
+      "title": "WebLanding",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/WebMapMobile.dc.html",
+      "title": "WebMapMobile",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/Article.dc.html",
+      "title": "Article",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/Blog.dc.html",
+      "title": "Blog",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/Help.dc.html",
+      "title": "Help",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/Hotlist.dc.html",
+      "title": "Hotlist",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileAndroid.dc.html",
+      "title": "MobileAndroid",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileApp.dc.html",
+      "title": "MobileApp",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileContribute.dc.html",
+      "title": "MobileContribute",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileExplore.dc.html",
+      "title": "MobileExplore",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileNavigate.dc.html",
+      "title": "MobileNavigate",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/MobileSettings.dc.html",
+      "title": "MobileSettings",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/PrivacyPolicy.dc.html",
+      "title": "PrivacyPolicy",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/TermsOfUse.dc.html",
+      "title": "TermsOfUse",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/WebFullMap.dc.html",
+      "title": "WebFullMap",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/WebLanding.dc.html",
+      "title": "WebLanding",
+      "kind": "page"
+    },
+    {
+      "path": "uploads/Archive/AutoMap.dc.html",
+      "title": "AutoMap",
+      "kind": "component"
+    },
+    {
+      "path": "uploads/Archive/AutoRail.dc.html",
+      "title": "AutoRail",
+      "kind": "component"
+    },
+    {
+      "path": "uploads/Archive/DirectionDial.dc.html",
+      "title": "DirectionDial",
+      "kind": "component"
+    },
+    {
+      "path": "uploads/Archive/SchematicMap.dc.html",
+      "title": "SchematicMap",
+      "kind": "component"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/DirectionDial.dc.html",
+      "title": "DirectionDial",
+      "kind": "component"
+    },
+    {
+      "path": "uploads/Archive/uploads/Drivers Against Flock/SchematicMap.dc.html",
+      "title": "SchematicMap",
+      "kind": "component"
+    }
+  ],
+  "migratorVersion": "artifact-migrator (claude-design-backend a595f3769f57)",
+  "createdAt": "2026-10-31T00:51:32.233Z",
+  "source": {
+    "v": 1,
+    "app": "claude-design",
+    "url": "https://claude.ai/design/p/4b69af14-2e1b-4032-bf09-af2a7c265d4a",
+    "projectId": "4b69af14-2e1b-4032-bf09-af2a7c265d4a",
+    "exportedAt": "2026-10-31T00:51:32.233Z"
+  },
+  "report": {
+    "itemsVersion": 2,
+    "pages": {
+      "total": 84,
+      "ok": 84,
+      "partial": 0,
+      "notMigrated": 0
+    },
+    "items": [
+      {
+        "kind": "needs_capability",
+        "path": "animations-v3.jsx",
+        "text": "an animation stage — plays, but video export is not available in a canvas (via “Motion - Find & Go.dc.html”, “Motion - Put It on the Map.dc.html”, “Motion - Scorecard.dc.html”, “Motion - Watch an Area.dc.html”)",
+        "capability": "video_export"
+      },
+      {
+        "kind": "needs_capability",
+        "path": "clips/daf-motion.jsx",
+        "text": "an animation stage — plays, but video export is not available in a canvas (via “Motion - Find & Go.dc.html”, “Motion - Put It on the Map.dc.html”, “Motion - Scorecard.dc.html”, “Motion - Watch an Area.dc.html”)",
+        "capability": "video_export"
+      }
+    ],
+    "truncated": 0,
+    "truncatedLeftOut": 0
+  }
+}

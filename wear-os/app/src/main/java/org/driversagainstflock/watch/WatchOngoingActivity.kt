@@ -1,0 +1,78 @@
+package org.driversagainstflock.watch
+
+import android.Manifest
+import android.app.NotificationChannel
+import android.app.Notification
+import android.app.NotificationManager
+import android.app.PendingIntent
+import android.content.Context
+import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.core.app.NotificationCompat
+import androidx.wear.ongoing.OngoingActivity
+
+class WatchOngoingActivity(private val context: Context) {
+    private val manager = context.getSystemService(NotificationManager::class.java)
+    private var activeGlanceKey: String? = null
+
+    fun update(snapshot: WatchSnapshot) {
+        val nav = snapshot.navigation
+        val sessionId = snapshot.sessionId?.takeIf { nav.optString("status") != "idle" }
+        if (sessionId == null) {
+            activeGlanceKey = null
+            manager.cancel(NOTIFICATION_ID)
+            return
+        }
+        val glance = ongoingGlance(snapshot)
+        val glanceKey = ongoingGlanceKey(snapshot, glance)
+        val icon = maneuverResourceId(nav.optJSONObject("maneuver")?.optString("kind") ?: "straight")
+        if (activeGlanceKey == glanceKey && manager.areNotificationsEnabled()) return
+        if (Build.VERSION.SDK_INT >= 33 &&
+            context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) return
+        if (!manager.areNotificationsEnabled()) return
+
+        manager.createNotificationChannel(NotificationChannel(CHANNEL_ID, "Active guidance", NotificationManager.IMPORTANCE_LOW))
+        val returnIntent = PendingIntent.getActivity(context, 0,
+            Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }, PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
+            .setContentTitle(glance.title)
+            .setContentText(glance.detail)
+            .setSmallIcon(icon)
+            .setContentIntent(returnIntent)
+            .setCategory(Notification.CATEGORY_NAVIGATION)
+            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
+            .setOngoing(true)
+        OngoingActivity.Builder(context, NOTIFICATION_ID, builder)
+            .setStaticIcon(icon)
+            .setTouchIntent(returnIntent)
+            .build()
+            .apply(context)
+        manager.notify(NOTIFICATION_ID, builder.build())
+        activeGlanceKey = glanceKey
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "active_guidance"
+        private const val NOTIFICATION_ID = 41
+    }
+}
+
+internal data class OngoingGlance(val title: String, val detail: String)
+
+internal fun ongoingGlance(snapshot: WatchSnapshot): OngoingGlance {
+    val maneuver = snapshot.navigation.optJSONObject("maneuver")
+    if (maneuver == null) return OngoingGlance("Guidance updating", "Tap to return to guidance")
+    val instruction = maneuver.optString("instruction")
+    val exit = maneuverExitNumber(maneuver.optString("kind"), maneuver.optionalLong("exitNumber"))
+    val detail = if (exit != null) "Exit $exit · ${roadName(instruction)}" else roadName(instruction)
+    return OngoingGlance(distance(maneuver.optionalDouble("distanceMeters")), detail)
+}
+
+internal fun ongoingGlanceKey(snapshot: WatchSnapshot, glance: OngoingGlance = ongoingGlance(snapshot)): String {
+    val maneuver = snapshot.navigation.optJSONObject("maneuver")
+    return listOf(snapshot.sessionId, glance.title, glance.detail,
+        maneuver?.optString("kind"), maneuver?.optionalLong("exitNumber")).joinToString(":")
+}

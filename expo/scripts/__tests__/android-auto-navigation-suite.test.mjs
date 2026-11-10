@@ -11,6 +11,7 @@ import {
     findAndroidAutoInputDisplay,
     findAndroidAutoText,
     getAndroidAutoControlPoint,
+    getAndroidAutoKeyboardDismissPoint,
     getAndroidAutoKeyboardPoints,
     getAndroidAutoNavigationUIFailure,
     selectAndroidAutoSuite,
@@ -504,6 +505,91 @@ test('missing top-row keyboard glyphs are recovered only from two aligned middle
             ),
         /not visible/,
     );
+});
+
+test('native Search waits for its panel so an intercepted header tap can retry', () => {
+    const searches = buildAndroidAutoNavigationSuite().flatMap(({ steps }) =>
+        steps.filter(
+            (step) => step.type === 'tapControl' && step.name === 'search',
+        ),
+    );
+    assert.ok(searches.length > 0);
+    for (const search of searches) {
+        assert.deepEqual(search.expectText, ['Where to?']);
+    }
+});
+
+test('retrying Search never taps map coordinates after the native Search panel opens', async () => {
+    const runner = Object.create(Runner.prototype);
+    runner.suite = legacy;
+    runner.autoPlayCommand = async () => ({ statusLabel: 'Search' });
+    runner.tapDhu = () => assert.fail('Search is already open');
+    runner.captureScreenshot = () =>
+        assert.fail('Wait for the existing Search panel');
+    await runner.runStep({ type: 'tapControl', name: 'search' });
+});
+
+test('sparse portrait keys require aligned number keys and evidence from two letter rows', () => {
+    const shot = {
+        height: 1080,
+        textBounds: [
+            { text: '2', x: 692, y: 701 },
+            { text: '4', x: 826, y: 701 },
+            { text: '5', x: 894, y: 701 },
+            { text: 'W', x: 692, y: 757 },
+            { text: 'a', x: 655, y: 809 },
+            { text: 'm', x: 1093, y: 863 },
+        ],
+    };
+    const hide = getAndroidAutoKeyboardDismissPoint(shot);
+    assert.ok(Math.abs(hide.x - 624) < 5);
+    assert.ok(Math.abs(hide.y - 915) < 10);
+    assert.equal(getAndroidAutoKeyboardPoints(shot, 'walmart').length, 7);
+    for (const textBounds of [
+        shot.textBounds.filter(({ text }) => text !== '4'),
+        shot.textBounds.filter(({ text }) => !['a', 'm'].includes(text)),
+        shot.textBounds.map((point) =>
+            ['a', 'm'].includes(point.text) ? { ...point, x: 300 } : point,
+        ),
+    ]) {
+        assert.throws(
+            () => getAndroidAutoKeyboardDismissPoint({ ...shot, textBounds }),
+            /not visible/,
+        );
+    }
+});
+
+test('sparse fullscreen keyboard uses grouped number observations without guessing missing letters', () => {
+    const shot = {
+        height: 720,
+        textBounds: [
+            { text: '2 3', x: 429, y: 449 },
+            { text: '4', x: 532, y: 453 },
+            { text: '7', x: 743, y: 450 },
+            { text: 'W', x: 394, y: 509 },
+            { text: 'a', x: 359, y: 564 },
+            { text: 'Z', x: 393, y: 621 },
+            { text: 'm', x: 808, y: 620 },
+        ],
+    };
+    const hide = getAndroidAutoKeyboardDismissPoint(shot);
+    assert.ok(Math.abs(hide.x - 325) < 5);
+    assert.ok(Math.abs(hide.y - 675) < 10);
+    for (const textBounds of [
+        shot.textBounds.filter(({ text }) => text !== '2 3'),
+        shot.textBounds.map((point) =>
+            point.text === '2 3' ? { ...point, text: '3 2' } : point,
+        ),
+        shot.textBounds.map((point) =>
+            point.text === '2 3' ? { ...point, x: 600 } : point,
+        ),
+        shot.textBounds.filter(({ text }) => !['a', 'Z', 'm'].includes(text)),
+    ]) {
+        assert.throws(
+            () => getAndroidAutoKeyboardDismissPoint({ ...shot, textBounds }),
+            /not visible/,
+        );
+    }
 });
 
 test('state requests ignore stale Metro samples and return only post-request state', async () => {

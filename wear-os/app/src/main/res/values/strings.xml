@@ -1,0 +1,6 @@
+<resources>
+    <string name="tile_description">Area changes and active guidance</string>
+    <string name="complication_area_changes">Area changes</string>
+    <string name="complication_privacy_score">Privacy score</string>
+    <string name="complication_open_companion">Open companion</string>
+</resources>

@@ -10,6 +10,7 @@ import {
     createCorridorReleaseManager,
 } from './road-corridor-releases';
 import { getRoadCorridor, normalizeRoadCorridorWay } from './api';
+import { mapApiMocksAreEnabled } from './api-mocks';
 import { buildApiURL } from './config';
 import { createDirectedRoadGraph } from './road-graph';
 import { reportCorridorFailure } from './road-corridor-diagnostics';
@@ -51,6 +52,7 @@ let activeDownloads = 0;
 let cacheRevision = 0;
 let lastOptions;
 export const getPilotCacheRevision = () => {
+    if (mapApiMocksAreEnabled()) return 0;
     if (lastOptions) void releaseManager.refresh(lastOptions);
     return cacheRevision + releaseManager.getRevision();
 };
@@ -357,6 +359,7 @@ export const setCorridorServiceOnly = releaseManager.setForceService;
 export const initializeCorridorReleases = releaseManager.ready;
 
 export async function getPilotRoadCorridor(options) {
+    if (mapApiMocksAreEnabled()) return getRoadCorridor(options);
     lastOptions = {
         location: options.location,
         radiusMeters: options.radiusMeters,

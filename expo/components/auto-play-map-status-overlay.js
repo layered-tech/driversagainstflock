@@ -17,8 +17,8 @@ import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
 import { AUTO_PLAY_NAVIGATION_PUCK_SIZE } from './map/navigation-puck-layout';
 import {
     getCurrentSpeedMph,
-    getRouteCurrentSpeedMps,
     SpeedLimitSign,
+    useDisplayedCurrentSpeedMps,
     useRouteSpeedLimit,
 } from './map/speed-limit';
 import { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE } from './map/speed-limit-layout';
@@ -123,10 +123,16 @@ export function AutoPlayMapStatusOverlay({
         speedLimitIsRendered &&
         Number.isFinite(Number(speedLimit?.speedLimitMph)),
     );
-    const currentSpeedMps = getRouteCurrentSpeedMps(userLocation);
+    const currentSpeedMps = useDisplayedCurrentSpeedMps({
+        enabled:
+            drivingStatusIsVisible &&
+            speedLimitIsRendered &&
+            !confirmationIsActive,
+        userLocation,
+    });
     const currentSpeedMph = getCurrentSpeedMph(currentSpeedMps);
     const currentSpeedIsVisible = Boolean(
-        drivingStatusIsVisible && Number.isFinite(Number(currentSpeedMps)),
+        drivingStatusIsVisible && currentSpeedMph !== null,
     );
     // Both car hosts leave the map canvas to the app, so the speed dial stands
     // in for the badge wherever the road has no mapped limit. The handset keeps

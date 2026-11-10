@@ -706,6 +706,7 @@ export class Runner {
             'android.permission.ACCESS_COARSE_LOCATION',
             'android.permission.ACCESS_FINE_LOCATION',
             'android.permission.POST_NOTIFICATIONS',
+            'android.permission.ACCESS_LOCAL_NETWORK',
         ]) {
             this.adb(['shell', 'pm', 'grant', this.suite.appId, permission], {
                 allowFailure: true,
@@ -950,6 +951,7 @@ export class Runner {
 
     async startDhu() {
         this.report(`Starting managed DHU with ${this.dhuConfig}`);
+        const outputStart = this.dhuOutput.length;
         this.dhuProcessError = null;
         this.dhuProcess = spawn(this.dhuBinary, ['-c', this.dhuConfig], {
             cwd: EXPO_DIRECTORY,
@@ -973,10 +975,12 @@ export class Runner {
 
                 return (
                     childProcessIsRunning(this.dhuProcess) &&
-                    this.serviceRunning()
+                    this.dhuOutput
+                        .slice(outputStart)
+                        .includes('SSL negotiation finished successfully')
                 );
             },
-            'Android Auto service',
+            'DHU connection to Android Auto',
             45000,
         );
     }
@@ -2056,6 +2060,9 @@ export class Runner {
                     return;
                 }
                 const actual = await this.autoPlayCommand('state');
+                if (step.name === 'search' && actual.statusLabel === 'Search') {
+                    return;
+                }
                 if (step.name !== 'searchMap')
                     await this.runStep({ type: 'tapMap' });
                 const shot = await this.captureScreenshot(
@@ -2317,6 +2324,26 @@ export class Runner {
             'keycode back; sleep 1; keycode navigation; sleep 2; dpad click; sleep 3',
         );
         await delay(7000);
+        if (this.serviceRunning()) {
+            return;
+        }
+
+        this.tapDhu(
+            this.suite?.layouts?.dashboard?.activateTap ?? { x: 40, y: 675 },
+        );
+        await delay(1000);
+        const launcher = await this.captureScreenshot('startup-launcher', {
+            verifyLayout: false,
+        });
+        const app = launcher.textBounds.find((item) =>
+            /drivers|flock|dev\s*[|il]?\s*dri/i.test(item.text),
+        );
+        if (!app) {
+            throw new Error(
+                `DAF is missing from the Android Auto launcher: ${launcher.ocr}`,
+            );
+        }
+        this.tapDhu({ x: app.x, y: app.y });
     }
 
     async runSuite() {

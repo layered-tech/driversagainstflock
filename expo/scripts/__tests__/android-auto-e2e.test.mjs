@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { describe, test } from 'node:test';
+import { once } from 'node:events';
 import { fileURLToPath } from 'node:url';
 import {
     builtInDisplayHasState,
@@ -26,6 +27,85 @@ import {
 } from '../android-auto-e2e.mjs';
 
 describe('Android Auto E2E helpers', () => {
+    test('selects DAF from the launcher when a fresh host defaults to another navigation app', async () => {
+        const runner = Object.create(Runner.prototype);
+        const taps = [];
+        runner.suite = {
+            layouts: { dashboard: { activateTap: { x: 423, y: 991 } } },
+        };
+        runner.sendDhu = () => {};
+        runner.serviceRunning = () => false;
+        runner.tapDhu = (point) => taps.push(point);
+        runner.captureScreenshot = async () => ({
+            textBounds: [
+                { text: 'Maps', x: 200, y: 100, width: 80, height: 30 },
+                {
+                    text: 'Dev | Dri...',
+                    x: 400,
+                    y: 100,
+                    width: 120,
+                    height: 30,
+                },
+            ],
+        });
+
+        await runner.focusCarMap();
+
+        assert.deepEqual(taps, [
+            { x: 423, y: 991 },
+            { x: 400, y: 100 },
+        ]);
+    });
+
+    test('connects DHU before requiring the app to be selected on a fresh host', async () => {
+        const runner = Object.create(Runner.prototype);
+        runner.dhuBinary = '/bin/sh';
+        runner.dhuConfig =
+            'printf "SSL negotiation finished successfully\\n"; read reply';
+        runner.environment = process.env;
+        runner.dhuOutput = 'SSL negotiation finished successfully\n';
+        runner.report = () => {};
+        runner.serviceRunning = () => false;
+        runner.captureProcess = (child, filename, outputKey) => {
+            child.stdout.on('data', (chunk) => {
+                runner[outputKey] += chunk.toString();
+            });
+        };
+        runner.waitFor = async (predicate) => {
+            assert.equal(await predicate(), false);
+            await once(runner.dhuProcess.stdout, 'data');
+            assert.equal(await predicate(), true);
+        };
+        try {
+            await runner.startDhu();
+        } finally {
+            const closed = once(runner.dhuProcess, 'exit');
+            runner.dhuProcess.kill();
+            await closed;
+        }
+    });
+
+    test('device setup grants local network access after clearing app state', () => {
+        const runner = Object.create(Runner.prototype);
+        runner.suite = {
+            appId: 'test.app',
+            location: { longitude: -88.24, latitude: 43.12 },
+        };
+        const commands = [];
+        runner.adb = (args) => commands.push(args);
+        runner.prepareDevice();
+        const clearIndex = commands.findIndex((args) => args[2] === 'clear');
+        assert.ok(clearIndex >= 0);
+        assert.ok(
+            commands.findIndex(
+                (args) =>
+                    args[2] === 'grant' &&
+                    args[4] === 'android.permission.ACCESS_LOCAL_NETWORK',
+            ) > clearIndex,
+            'Grant local network access after clearing app state',
+        );
+    });
+
     test('day/night tests temporarily use car-controlled maps and restore the prior setting on cleanup', async () => {
         const runner = Object.create(Runner.prototype);
         runner.suite = { tests: [{ steps: [{ command: 'day' }] }] };

@@ -19,6 +19,7 @@ npm-debug.log
 yarn-error.log
 /.fleet
 /.idea
+/**/.idea/**
 /.vscode
 /.zed
 /.junie
@@ -31,6 +32,7 @@ yarn-error.log
 /.ai/mcp
 /database/schema
 .ai/tmp
+/android-tv
 
 # Terraform runtime artifacts
 **/.terraform/*

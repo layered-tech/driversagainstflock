@@ -54,7 +54,7 @@ const mocks = {
     './map/speed-limit': {
         SpeedLimitSign: 'SpeedLimitSign',
         useRouteSpeedLimit: () => speedLimit,
-        getRouteCurrentSpeedMps: () => 15,
+        useDisplayedCurrentSpeedMps: () => 15,
         getCurrentSpeedMph: () => 33,
     },
     './map/speed-limit-layout': { AUTO_PLAY_SPEED_LIMIT_BADGE_SIZE: 50 },

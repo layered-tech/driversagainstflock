@@ -29,8 +29,8 @@ import { publishAcceptedDeviceLocation } from './map/accepted-device-location';
 // Metro resolves the platform adapter per platform: Android Auto specifics in
 // auto-play-platform.android.js, CarPlay specifics in auto-play-platform.ios.js.
 import { getAutoPlayManeuverConfig } from './auto-play-maneuver-config';
+import { getAutoPlayManeuverImage } from './auto-play-maneuver-images';
 import { autoPlayPlatform } from './auto-play-platform';
-import { getAutoPlayRoundaboutExitImage } from './auto-play-roundabout-exit-images';
 import {
     DEFAULT_AUTO_PLAY_STATE,
     getAutoPlayState,
@@ -78,6 +78,7 @@ import {
     getDirectionsDistanceEstimate,
     getDirectionsRouteOptions,
     getDirectionsRouteProgress,
+    getDirectionsStepHeading,
     getDirectionsSteps,
     getDirectionsWaypointApiCoord,
     getNextDirectionsManeuver,
@@ -1472,19 +1473,27 @@ function openSavedDestinationsTemplate() {
     };
 }
 
-function makeRouteStepsSection(steps, page, onPageChange) {
+function makeRouteStepsSection(steps, page, onPageChange, onStepPress) {
     // Four instructions leave room for both paging rows within the host's
     // guaranteed minimum of six list items.
     const pageSize = 4;
     const start = page * pageSize;
     const items = steps.slice(start, start + pageSize).map((step, index) => ({
+        image: {
+            color: 'default',
+            image: getAutoPlayManeuverImage(step),
+            type: 'asset',
+        },
+        imageType: 'icon',
+        enabled: Boolean(normalizeCoordinatePair(step.coordinate)),
+        onPress: () => onStepPress(step),
         detailedText: makeAutoText(
             formatDirectionsManeuverDistance(step.displayDistance),
         ),
         title: makeAutoText(
             `${start + index + 1}. ${getManeuverInstruction(step)}`,
         ),
-        type: 'text',
+        type: 'default',
     }));
 
     if (!steps.length) {
@@ -1532,15 +1541,58 @@ function openRouteStepsTemplate() {
     const routeSteps = getDirectionsSteps(route, activeManeuver);
     const currentStepIndex = routeSteps.findIndex((step) => step.isCurrent);
     const upcomingSteps = routeSteps.slice(Math.max(0, currentStepIndex));
-    const { ListTemplate } = loadAutoPlayModule();
+    const { HybridAutoPlay, ListTemplate } = loadAutoPlayModule();
     let template;
     let isActive = true;
-    const requestIsCurrent = () =>
-        isActive &&
+    let isSelectingStep = false;
+    const routeIsCurrent = () =>
         activeNavigationRoute === route &&
-        rootMapTemplate === rootTemplate;
+        rootMapTemplate === rootTemplate &&
+        rootMapTemplateIsReady;
+    const requestIsCurrent = () => isActive && routeIsCurrent();
     const dismiss = () => {
         isActive = false;
+    };
+    const showStep = async (step) => {
+        const coordinate = normalizeCoordinatePair(step.coordinate);
+        if (!requestIsCurrent() || isSelectingStep || !coordinate) {
+            return;
+        }
+
+        isSelectingStep = true;
+        try {
+            await HybridAutoPlay.popTemplate();
+            dismiss();
+            if (!routeIsCurrent()) {
+                return;
+            }
+            const didFocus =
+                await getAutoPlayMapControlHandlers().handleManeuverFocus(
+                    coordinate,
+                    {
+                        heading: getDirectionsStepHeading(
+                            route,
+                            step.stepIndex,
+                        ),
+                        shouldApply: routeIsCurrent,
+                    },
+                );
+            if (didFocus === false && routeIsCurrent()) {
+                showAutoPlayError(
+                    'Step preview unavailable',
+                    'The maneuver could not be shown on the map.',
+                );
+            }
+        } catch {
+            if (routeIsCurrent()) {
+                showAutoPlayError(
+                    'Step preview unavailable',
+                    'The maneuver could not be shown on the map.',
+                );
+            }
+        } finally {
+            isSelectingStep = false;
+        }
     };
     const showPage = (page) => {
         if (!requestIsCurrent()) {
@@ -1548,7 +1600,7 @@ function openRouteStepsTemplate() {
         }
         return updateSearchTemplateSection(
             template,
-            makeRouteStepsSection(upcomingSteps, page, showPage),
+            makeRouteStepsSection(upcomingSteps, page, showPage, showStep),
         );
     };
 
@@ -1556,7 +1608,12 @@ function openRouteStepsTemplate() {
         template = new ListTemplate({
             headerActions: getBackHeaderAction(dismiss),
             onPopped: dismiss,
-            sections: makeRouteStepsSection(upcomingSteps, 0, showPage),
+            sections: makeRouteStepsSection(
+                upcomingSteps,
+                0,
+                showPage,
+                showStep,
+            ),
             title: makeAutoText('Route steps'),
         });
         return template.push().catch(() => {
@@ -2602,9 +2659,7 @@ function makeAutoPlayRoutingManeuver(route, maneuver) {
     const instruction = getManeuverInstruction(maneuver);
     const distanceRemaining = getManeuverDistanceRemaining(maneuver);
     const maneuverConfig = getAutoPlayManeuverConfig(maneuver);
-    const roundaboutExitImage = getAutoPlayRoundaboutExitImage(
-        maneuverConfig.exitNumber,
-    );
+    const maneuverImage = getAutoPlayManeuverImage(maneuver);
     const durationRemaining = getManeuverDurationSeconds(
         maneuver,
         distanceRemaining,
@@ -2630,16 +2685,11 @@ function makeAutoPlayRoutingManeuver(route, maneuver) {
         keepType: maneuverConfig.keepType,
         maneuverType: maneuverConfig.maneuverType,
         roadName: maneuver?.name ? [maneuver.name] : undefined,
-        symbolImage: roundaboutExitImage
-            ? {
-                  color: getManeuverCardIconColor(),
-                  image: roundaboutExitImage,
-                  type: 'asset',
-              }
-            : makeGlyphImage(maneuverConfig.glyph, {
-                  backgroundColor: 'transparent',
-                  color: getManeuverCardIconColor(),
-              }),
+        symbolImage: {
+            color: getManeuverCardIconColor(),
+            image: maneuverImage,
+            type: 'asset',
+        },
         trafficSide: 0,
         travelEstimates: makeTravelEstimates(
             distanceRemaining,

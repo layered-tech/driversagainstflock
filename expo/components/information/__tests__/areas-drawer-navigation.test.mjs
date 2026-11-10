@@ -41,6 +41,7 @@ const { AppDrawerContent } = loadTourModule(
         },
         './app-drawer-icon': { AppDrawerIcon: 'AppDrawerIcon' },
         './app-drawer-items': drawerItems,
+        '../watch/use-connected-watch': { useConnectedWatch: () => false },
     },
 );
 

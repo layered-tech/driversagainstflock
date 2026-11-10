@@ -1,0 +1,8 @@
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.keystore
+*.jks
+.version-code.lock
+version-code.json.tmp

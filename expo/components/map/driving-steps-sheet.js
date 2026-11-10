@@ -6,7 +6,6 @@ import {
     useAnimatedReaction,
     useSharedValue,
 } from 'react-native-reanimated';
-import { Icon } from '../design-system/icon';
 import { DafButton } from '../design-system/primitives';
 import { getDafTheme } from '../design-system/tokens';
 import {
@@ -15,17 +14,16 @@ import {
     formatDirectionsManeuverDistance,
     getDirectionsSteps,
 } from './directions';
-import { DestinationCard, getManeuverIcon } from './driving-guidance-cards';
+import { DestinationCard } from './driving-guidance-cards';
 import {
     NativeWindBottomSheet,
     NativeWindBottomSheetFlatList,
     NativeWindBottomSheetTouchableOpacity,
 } from './native-components';
-import { getRoundaboutExitNumber } from './roundabout-guidance';
+import { ManeuverIcon } from './maneuver-icon';
 
 export function DrivingStepRow({ item, arrivalLabel, onStepPress }) {
     const theme = getDafTheme(useColorScheme());
-    const exitNumber = getRoundaboutExitNumber(item);
     const distance = formatDirectionsManeuverDistance(item.displayDistance);
 
     return (
@@ -38,26 +36,15 @@ export function DrivingStepRow({ item, arrivalLabel, onStepPress }) {
             testID={`driving-step-${item.stepIndex}`}
         >
             <View
-                className={`h-[38px] w-[38px] items-center justify-center rounded-dafSm ${item.isCurrent ? 'bg-daf-brand/15 dark:bg-daf-brand/20' : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'}`}
+                className={`h-[38px] min-w-[38px] shrink-0 items-center justify-center rounded-dafSm px-1 ${item.isCurrent ? 'bg-daf-brand/15 dark:bg-daf-brand/20' : 'bg-daf-surface-alt dark:bg-daf-surface-inverse'}`}
             >
-                {exitNumber === null ? (
-                    <Icon
-                        color={
-                            item.isCurrent
-                                ? theme.text.brand
-                                : theme.text.primary
-                        }
-                        name={getManeuverIcon(item)}
-                        size={20}
-                    />
-                ) : (
-                    <Text
-                        accessibilityLabel={`Roundabout exit ${exitNumber}`}
-                        className="font-dafMono text-base font-bold text-daf-text-primary dark:text-white"
-                    >
-                        {exitNumber}
-                    </Text>
-                )}
+                <ManeuverIcon
+                    color={
+                        item.isCurrent ? theme.text.brand : theme.text.primary
+                    }
+                    maneuver={item}
+                    size={20}
+                />
             </View>
             <View className="min-w-0 flex-1">
                 <Text className="text-[15px] font-semibold text-daf-text-primary dark:text-white">

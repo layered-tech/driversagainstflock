@@ -63,10 +63,7 @@ describe('Auto Play roundabout maneuvers', () => {
 });
 
 test('automotive guidance uses numbered roundabout assets', () => {
-    assert.match(
-        autoPlaySource,
-        /getAutoPlayRoundaboutExitImage\(\s*maneuverConfig\.exitNumber/,
-    );
+    assert.match(autoPlaySource, /getAutoPlayManeuverImage\(maneuver\)/);
     assert.match(
         roundaboutExitImagesSource,
         /1: require\('[^']*roundabout-exit-1\.png'\)/,
@@ -89,10 +86,10 @@ test('automotive guidance uses numbered roundabout assets', () => {
     }
 });
 
-test('mobile and route progress retain the numbered roundabout badge', () => {
+test('mobile uses the shared maneuver component and route progress retains roundabout behavior', () => {
     assert.match(
         drivingGuidanceCardsSource,
-        /<RoundaboutExitIcon\s+exitNumber=\{roundaboutExitNumber\}/,
+        /<ManeuverIcon\s+color=\{dafSemanticColors.brandContrast\}\s+maneuver=\{maneuver\}/,
     );
     assert.match(
         directionsSource,

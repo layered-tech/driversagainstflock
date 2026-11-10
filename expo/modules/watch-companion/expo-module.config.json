@@ -1,0 +1,10 @@
+{
+    "platforms": ["android", "apple"],
+    "apple": {
+        "modules": ["WatchCompanionModule"],
+        "appDelegateSubscribers": ["WatchCompanionAppDelegateSubscriber"]
+    },
+    "android": {
+        "modules": ["expo.modules.watchcompanion.WatchCompanionModule"]
+    }
+}

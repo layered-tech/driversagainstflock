@@ -1,26 +1,24 @@
 import { useRef } from 'react';
 import { Platform, Text, View } from 'react-native';
 import { mapApiMocksAreEnabled } from './api-mocks';
+import { getCurrentSpeedMph } from './display-speed-state';
 import { getSpeedLimitBadgeLayout } from './speed-limit-layout';
 import { getMockCurrentSpeedMps } from './speed-limit-mock';
+import { useDisplaySpeed } from './use-display-speed';
 
-const METERS_PER_SECOND_TO_MILES_PER_HOUR = 2.2369362920544;
+export { getCurrentSpeedMph } from './display-speed-state';
+
 const SPEED_LIMIT_RETENTION_MS = 3000;
 const SPEED_LIMIT_INK_COLOR = '#11151B';
 const CURRENT_SPEED_OK_COLOR = '#5A6573';
 const CURRENT_SPEED_RING_COLOR = '#828D9B';
 
-export function getCurrentSpeedMph(speedMps) {
-    const numericSpeed = Number(speedMps);
-
-    if (!Number.isFinite(numericSpeed)) {
-        return null;
-    }
-
-    return Math.max(
-        0,
-        Math.round(numericSpeed * METERS_PER_SECOND_TO_MILES_PER_HOUR),
-    );
+export function useDisplayedCurrentSpeedMps({ enabled, userLocation }) {
+    return useDisplaySpeed({
+        enabled,
+        speedMps: getRouteCurrentSpeedMps(userLocation),
+        recordedAt: userLocation?.recordedAt,
+    });
 }
 
 export function useRouteSpeedLimit({ routeIsActive, userLocation }) {
@@ -144,7 +142,7 @@ export function SpeedLimitSign({
                 >
                     <Text
                         allowFontScaling={false}
-                        className="font-dafUi text-center font-extrabold uppercase"
+                        className="text-center font-dafUi font-extrabold uppercase"
                         numberOfLines={2}
                         style={{
                             color: SPEED_LIMIT_INK_COLOR,
@@ -158,7 +156,7 @@ export function SpeedLimitSign({
                     </Text>
                     <Text
                         allowFontScaling={false}
-                        className="font-dafMono text-center font-extrabold"
+                        className="text-center font-dafMono font-extrabold"
                         numberOfLines={1}
                         style={{
                             color: SPEED_LIMIT_INK_COLOR,
@@ -194,7 +192,7 @@ export function SpeedLimitSign({
                 >
                     <Text
                         allowFontScaling={false}
-                        className="font-dafMono text-center font-extrabold"
+                        className="text-center font-dafMono font-extrabold"
                         numberOfLines={1}
                         style={{
                             color: currentSpeedOverLimit

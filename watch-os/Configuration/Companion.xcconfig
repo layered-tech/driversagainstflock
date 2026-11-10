@@ -1,0 +1,7 @@
+// Match the installed iPhone variant. Expo prebuild sets these automatically.
+DAF_PHONE_BUNDLE_IDENTIFIER = com.anonymous.drivefree.dev
+DAF_APP_GROUP = group.$(DAF_PHONE_BUNDLE_IDENTIFIER).watch
+MARKETING_VERSION = 2.9.4
+CURRENT_PROJECT_VERSION = 1
+// Optional local signing team and bundle identifier overrides.
+#include? "Local.xcconfig"

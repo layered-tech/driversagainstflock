@@ -88,16 +88,13 @@ function loadSheet(expanded = false) {
         },
         './driving-guidance-cards': {
             DestinationCard: 'DestinationCard',
-            getManeuverIcon: () => 'corner-up-right',
         },
         './native-components': {
             NativeWindBottomSheet: 'BottomSheet',
             NativeWindBottomSheetFlatList: 'FlatList',
             NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
         },
-        './roundabout-guidance': {
-            getRoundaboutExitNumber: (step) => step.exit_number ?? null,
-        },
+        './maneuver-icon': { ManeuverIcon: 'ManeuverIcon' },
     };
     new Function('require', 'module', 'exports', source)(
         (name) => mocks[name],
@@ -341,17 +338,18 @@ test('rows show live distance, current-step emphasis and roundabout exit numbers
         },
     });
     const [tile, instruction, distance] = row.props.children;
-    assert.equal(tile.props.children.props.name, 'corner-up-right');
+    assert.equal(tile.props.children.type, 'ManeuverIcon');
+    assert.equal(tile.props.children.props.maneuver.instruction, 'Turn right');
     assert.equal(tile.props.children.props.color, 'green');
     assert.equal(instruction.props.children[0].props.children, 'Turn right');
     assert.equal(instruction.props.children[1].props.children, 'Now');
     assert.equal(distance.props.children, '75 ft');
     const roundabout = DrivingStepRow({
-        item: { stepIndex: 3, exit_number: 3 },
+        item: { type: 7, stepIndex: 3, exit_number: 3 },
     });
     assert.equal(
-        roundabout.props.children[0].props.children.props.accessibilityLabel,
-        'Roundabout exit 3',
+        roundabout.props.children[0].props.children.props.maneuver.exit_number,
+        3,
     );
     const arrival = DrivingStepRow({
         item: { type: 10, displayDistance: 0 },

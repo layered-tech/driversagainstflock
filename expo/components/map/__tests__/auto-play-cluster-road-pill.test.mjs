@@ -84,7 +84,7 @@ const { AutoPlayMapStatusOverlay } = loadComponent(
         },
         './map/speed-limit': {
             getCurrentSpeedMph: () => 30,
-            getRouteCurrentSpeedMps: () => 13.4,
+            useDisplayedCurrentSpeedMps: () => 13.4,
             useRouteSpeedLimit: () => ({ speedLimitMph: 35 }),
             SpeedLimitSign: 'SpeedLimitSign',
         },

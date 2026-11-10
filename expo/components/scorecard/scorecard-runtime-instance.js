@@ -133,6 +133,10 @@ export function getScorecardRuntimeSnapshot() {
     return runtime.getSnapshot();
 }
 
+export function getScorecardActiveDriveSummary() {
+    return runtime.getActiveDriveSummary();
+}
+
 export function subscribeScorecardRuntime(listener) {
     return runtime.subscribe(listener);
 }

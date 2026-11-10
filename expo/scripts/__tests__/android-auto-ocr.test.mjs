@@ -286,10 +286,36 @@ test(
                 { height: 1080, textBounds: portraitKeyboard },
                 'walmart',
             );
+            const sparsePortraitKeyboard = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--observations',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-search-keyboard-portrait-sparse.png',
+                                import.meta.url,
+                            ),
+                        ),
+                    ],
+                    {
+                        encoding: 'utf8',
+                        env: { ...process.env, DAF_E2E_OCR_KEYBOARD: '1' },
+                    },
+                ),
+            );
+            assert.equal(
+                getAndroidAutoKeyboardPoints(
+                    { height: 1080, textBounds: sparsePortraitKeyboard },
+                    'walmart',
+                ).length,
+                7,
+            );
             for (const [textBounds, height, x, y] of [
                 [keyboard, 720, 115, 674],
                 [fullscreenKeyboard, 720, 325, 676],
                 [portraitKeyboard, 1080, 622, 912],
+                [sparsePortraitKeyboard, 1080, 624, 915],
             ]) {
                 const hide = getAndroidAutoKeyboardDismissPoint({
                     textBounds,
