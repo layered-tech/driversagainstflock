@@ -94,6 +94,8 @@ module.exports = {
         supportsTablet: true,
         infoPlist: {
             ITSAppUsesNonExemptEncryption: false,
+            NSLocalNetworkUsageDescription:
+                'Connect to your TV on home Wi-Fi to share your areas and receive places.',
             NSPhotoLibraryUsageDescription:
                 'Drivers Against Flock uses file storage to download and cache road-corridor data for navigation. The file-storage library includes photo library support, but the app does not access or upload your photos.',
             MGLMapboxMetricsEnabledSettingShownInApp: true,
@@ -121,6 +123,15 @@ module.exports = {
         favicon: './assets/images/app-logo.png',
     },
     plugins: [
+        [
+            'expo-camera',
+            {
+                cameraPermission:
+                    'Scan the pairing QR code on your TV. Photos are not saved or uploaded.',
+                recordAudioAndroid: false,
+                barcodeScannerEnabled: true,
+            },
+        ],
         ['expo-notifications', { defaultChannel: 'area-changes' }],
         './plugins/withCocoaPodsHttp1',
         './plugins/withUniqueCocoaPodsUuids',

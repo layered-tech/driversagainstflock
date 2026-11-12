@@ -8,7 +8,9 @@ export function easAuthenticationHeaders(
     homeDirectory = homedir(),
 ) {
     if (environment.EXPO_STAGING || environment.EXPO_LOCAL) {
-        throw new Error('Wear versioning requires the production EAS service.');
+        throw new Error(
+            'Android release versioning requires the production EAS service.',
+        );
     }
     if (environment.EXPO_TOKEN) {
         return { authorization: `Bearer ${environment.EXPO_TOKEN}` };
@@ -23,7 +25,7 @@ export function easAuthenticationHeaders(
         // Never include authentication file contents in errors.
     }
     throw new Error(
-        'Log in with eas login or set EXPO_TOKEN before building the watch.',
+        'Log in with eas login or set EXPO_TOKEN before building the companion app.',
     );
 }
 
@@ -51,7 +53,7 @@ export function createEasVersionClient(project, headers, fetchRequest = fetch) {
             return result.data;
         } catch {
             throw new Error(
-                `Unable to ${operation} the EAS Android version. Check your EAS login and connection; no watch build was started.`,
+                `Unable to ${operation} the EAS Android version. Check your EAS login and connection; no companion build was started.`,
             );
         }
     }
@@ -93,7 +95,7 @@ export function createEasVersionClient(project, headers, fetchRequest = fetch) {
             const current = await latest();
             if (current.id !== previous.id || current.code !== previous.code) {
                 throw new Error(
-                    'The EAS Android version changed during allocation. Retry after other phone/watch builds finish.',
+                    'The EAS Android version changed during allocation. Retry after other phone, watch, or TV builds finish.',
                 );
             }
             const data = await request(
@@ -113,7 +115,7 @@ export function createEasVersionClient(project, headers, fetchRequest = fetch) {
             const confirmed = await latest();
             if (!id || confirmed.id !== id || confirmed.code !== code) {
                 throw new Error(
-                    'Could not confirm the reserved EAS version. Retry after other phone/watch builds finish.',
+                    'Could not confirm the reserved EAS version. Retry after other phone, watch, or TV builds finish.',
                 );
             }
         },
@@ -129,7 +131,7 @@ export function loadEasVersionClient(expoDirectory, environment, profile) {
         !['staging', 'production'].includes(profile)
     ) {
         throw new Error(
-            'Wear builds require remote EAS versioning and a staging or production profile.',
+            'Companion builds require remote EAS versioning and a staging or production profile.',
         );
     }
     const result = spawnSync(

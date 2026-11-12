@@ -1,4 +1,5 @@
 import 'react-native-gesture-handler';
+import { TvSyncRuntime } from '../components/tv/tv-sync-runtime';
 
 import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
 import { usePathname } from 'expo-router';
@@ -103,6 +104,7 @@ function RootLayoutContents() {
                         <SystemBars />
                         <SharedMapStateProvider>
                             <AndroidGeoIntentHandler />
+                            <TvSyncRuntime />
                             <ScorecardContributeProvider>
                                 <FirstLaunchSupportGate>
                                     <PersistentMapHost>
@@ -193,6 +195,19 @@ function RootLayoutContents() {
                                                 options={{
                                                     title: 'My areas',
                                                     popToTopOnBlur: true,
+                                                }}
+                                            />
+                                            <Drawer.Screen
+                                                name="tv-settings"
+                                                options={{ title: 'Pair a TV' }}
+                                            />
+                                            <Drawer.Screen
+                                                name="tv-received"
+                                                options={{
+                                                    title: 'From your TV',
+                                                    drawerItemStyle: {
+                                                        display: 'none',
+                                                    },
                                                 }}
                                             />
                                             <Drawer.Screen

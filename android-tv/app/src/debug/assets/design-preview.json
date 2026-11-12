@@ -1,0 +1,181 @@
+{
+  "areas": [
+    {
+      "id": 1,
+      "name": "Oakland, CA",
+      "kind": "city",
+      "description": "Alameda County",
+      "cameraCount": 116,
+      "added": 4,
+      "removed": 1,
+      "cadence": "Instant",
+      "mappedCameras": [
+        {
+          "longitude": -122.247,
+          "latitude": 37.81,
+          "direction": "225"
+        },
+        {
+          "longitude": -122.256,
+          "latitude": 37.823,
+          "direction": "270"
+        },
+        {
+          "longitude": -122.202,
+          "latitude": 37.792,
+          "direction": "135"
+        },
+        {
+          "longitude": -122.207,
+          "latitude": 37.774,
+          "direction": "180"
+        },
+        {
+          "longitude": -122.263,
+          "latitude": 37.837,
+          "direction": "90"
+        }
+      ],
+      "changes": [
+        {
+          "id": "1",
+          "longitude": -122.247,
+          "latitude": 37.81,
+          "street": "Grand Ave & Lake Park Blvd",
+          "kind": "added",
+          "detail": "Tue \u00b7 verified by 3",
+          "direction": "225"
+        },
+        {
+          "id": "2",
+          "longitude": -122.202,
+          "latitude": 37.792,
+          "street": "MacArthur Blvd & 35th Ave",
+          "kind": "added",
+          "detail": "Tue \u00b7 verified by 2",
+          "direction": "Westbound \u00b7 40\u00b0 cone",
+          "model": "Flock Falcon (preset)",
+          "verification": "2 drivers, 1 drive-by"
+        },
+        {
+          "id": "3",
+          "longitude": -122.207,
+          "latitude": 37.774,
+          "street": "International Blvd & High St",
+          "kind": "added",
+          "detail": "Mon \u00b7 verified by 2",
+          "direction": "135"
+        },
+        {
+          "id": "4",
+          "longitude": -122.263,
+          "latitude": 37.837,
+          "street": "Telegraph Ave & 51st St",
+          "kind": "added",
+          "detail": "Mon \u00b7 1 report, needs a second look",
+          "direction": "180"
+        },
+        {
+          "id": "5",
+          "longitude": -122.271,
+          "latitude": 37.804,
+          "street": "14th St & Broadway",
+          "kind": "removed",
+          "detail": "Sun \u00b7 confirmed gone",
+          "direction": "90"
+        }
+      ],
+      "weeklyChanges": [
+        2,
+        0,
+        3,
+        2,
+        0,
+        4,
+        2,
+        5
+      ]
+    },
+    {
+      "id": 2,
+      "name": "Around home",
+      "kind": "radius",
+      "description": "5 mi \u00b7 Centered on Grand Lake",
+      "cameraCount": 23,
+      "added": 1,
+      "removed": 0,
+      "cadence": "Daily",
+      "mappedCameras": [
+        {
+          "longitude": -122.247,
+          "latitude": 37.81,
+          "direction": "225"
+        },
+        {
+          "longitude": -122.238,
+          "latitude": 37.817,
+          "direction": "270"
+        }
+      ],
+      "changes": [
+        {
+          "id": "1",
+          "longitude": -122.247,
+          "latitude": 37.81,
+          "street": "Grand Ave & Lake Park Blvd",
+          "kind": "added",
+          "detail": "Tue \u00b7 verified by 3",
+          "direction": "225"
+        }
+      ],
+      "weeklyChanges": [
+        0,
+        1,
+        0,
+        0,
+        1,
+        0,
+        0,
+        1
+      ]
+    },
+    {
+      "id": 3,
+      "name": "Fruitvale",
+      "kind": "drawn",
+      "description": "3.8 sq mi",
+      "cameraCount": 3,
+      "added": 0,
+      "removed": 0,
+      "cadence": "Weekly",
+      "mappedCameras": [
+        {
+          "longitude": -122.21,
+          "latitude": 37.775,
+          "direction": "225"
+        },
+        {
+          "longitude": -122.204,
+          "latitude": 37.782,
+          "direction": "270"
+        },
+        {
+          "longitude": -122.198,
+          "latitude": 37.777,
+          "direction": "135"
+        }
+      ],
+      "changes": [],
+      "weeklyChanges": [
+        0,
+        0,
+        1,
+        0,
+        0,
+        0,
+        0,
+        0
+      ]
+    }
+  ]
+}
