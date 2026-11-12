@@ -397,7 +397,7 @@ describe('shared phone and car navigation contract', () => {
         );
         assert.match(
             androidAutoMapTemplateSource,
-            /override fun onStopNavigation\(\) \{\s*navigationEnded\(\)[\s\S]*?if \(sessionLifecycle\?\.currentState == Lifecycle\.State\.DESTROYED\) \{\s*return\s*\}\s*config\.onStopNavigation\(\)/,
+            /override fun onStopNavigation\(\) \{\s*TemplateUpdateQueue\.post \{ navigationEnded\(\) \}[\s\S]*?if \(sessionLifecycle\?\.currentState == Lifecycle\.State\.DESTROYED\) \{\s*return\s*\}\s*config\.onStopNavigation\(\)/,
         );
         assert.doesNotMatch(
             androidAutoMapTemplateSource,

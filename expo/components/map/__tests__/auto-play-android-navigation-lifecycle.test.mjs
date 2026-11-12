@@ -71,6 +71,9 @@ interface NavigationManagerCallback {
     fun onAutoDriveEnabled()
     fun onStopNavigation()
 }
+object TemplateUpdateQueue {
+    fun post(task: () -> Unit) { task() }
+}
 class Config(val id: String = AndroidAutoSession.ROOT_SESSION) {
     var stops = 0
     val onAutoDriveEnabled: (() -> Unit)? = null

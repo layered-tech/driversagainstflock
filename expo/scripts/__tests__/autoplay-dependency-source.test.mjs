@@ -23,6 +23,7 @@ test('Auto Play comes from the layered-tech package branch with a locked commit'
 test('the generated Auto Play package exposes runtime and native entrypoints', () => {
     const installed = readJson(`node_modules/${packageName}/package.json`);
     assert.equal(installed.name, packageName);
+    assert.equal(installed.version, '0.10.3');
     assert.match(installed.gitHead, /^[a-f0-9]{40}$/);
     assert.equal(
         installed.repository.url,
