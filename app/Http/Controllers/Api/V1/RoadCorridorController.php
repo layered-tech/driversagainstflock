@@ -14,6 +14,13 @@ class RoadCorridorController extends Controller
         RoadCorridorRequest $request,
         OpenStreetMapRoadGraphLookup $lookup,
     ): JsonResponse {
+        if (! config('road-corridor.legacy_lookup_enabled')) {
+            return response()->json([
+                'ok' => true,
+                'result' => ['ways' => []],
+            ]);
+        }
+
         try {
             return response()->json([
                 'ok' => true,

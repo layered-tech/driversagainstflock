@@ -53,6 +53,7 @@ beforeEach(function () {
     Http::preventStrayRequests();
 
     config([
+        'road-corridor.legacy_lookup_enabled' => true,
         'road-corridor.overpass_url' => 'https://overpass.test/api/interpreter',
         'road-corridor.radius_meters' => 3200,
         'road-corridor.maximum_radius_meters' => 4000,

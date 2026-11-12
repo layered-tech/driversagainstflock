@@ -1,6 +1,7 @@
 <?php
 
 return [
+    'legacy_lookup_enabled' => (bool) env('ROAD_CORRIDOR_LEGACY_LOOKUP_ENABLED', false),
     'downloads_enabled' => (bool) env('ROAD_CORRIDOR_DOWNLOADS_ENABLED', true),
     'regional_downloads_enabled' => (bool) env('ROAD_CORRIDOR_REGIONAL_DOWNLOADS_ENABLED', true),
     'regional_pointer_key' => env('ROAD_CORRIDOR_REGIONAL_POINTER_KEY', 'experimental/road-corridors/us/current.json'),
