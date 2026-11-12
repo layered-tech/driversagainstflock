@@ -94,9 +94,10 @@ class AreaSubscriptionController extends Controller
         $request->validate(['page' => ['sometimes', 'integer', 'min:1']]);
         $subscription = $this->owned($request, $area);
         $cameras = $this->changes->cameras($subscription->geometry)->orderBy('osm_id')
-            ->paginate(500, ['osm_id', 'longitude', 'latitude'])
+            ->paginate(500, ['osm_id', 'longitude', 'latitude', 'tags'])
             ->through(fn (OsmNode $camera): array => ['id' => (int) $camera->osm_id, 'kind' => 'current',
-                'longitude' => (float) $camera->longitude, 'latitude' => (float) $camera->latitude]);
+                'longitude' => (float) $camera->longitude, 'latitude' => (float) $camera->latitude,
+                'direction' => $camera->tags['camera:direction'] ?? $camera->tags['direction'] ?? null]);
 
         return response()->json(['area' => $subscription->only(['id', 'name', 'kind', 'geometry', 'bounds']), 'cameras' => $cameras]);
     }

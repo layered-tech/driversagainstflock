@@ -1,3 +1,4 @@
+import { areaCenterFromParams } from './area-location-params';
 import { NativeNavigationAction } from '../root/native-navigation';
 import { useDuoDevice } from '../root/duo-device-context';
 import * as Location from 'expo-location';
@@ -52,11 +53,13 @@ export default function AddAreaScreen() {
     const [results, setResults] = useState([]);
     const [searched, setSearched] = useState(false);
     const [searching, setSearching] = useState(false);
-    const [center, setCenter] = useState(null);
+    const [center, setCenter] = useState(() => areaCenterFromParams(params));
     const [locating, setLocating] = useState(false);
     const [radius, setRadius] = useState(5);
     const [points, setPoints] = useState([]);
-    const [name, setName] = useState('');
+    const [name, setName] = useState(
+        typeof params.name === 'string' ? params.name.slice(0, 160) : '',
+    );
     const [error, setError] = useState(null);
     const [saving, setSaving] = useState(false);
     const [sheetHeight, setSheetHeight] = useState(0);

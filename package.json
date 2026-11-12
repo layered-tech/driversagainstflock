@@ -14,6 +14,8 @@
         "ios:no-bundler": "cd expo && EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx expo run:ios --no-bundler --device",
         "build:wear:dev": "node ./expo/scripts/build-wear-dev.mjs",
         "build:wear:debug-face": "./wear-os/gradlew -p wear-os :complication-debug-face:installDebug",
+        "build:tv:dev": "node ./expo/scripts/build-tv.mjs install",
+        "pair:tv:emulators": "node ./expo/scripts/pair-tv-emulators.mjs",
         "build:watch:dev": "node ./expo/scripts/build-watch.mjs dev",
 
         "prebuild:staging": "cd expo && APP_ENV=staging EXPO_NO_DOTENV=1 EXPO_OFFLINE=${EXPO_OFFLINE:-1} npx dotenv -c staging -- expo prebuild --clean",
@@ -27,6 +29,7 @@
         "build:android:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production --non-interactive --no-wait",
         "build:android:production-apk": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p android --profile production-apk --non-interactive --no-wait",
         "build:wear:production": "cd expo && node ./scripts/build-wear-production.mjs",
+        "build:tv:production": "node ./expo/scripts/build-tv.mjs production",
         "build:ios:production": "cd expo && APP_ENV=production EXPO_NO_DOTENV=1 npx dotenv -c production -- ./scripts/eas-local-build.sh -p ios --profile production --no-wait --non-interactive",
 
         "android:auto": "cd expo && bash ./scripts/android-auto.sh 2.0 landscape",
