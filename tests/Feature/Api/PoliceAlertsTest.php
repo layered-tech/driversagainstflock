@@ -14,7 +14,7 @@ beforeEach(function () {
         'police-alerts.url' => 'https://waze.test/alerts-and-jams',
         'police-alerts.radius_miles' => 10,
         'police-alerts.max_alerts' => 50,
-        'police-alerts.cache_seconds' => 150,
+        'police-alerts.cache_seconds' => 300,
         'police-alerts.failure_cooldown_seconds' => 60,
         'police-alerts.quota_cooldown_seconds' => 900,
         'services.openwebninja.api_key' => 'test-waze-key',
@@ -182,7 +182,7 @@ it('returns a client safe upstream error when the police alert connection fails'
             'error' => 'Police alerts are temporarily unavailable.',
         ]);
 
-    expect(Cache::has('police-alerts:30.27:-97.74'))->toBeFalse();
+    expect(Cache::has('police-alerts:30.25:-97.75'))->toBeFalse();
 
     $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')
         ->assertOk()->assertJsonPath('ok', false)->assertHeader('Retry-After', '60');
@@ -211,6 +211,13 @@ it('pauses every area after a provider quota response and resumes after retry af
     Http::assertSentCount(2);
 });
 
+it('shares cached alerts across several old coordinate cells', function () {
+    Http::fakeSequence()->push(['data' => ['alerts' => []]]);
+    $this->getJson('/api/v1/police-alerts?latitude=30.251&longitude=-97.751')->assertOk();
+    $this->getJson('/api/v1/police-alerts?latitude=30.269&longitude=-97.731')->assertOk();
+    Http::assertSentCount(1);
+});
+
 it('serves cached results during a provider cooldown without calling the provider again', function () {
     Http::fakeSequence()->push(['data' => ['alerts' => []]])->push([], 429);
     $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')->assertOk();
@@ -221,7 +228,7 @@ it('serves cached results during a provider cooldown without calling the provide
 
 it('does not duplicate an in-flight request for the same area', function () {
     Http::fake();
-    $lock = Cache::lock('police-alerts:30.27:-97.74:lock', 15);
+    $lock = Cache::lock('police-alerts:30.25:-97.75:lock', 15);
     $lock->get();
     try {
         $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
@@ -236,7 +243,7 @@ it('refreshes expired cells', function () {
     Http::fake(['*' => Http::response(['data' => ['alerts' => []]])]);
     $url = '/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431';
     $this->getJson($url)->assertOk()->assertJsonPath('ok', true);
-    $this->travel(149)->seconds();
+    $this->travel(299)->seconds();
     $this->getJson($url)->assertOk()->assertJsonPath('ok', true);
     Http::assertSentCount(1);
 

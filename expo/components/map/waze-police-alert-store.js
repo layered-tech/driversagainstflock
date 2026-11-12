@@ -118,6 +118,8 @@ function policeAlertInputsAreEquivalent(firstCenter, secondCenter) {
 
 const wazePoliceAlertStore = createDurableAlertStore({
     emptyItems: EMPTY_WAZE_POLICE_ALERTS,
+    failureBackoffMs: 60 * 1000,
+    maxFailureBackoffMs: 15 * 60 * 1000,
     fetchItems: (center, signal) =>
         getWazePoliceAlerts({ location: center, signal }),
     getMetadataForInput: (center) => ({ fetchCenter: center }),
