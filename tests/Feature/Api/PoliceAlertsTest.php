@@ -12,7 +12,9 @@ beforeEach(function () {
         'police-alerts.url' => 'https://waze.test/alerts-and-jams',
         'police-alerts.radius_miles' => 10,
         'police-alerts.max_alerts' => 50,
-        'police-alerts.cache_seconds' => 150,
+        'police-alerts.cache_seconds' => 300,
+        'police-alerts.failure_cooldown_seconds' => 60,
+        'police-alerts.quota_cooldown_seconds' => 900,
         'police-alerts.monthly_request_limit' => 9500,
         'services.openwebninja.api_key' => 'test-waze-key',
     ]);
@@ -130,7 +132,7 @@ it('stops calling upstream once the monthly request budget is spent', function (
     $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')->assertOk();
 
     $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')
-        ->assertStatus(502)
+        ->assertStatus(429)
         ->assertJsonPath('ok', false)
         ->assertJsonPath('error', 'Police alerts are temporarily unavailable.');
 
@@ -158,9 +160,10 @@ it('fails when the upstream request errors', function () {
     ]);
 
     $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
-        ->assertStatus(502)
+        ->assertStatus(429)
+        ->assertHeader('Retry-After', '900')
         ->assertJsonPath('ok', false)
-        ->assertJsonPath('error', 'Police alerts could not be loaded.');
+        ->assertJsonPath('error', 'Police alerts are temporarily unavailable.');
 });
 
 it('returns a client safe upstream error when the police alert connection fails', function () {
@@ -171,17 +174,100 @@ it('returns a client safe upstream error when the police alert connection fails'
     ]);
 
     $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
-        ->assertStatus(502)
+        ->assertStatus(503)
+        ->assertHeader('Retry-After', '60')
         ->assertExactJson([
             'ok' => false,
-            'error' => 'Police alerts could not be loaded.',
+            'error' => 'Police alerts are temporarily unavailable.',
         ]);
 
-    expect(Cache::has('police-alerts:30.27:-97.74'))->toBeFalse();
+    expect(Cache::has('police-alerts:30.25:-97.75'))->toBeFalse();
+
+    $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')->assertStatus(429);
+    Http::assertSentCount(1);
+    $this->travel(61)->seconds();
 
     $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
         ->assertOk()
         ->assertJsonPath('ok', true);
 
     Http::assertSentCount(2);
+});
+
+it('pauses every area after a provider quota response and resumes after retry after', function () {
+    Http::fakeSequence()->push(['message' => 'quota exceeded'], 429, ['Retry-After' => '1800'])
+        ->push(['data' => ['alerts' => []]]);
+
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
+        ->assertStatus(429)->assertHeader('Retry-After', '1800');
+    $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')->assertStatus(429);
+    Http::assertSentCount(1);
+
+    $this->travel(1801)->seconds();
+    $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')->assertOk();
+    Http::assertSentCount(2);
+});
+
+it('shares cached alerts across several old coordinate cells', function () {
+    Http::fakeSequence()->push(['data' => ['alerts' => []]]);
+    $this->getJson('/api/v1/police-alerts?latitude=30.251&longitude=-97.751')->assertOk();
+    $this->getJson('/api/v1/police-alerts?latitude=30.269&longitude=-97.731')->assertOk();
+    Http::assertSentCount(1);
+});
+
+it('serves cached results during a provider cooldown without spending quota', function () {
+    Http::fakeSequence()->push(['data' => ['alerts' => []]])->push([], 429);
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')->assertOk();
+    $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')->assertStatus(429);
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')->assertOk();
+    expect(Cache::get('police-alerts:monthly-quota:'.now()->format('Y-m')))->toBe(2);
+    Http::assertSentCount(2);
+});
+
+it('does not duplicate an in-flight request for the same area', function () {
+    Http::fake();
+    $lock = Cache::lock('police-alerts:30.25:-97.75:lock', 15);
+    $lock->get();
+    try {
+        $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
+            ->assertStatus(429)->assertHeader('Retry-After', '60');
+        Http::assertNothingSent();
+    } finally {
+        $lock->release();
+    }
+});
+
+it('refreshes expired cells and resets the monthly budget next month', function () {
+    config(['police-alerts.monthly_request_limit' => 1]);
+    $this->travelTo(now()->startOfMonth());
+    Http::fake(['*' => Http::response(['data' => ['alerts' => []]])]);
+    $url = '/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431';
+    $this->getJson($url)->assertOk();
+    $this->travel(299)->seconds();
+    $this->getJson($url)->assertOk();
+    $this->travel(2)->seconds();
+    $this->getJson($url)->assertStatus(429)->assertHeader('Retry-After');
+    Http::assertSentCount(1);
+    $this->travelTo(now()->addMonthNoOverflow()->startOfMonth());
+    $this->getJson($url)->assertOk();
+    Http::assertSentCount(2);
+});
+
+it('honors an HTTP date retry after from the provider', function () {
+    Http::fakeSequence()->push([], 429, ['Retry-After' => now()->addHour()->toRfc7231String()]);
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')
+        ->assertStatus(429)->assertHeader('Retry-After', '3600');
+});
+
+it('does not shorten a quota cooldown when another in-flight request fails', function () {
+    Http::fake(function () {
+        Cache::put('police-alerts:quota-cooldown-until', now()->timestamp + 1800, 1800);
+
+        return Http::response([], 502);
+    });
+    $this->getJson('/api/v1/police-alerts?latitude=30.2672&longitude=-97.7431')->assertStatus(503);
+    $this->travel(61)->seconds();
+    $this->getJson('/api/v1/police-alerts?latitude=41.8781&longitude=-87.6298')
+        ->assertStatus(429)->assertHeader('Retry-After', '1739');
+    Http::assertSentCount(1);
 });

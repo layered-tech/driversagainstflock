@@ -54,6 +54,8 @@ function createSnapshot({ fetchedAt, items, key }) {
 
 function createTestStore({
     fetchItems,
+    failureBackoffMs,
+    maxFailureBackoffMs,
     now = () => 10_000,
     storage = createMemoryStorage(),
     storageTimeoutMs = 1_000,
@@ -61,6 +63,8 @@ function createTestStore({
 } = {}) {
     return createDurableAlertStore({
         emptyItems: EMPTY_ITEMS,
+        failureBackoffMs,
+        maxFailureBackoffMs,
         fetchItems,
         getMetadataForInput: ({ key }) => ({ key }),
         inputsAreEquivalent: (firstInput, secondInput) =>
@@ -596,4 +600,45 @@ describe('durable alert store', () => {
         assert.equal(requests.length, 1);
         assert.deepEqual(store.getItems(), EMPTY_ITEMS);
     });
+});
+
+test('failure backoff blocks location changes, grows, honors server delay and resets on success', async () => {
+    let time = 10000;
+    let attempts = 0;
+    const store = createTestStore({
+        now: () => time,
+        failureBackoffMs: 1000,
+        maxFailureBackoffMs: 2000,
+        fetchItems: async () => {
+            attempts++;
+            if (attempts === 3) return ['recovered'];
+            const error = new Error('Unavailable');
+            if (attempts === 2) error.retryAfterMs = 5000;
+            throw error;
+        },
+    });
+    await store.refreshIfStale({ key: 'a' });
+    await store.refreshIfStale({ key: 'b' });
+    assert.equal(attempts, 1);
+    assert.equal(store.needsRefresh({ key: 'b' }), false);
+    time += 1000;
+    await store.refreshIfStale({ key: 'b' });
+    time += 4999;
+    await store.refreshIfStale({ key: 'c' });
+    assert.equal(attempts, 2);
+    time++;
+    await store.refreshIfStale({ key: 'c' });
+    assert.deepEqual(store.getItems(), ['recovered']);
+    time += 1000;
+    await store.refreshIfStale({ key: 'c' });
+    assert.deepEqual(store.getItems(), ['recovered']);
+    time += 1000;
+    await store.refreshIfStale({ key: 'c' });
+    assert.equal(attempts, 5);
+    time += 1999;
+    await store.refreshIfStale({ key: 'c' });
+    assert.equal(attempts, 5);
+    time++;
+    await store.refreshIfStale({ key: 'c' });
+    assert.equal(attempts, 6);
 });

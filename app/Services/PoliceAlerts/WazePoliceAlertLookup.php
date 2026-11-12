@@ -10,8 +10,8 @@ use Illuminate\Support\Facades\Http;
 class WazePoliceAlertLookup
 {
     /**
-     * Cached lists are keyed on a ~1km coordinate grid so nearby users share
-     * one upstream request against the metered OpenWebNinja quota.
+     * Share a five-minute snapshot across a 0.05-degree cell (~5km).
+     * The first caller supplies the center of the upstream 10-mile search.
      *
      * @return list<array<string, mixed>>
      */
@@ -19,15 +19,53 @@ class WazePoliceAlertLookup
     {
         $cacheKey = sprintf(
             'police-alerts:%0.2f:%0.2f',
-            round($latitude, 2),
-            round($longitude, 2),
+            round($latitude * 20) / 20,
+            round($longitude * 20) / 20,
         );
 
-        return Cache::remember(
-            $cacheKey,
-            now()->addSeconds((int) config('police-alerts.cache_seconds')),
-            fn () => $this->fetch($latitude, $longitude),
-        );
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $this->ensureAvailable();
+        $lock = Cache::lock($cacheKey.':lock', 15);
+
+        if (! $lock->get()) {
+            throw new PoliceAlertsUnavailable(60);
+        }
+
+        try {
+            return Cache::remember(
+                $cacheKey,
+                now()->addSeconds((int) config('police-alerts.cache_seconds')),
+                fn () => $this->fetch($latitude, $longitude),
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function ensureAvailable(): void
+    {
+        $remaining = max(
+            (int) Cache::get('police-alerts:quota-cooldown-until', 0),
+            (int) Cache::get('police-alerts:failure-cooldown-until', 0),
+        ) - now()->timestamp;
+
+        if ($remaining > 0) {
+            throw new PoliceAlertsUnavailable($remaining);
+        }
+    }
+
+    private function pauseRequests(int $seconds, int $status = 429): never
+    {
+        $seconds = max(1, $seconds);
+        $key = $status === 429 ? 'police-alerts:quota-cooldown-until' : 'police-alerts:failure-cooldown-until';
+        Cache::put($key, now()->timestamp + $seconds, $seconds);
+
+        throw new PoliceAlertsUnavailable($seconds, $status);
     }
 
     /**
@@ -41,13 +79,14 @@ class WazePoliceAlertLookup
             throw DirectionsException::upstream('Police alerts are not configured.');
         }
 
+        $this->ensureAvailable();
         $this->consumeMonthlyQuota();
 
         try {
             $response = Http::withHeaders(['x-api-key' => $apiKey])
                 ->accept('application/json')
-                ->timeout(10)
-                ->retry(1, 150, throw: false)
+                ->connectTimeout(3)
+                ->timeout(6)
                 ->get(config('police-alerts.url'), [
                     'center' => sprintf('%F,%F', $latitude, $longitude),
                     'radius' => (int) config('police-alerts.radius_miles'),
@@ -57,11 +96,20 @@ class WazePoliceAlertLookup
                     'max_jams' => 0,
                 ]);
         } catch (ConnectionException) {
-            throw DirectionsException::upstream('Police alerts could not be loaded.');
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), 503);
+        }
+
+        if ($response->status() === 429) {
+            $retryAfter = $response->header('Retry-After');
+            $seconds = is_numeric($retryAfter)
+                ? (int) $retryAfter
+                : max(0, (int) strtotime($retryAfter) - now()->timestamp);
+
+            $this->pauseRequests(max((int) config('police-alerts.quota_cooldown_seconds'), $seconds));
         }
 
         if (! $response->successful()) {
-            throw DirectionsException::upstream('Police alerts could not be loaded.');
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), 503);
         }
 
         $alerts = [];
@@ -96,7 +144,7 @@ class WazePoliceAlertLookup
         Cache::add($quotaKey, 0, now()->endOfMonth()->addDay());
 
         if (Cache::increment($quotaKey) > $limit) {
-            throw DirectionsException::upstream('Police alerts are temporarily unavailable.');
+            throw new PoliceAlertsUnavailable(max(1, now()->addMonthNoOverflow()->startOfMonth()->timestamp - now()->timestamp));
         }
     }
 

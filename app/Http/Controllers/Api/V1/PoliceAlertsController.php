@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\PoliceAlertsRequest;
 use App\Services\Directions\DirectionsException;
+use App\Services\PoliceAlerts\PoliceAlertsUnavailable;
 use App\Services\PoliceAlerts\WazePoliceAlertLookup;
 use Illuminate\Http\JsonResponse;
 
@@ -23,7 +24,9 @@ class PoliceAlertsController extends Controller
             return response()->json([
                 'ok' => false,
                 'error' => $exception->getMessage(),
-            ], $exception->status);
+            ], $exception->status, $exception instanceof PoliceAlertsUnavailable
+                ? ['Retry-After' => (string) $exception->retryAfter]
+                : []);
         }
     }
 }
