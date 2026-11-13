@@ -25,4 +25,7 @@ export TMPDIR="$tmp_dir"
 export EAS_LOCAL_BUILD_WORKINGDIR="$working_dir"
 export EAS_LOCAL_BUILD_ARTIFACTS_DIR="$artifacts_dir"
 
+# Avoid silent CMake failures when local native Gradle tasks run concurrently.
+export GRADLE_OPTS="${GRADLE_OPTS:-} -Dorg.gradle.workers.max=1"
+
 exec eas build --local "$@"
