@@ -14,6 +14,7 @@ use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Facades\Vite;
 use Illuminate\Support\ServiceProvider;
 use Laravel\Nightwatch\Facades\Nightwatch;
+use Laravel\Nightwatch\Records\QueuedJob;
 
 class AppServiceProvider extends ServiceProvider
 {
@@ -36,6 +37,7 @@ class AppServiceProvider extends ServiceProvider
         Nightwatch::redactRequests($nightwatchPrivacyRedactor->redactRequest(...));
         Nightwatch::redactOutgoingRequests($nightwatchPrivacyRedactor->redactOutgoingRequest(...));
         Nightwatch::redactExceptions($nightwatchPrivacyRedactor->redactException(...));
+        Nightwatch::rejectQueuedJobs(fn (QueuedJob $job): bool => true);
 
         Queue::before(function (JobProcessing $event): void {
             if (in_array($event->job->resolveQueuedJobClass(), [ProcessModeration::class, DrainModerationSummaries::class], true)) {
@@ -44,7 +46,7 @@ class AppServiceProvider extends ServiceProvider
                 return;
             }
 
-            Nightwatch::sample(rate: 0.01);
+            Nightwatch::sample(rate: 1.0);
         });
 
         Vite::prefetch(concurrency: 3);

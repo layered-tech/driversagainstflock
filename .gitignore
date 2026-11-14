@@ -41,3 +41,8 @@ yarn-error.log
 *.tfstate.*
 crash.log
 crash.*.log
+.env.before_lerd
+.env.lerd_override
+.node-version
+.php-version
+.lerd.yaml
