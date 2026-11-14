@@ -14,8 +14,11 @@ class RegionalRoadCorridorManifestController extends Controller
         if (! config('road-corridor.downloads_enabled') || ! config('road-corridor.regional_downloads_enabled')) {
             return response()->json(['enabled' => false])->header('Cache-Control', 'no-store');
         }
+        abort_if($regions->current() === null, 503, 'National road corridor catalog unavailable.');
         $catalog = $regions->catalog($request->region());
-        abort_if($catalog === null, 503, 'National road corridor catalog unavailable.');
+        if ($catalog === null) {
+            return response()->json(['enabled' => false])->header('Cache-Control', 'no-store');
+        }
         $response = response()->json(['enabled' => true, 'regional_enabled' => true, 'catalog' => $catalog])->header('Cache-Control', 'no-store');
         $response->setEtag(hash('sha256', $response->getContent()));
         $response->isNotModified($request);

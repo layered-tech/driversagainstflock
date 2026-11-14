@@ -73,7 +73,9 @@ class NightwatchPrivacyRedactor
             return '[REDACTED URL]';
         }
 
-        $safePath = $routePath === '' ? '/' : Str::start($routePath, '/');
+        $safePath = $routePath === ''
+            ? Str::start(Uri::of($url)->path(), '/')
+            : Str::start($routePath, '/');
 
         return $origin.$safePath;
     }

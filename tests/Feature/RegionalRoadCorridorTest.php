@@ -36,12 +36,27 @@ test('regional discovery serves bounded catalogs including Alaska and Hawaii', f
         ->assertJsonPath('catalog.region', $region)->assertJsonPath('catalog.release', 'national-release');
 })->with(['-45_21', '-61_18', '-75_30', '-79_10']);
 
-test('missing national catalogs never fall back to Wisconsin', function () {
+test('regional discovery disables downloads outside published coverage', function (string $region) {
     publishRegionalCorridorFixture();
-    $this->getJson('/api/v2/road-corridor-manifest?region=0_0')->assertServiceUnavailable();
+
+    $etag = $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')->assertOk()->headers->get('ETag');
+    $this->withHeader('If-None-Match', $etag)
+        ->getJson('/api/v2/road-corridor-manifest?region='.$region)
+        ->assertOk()
+        ->assertExactJson(['enabled' => false])
+        ->assertHeader('Cache-Control', 'no-store, private');
+
+    $this->flushHeaders();
+    $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')
+        ->assertOk()->assertJsonPath('enabled', true)->assertJsonPath('catalog.region', '-45_21');
+})->with(['0_0', '23_14']);
+
+test('missing national publications remain unavailable', function () {
+    publishRegionalCorridorFixture();
     Storage::disk('road-corridors')->delete('national-pointer.json');
     Cache::flush();
     $this->getJson('/api/v2/road-corridor-manifest?region=-45_21')->assertServiceUnavailable();
+    $this->getJson('/api/v2/road-corridor-manifest?region=0_0')->assertServiceUnavailable();
 });
 
 test('regional catalogs have independent conditional responses', function () {

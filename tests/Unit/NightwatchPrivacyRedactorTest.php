@@ -43,6 +43,32 @@ it('removes private data from incoming request records', function () {
         ->and($request->files->all())->toBe([]);
 });
 
+it('preserves unmatched request paths without query strings', function (string $path) {
+    $request = new NightwatchRequest(
+        method: 'GET',
+        url: 'https://driversagainstflock.org'.$path.'?query=home&latitude=30.2672',
+        routeName: '',
+        routeMethods: [],
+        routeDomain: '',
+        routePath: '',
+        routeAction: '',
+        ip: '50.53.92.156',
+        duration: 10,
+        statusCode: 404,
+        requestSize: 0,
+        responseSize: 200,
+        headers: new HeaderBag,
+        payload: new InputBag,
+        files: new FileBag,
+    );
+
+    (new NightwatchPrivacyRedactor)->redactRequest($request);
+
+    expect($request->url)->toBe('https://driversagainstflock.org'.$path)
+        ->and($request->routePath)->toBe('')
+        ->and($request->ip)->toBe('[REDACTED]');
+})->with(['/', '/wp-login.php', '/missing/nested/page', '/missing%20page']);
+
 it('retains only the origin for outgoing request records', function () {
     $request = new NightwatchOutgoingRequest(
         method: 'GET',
