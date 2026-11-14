@@ -152,6 +152,10 @@ public final class MapLocationPuckModule: Module {
     keyOptions: .weakMemory,
     valueOptions: .strongMemory
   )
+  private let cameraFollowBearings = NSMapTable<MapView, NSNumber>(
+    keyOptions: .weakMemory,
+    valueOptions: .strongMemory
+  )
   private let locationProviderStates = NSMapTable<MapView, OwnedLocationProviderState>(
     keyOptions: .weakMemory,
     valueOptions: .strongMemory
@@ -268,6 +272,19 @@ public final class MapLocationPuckModule: Module {
       return try await self.clearLocationPuckLocationProvider(from: mapView)
     }
 
+    AsyncFunction("setLocationPuckCameraFollowBearing") {
+      (mapViewTag: Int, bearing: Double?) async throws -> Bool in
+      let mapView = try await self.resolveMapView(tag: mapViewTag)
+      return await MainActor.run {
+        if let bearing, bearing.isFinite {
+          self.cameraFollowBearings.setObject(NSNumber(value: bearing), forKey: mapView)
+        } else {
+          self.cameraFollowBearings.removeObject(forKey: mapView)
+        }
+        return true
+      }
+    }
+
     AsyncFunction("setLocationPuckCameraFollow") {
       (
         mapViewTag: Int,
@@ -340,7 +357,9 @@ public final class MapLocationPuckModule: Module {
 
     var options = FollowPuckViewportStateOptions()
 
-    options.bearing = .heading
+    options.bearing = cameraFollowBearings.object(forKey: mapView).map {
+      .constant($0.doubleValue)
+    } ?? .heading
     options.padding = UIEdgeInsets(
       top: paddingTop,
       left: paddingLeft,

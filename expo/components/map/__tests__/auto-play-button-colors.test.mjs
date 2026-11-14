@@ -23,6 +23,7 @@ function createHarness(platform, isDarkMapLayer) {
     const context = vm.createContext({
         AndroidAutoMapSurface() {},
         CarPlayMapSurface() {},
+        DRIVING_MAP_VIEW_NORTH_UP: 'north-up',
         DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'overview',
         activeNavigationRoute: null,
@@ -32,7 +33,8 @@ function createHarness(platform, isDarkMapLayer) {
             compassNorthDirection: 0,
             drivingMapViewMode: 'perspective',
         },
-        getAutoPlayCompassNeedleImage: () => 'compass-asset',
+        getAutoPlayCompassNeedleImage: (direction, dark) =>
+            `compass-asset-${direction}-${dark}`,
     });
     vm.runInContext(
         adapter
@@ -58,6 +60,41 @@ function createHarness(platform, isDarkMapLayer) {
 
 for (const isDarkMapLayer of [false, true]) {
     const mode = isDarkMapLayer ? 'dark' : 'light';
+
+    for (const platform of ['android', 'ios']) {
+        test(`${platform} compass points straight up in north-up mode on a ${mode} map`, () => {
+            const evaluate = createHarness(platform, isDarkMapLayer);
+            evaluate("rootMapButtonAppearance.drivingMapViewMode = 'north-up'");
+            for (const direction of [3, 12, 25, 0]) {
+                evaluate(
+                    `rootMapButtonAppearance.compassNorthDirection = ${direction}`,
+                );
+                assert.equal(
+                    evaluate('getRootHeaderDrivingMapViewButtonImage().type'),
+                    'asset',
+                );
+                assert.equal(
+                    evaluate('getRootHeaderDrivingMapViewButtonImage().image'),
+                    `compass-asset-0-${isDarkMapLayer}`,
+                );
+            }
+            evaluate(
+                "rootMapButtonAppearance.drivingMapViewMode = 'perspective'",
+            );
+            evaluate('rootMapButtonAppearance.compassNorthDirection = 12');
+            if (platform === 'android') {
+                assert.equal(
+                    evaluate('getRootHeaderDrivingMapViewButtonImage().image'),
+                    `compass-asset-12-${isDarkMapLayer}`,
+                );
+            } else {
+                assert.equal(
+                    evaluate('getRootHeaderDrivingMapViewButtonImage().name'),
+                    'location-arrow',
+                );
+            }
+        });
+    }
 
     test(`Android Auto requests host tint for toolbar and map icons on a ${mode} map`, () => {
         const evaluate = createHarness('android', isDarkMapLayer);
@@ -112,6 +149,15 @@ for (const isDarkMapLayer of [false, true]) {
                 assert.equal(image.backgroundColor, 'transparent', factory);
             }
         }
+        evaluate("rootMapButtonAppearance.drivingMapViewMode = 'north-up'");
+        assert.equal(
+            evaluate('getRootHeaderDrivingMapViewButtonImage().image'),
+            `compass-asset-0-${isDarkMapLayer}`,
+        );
+        assert.equal(
+            evaluate('getRootHeaderDrivingMapViewButtonImage().color'),
+            'default',
+        );
         evaluate('activeNavigationRoute = {}');
         evaluate("rootMapButtonAppearance.drivingMapViewMode = 'overview'");
         assert.equal(

@@ -2,6 +2,15 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { getAutoPlayViewportMetrics } from '../../auto-play-map-viewport.js';
+import {
+    getFollowCameraAnchorY,
+    getFollowCameraPadding,
+} from '../follow-camera-padding.js';
+import {
+    DRIVING_MAP_VIEW_NORTH_UP,
+    getDrivingMapViewFollowConfiguration,
+} from '../driving-map-view.js';
 import {
     AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
     getAutoPlayClusterState,
@@ -285,8 +294,9 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         viewportMetrics: { cameraPadding: {}, height: 400 },
         clampZoomLevel: (zoom) => zoom,
         currentZoomRef: {},
-        getDrivingMapViewFollowConfiguration: () => ({ pitch: 55 }),
+        drivingMapViewFollowConfiguration: { pitch: 55 },
         drivingMapViewMode: 'perspective',
+        DRIVING_MAP_VIEW_NORTH_UP,
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
         followPitch: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followPitch,
         followZoomOffset: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
@@ -305,6 +315,8 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
     assert.equal(options.followIsEnabled, true);
     assert.equal(options.followSpeedZoomEnabled, true);
     assert.equal(options.navigationRoute, navigationRoute);
+    assert.equal(options.followViewportAnchorY, 280);
+    assert.deepEqual(options.cameraViewportInsets, {});
     assert.match(
         sourceAt('../../map-follow-location-mode.js'),
         /maneuverZoomController\.update/,
@@ -321,6 +333,83 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         sourceAt('../map-canvas.js'),
         /weatherEffectsEnabled \? \(\s*<WeatherEffect/,
     );
+});
+
+test('automotive north-up follows at zero pitch and three levels below the surface follow zoom', () => {
+    for (const zoomOffset of [undefined, -1]) {
+        for (const { windowInfo, safeAreaInsets } of [
+            { windowInfo: { width: 600, height: 400 }, safeAreaInsets: {} },
+            {
+                windowInfo: { width: 600, height: 400 },
+                safeAreaInsets: { top: 40, bottom: 80, left: 100, right: 20 },
+            },
+            {
+                windowInfo: { width: 600, height: 400 },
+                safeAreaInsets: { top: 16, bottom: 160, left: 240, right: 0 },
+            },
+            {
+                windowInfo: { width: 400, height: 600 },
+                safeAreaInsets: { top: 80, bottom: 40, left: 20, right: 100 },
+            },
+        ]) {
+            const viewportMetrics = getAutoPlayViewportMetrics({
+                windowInfo,
+                safeAreaInsets,
+            });
+            const options = evaluateDeclaration('followLocationMode', {
+                useFollowLocationMode: (options) => options,
+                cameraUpdatesAreAllowed() {},
+                cameraRef: {},
+                viewportMetrics,
+                clampZoomLevel: (zoom) => zoom,
+                currentZoomRef: {},
+                drivingMapViewFollowConfiguration:
+                    getDrivingMapViewFollowConfiguration(
+                        DRIVING_MAP_VIEW_NORTH_UP,
+                    ),
+                drivingMapViewMode: DRIVING_MAP_VIEW_NORTH_UP,
+                DRIVING_MAP_VIEW_NORTH_UP,
+                DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
+                followPitch: 60,
+                followZoomOffset: zoomOffset,
+                presenceCameraIsLocked: false,
+                navigationRoute: null,
+                followViewportAnchorY: 280,
+                isDrivingMode: true,
+                locationTrackingMode: 'follow',
+                locationTrackingModeRef: {},
+                markerLoadsEnabledRef: {},
+                setTrackingMode() {},
+                userLocationRef: {},
+            });
+            assert.equal(options.followPitch, 0);
+            assert.equal(options.followHeading, 0);
+            assert.equal(options.followZoomOffset, (zoomOffset ?? 0) - 3);
+            assert.equal(options.followIsEnabled, true);
+            assert.equal(options.followSpeedZoomEnabled, true);
+            assert.equal(options.followViewportAnchorY, undefined);
+            const padding = getFollowCameraPadding({
+                followViewportAnchorY: options.followViewportAnchorY,
+                viewportHeight: options.viewportHeight,
+                viewportInsets: options.cameraViewportInsets,
+            });
+            assert.deepEqual(padding, viewportMetrics.cameraPadding);
+            assert.equal(
+                getFollowCameraAnchorY({
+                    viewportHeight: options.viewportHeight,
+                    viewportInsets: padding,
+                }),
+                viewportMetrics.center.y,
+            );
+            assert.equal(
+                (viewportMetrics.width +
+                    padding.paddingLeft -
+                    padding.paddingRight) /
+                    2,
+                viewportMetrics.center.x,
+            );
+        }
+    }
 });
 
 test('secondary surfaces update follow zoom for every shared location without publishing another fix', () => {

@@ -15,6 +15,7 @@ function getFollowRequestKey(followProps, attachmentKey) {
         followProps?.enabled === true,
         followProps?.zoomLevel ?? '',
         followProps?.pitch ?? '',
+        followProps?.heading ?? '',
         padding?.paddingTop ?? 0,
         padding?.paddingLeft ?? 0,
         padding?.paddingBottom ?? 0,
@@ -209,6 +210,9 @@ export function getLocationPuckCameraFollowFallbackProps({
         followPadding:
             platform === 'android' ? undefined : followProps?.padding,
         followPitch: followProps?.pitch,
+        ...(Number.isFinite(followProps?.heading)
+            ? { followHeading: followProps.heading }
+            : {}),
         followUserLocation: followProps?.enabled === true,
         followUserMode,
         followZoomLevel: followProps?.zoomLevel,

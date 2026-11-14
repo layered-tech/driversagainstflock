@@ -180,6 +180,7 @@ private fun ByteArray.sha256(): String {
 class MapLocationPuckModule : Module() {
     private val cameraFollowZoomAnimators = WeakHashMap<RNMBXMapView, ValueAnimator>()
     private val cameraFollowStates = WeakHashMap<RNMBXMapView, FollowPuckViewportState>()
+    private val cameraFollowBearings = WeakHashMap<RNMBXMapView, Double>()
     private val locationProviderStates =
         WeakHashMap<RNMBXMapView, SharedLocationPuckProviderState>()
 
@@ -590,6 +591,16 @@ class MapLocationPuckModule : Module() {
             hadLocationPuck3D
         }.runOnQueue(Queues.MAIN)
 
+        AsyncFunction("setLocationPuckCameraFollowBearing") { viewTag: Int, bearing: Double? ->
+            val mapView = requireMapView(viewTag)
+            if (bearing != null && bearing.isFinite()) {
+                cameraFollowBearings[mapView] = bearing
+            } else {
+                cameraFollowBearings.remove(mapView)
+            }
+            true
+        }.runOnQueue(Queues.MAIN)
+
         (AsyncFunction("setLocationPuckCameraFollow") Coroutine {
                 viewTag: Int,
                 enabled: Boolean,
@@ -616,7 +627,11 @@ class MapLocationPuckModule : Module() {
 
             val pixelDensity = mapView.resources.displayMetrics.density.toDouble()
             val optionsBuilder = FollowPuckViewportStateOptions.Builder()
-                .bearing(FollowPuckViewportStateBearing.SyncWithLocationPuck)
+                .bearing(
+                    cameraFollowBearings[mapView]?.let {
+                        FollowPuckViewportStateBearing.Constant(it)
+                    } ?: FollowPuckViewportStateBearing.SyncWithLocationPuck,
+                )
                 .padding(
                     EdgeInsets(
                         paddingTop * pixelDensity,

@@ -82,7 +82,7 @@ test('automotive route mode releases follow and fits the active route', () => {
     );
     assert.match(
         mapSurfaceSource,
-        /getNextDrivingMapViewMode\(drivingMapViewMode\)[\s\S]*?setAutoPlayState\(\{\s*drivingMapViewMode: nextMode/,
+        /getNextDrivingMapViewMode\(drivingMapViewMode, \{[\s\S]*?hasActiveDirectionsRoute: Boolean\(activeDirectionsRoute\)[\s\S]*?setAutoPlayState\(\{\s*drivingMapViewMode: nextMode/,
     );
     assert.doesNotMatch(mapSurfaceSource, /setDrivingMapViewMode/);
     assert.match(
@@ -99,7 +99,7 @@ test('automotive route mode releases follow and fits the active route', () => {
     );
     assert.match(
         mapSurfaceSource,
-        /if \(!isRootMapSurface \|\| activeDirectionsRoute\)[\s\S]*?shouldRestoreDrivingPerspective\(\{[\s\S]*?isRootMapSurface/,
+        /if \(!isRootMapSurface\)[\s\S]*?shouldRestoreDrivingPerspective\(\{[\s\S]*?isRootMapSurface/,
     );
     assert.match(
         mapSurfaceSource,
@@ -126,7 +126,7 @@ test('automotive route mode releases follow and fits the active route', () => {
 test('automotive recenter returns route overview to 3D follow', () => {
     assert.match(
         mapSurfaceSource,
-        /handleLocationTrackingPress:[\s\S]*?drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW[\s\S]*?handleDrivingMapViewPress/,
+        /handleLocationTrackingPress:[\s\S]*?drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE[\s\S]*?handleDrivingMapViewPress/,
     );
     assert.match(
         mapSurfaceSource,

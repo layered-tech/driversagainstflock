@@ -455,7 +455,10 @@ describe('in-house road-matched location integration', () => {
             mapLocationPuckIOSSource,
             /setLocationPuckCameraFollow[\s\S]*?reassertLiveLocationProvider\(on: mapView\)/,
         );
-        assert.match(mapLocationPuckIOSSource, /options\.bearing = \.heading/);
+        assert.match(
+            mapLocationPuckIOSSource,
+            /options\.bearing = cameraFollowBearings[\s\S]*?\?\? \.heading/,
+        );
         assert.match(
             mapLocationPuckIOSSource,
             /location\.onPuckRender\.observe/,
