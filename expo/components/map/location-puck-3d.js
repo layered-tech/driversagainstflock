@@ -93,6 +93,18 @@ export async function setLocationPuckCameraFollowAsync(mapView, followProps) {
     }
 
     const padding = followProps?.padding;
+    const heading = Number.isFinite(followProps?.heading)
+        ? followProps.heading
+        : null;
+
+    if (mapLocationPuckModule.setLocationPuckCameraFollowBearing) {
+        await mapLocationPuckModule.setLocationPuckCameraFollowBearing(
+            mapViewTag,
+            heading,
+        );
+    } else if (heading !== null && followProps?.enabled === true) {
+        return false;
+    }
 
     return mapLocationPuckModule.setLocationPuckCameraFollow(
         mapViewTag,

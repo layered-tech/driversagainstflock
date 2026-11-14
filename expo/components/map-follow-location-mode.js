@@ -30,6 +30,7 @@ export function useFollowLocationMode({
     cameraViewportInsets,
     clampZoomLevel,
     currentZoomRef,
+    followHeading,
     followIsEnabled = true,
     followPitch = LOCATION_FOLLOW_CAMERA_PITCH,
     followSpeedZoomEnabled = false,
@@ -64,6 +65,7 @@ export function useFollowLocationMode({
     const nativeFollowZoomLevelRef = useRef(initialFollowZoomLevel);
     const lastFollowSpeedZoomUpdateAtRef = useRef(null);
     const userZoomOverrideIsActiveRef = useRef(false);
+    const previousFollowZoomOffsetRef = useRef(followZoomOffset);
     const [nativeFollowZoomLevel, setNativeFollowZoomLevelState] = useState(
         initialFollowZoomLevel,
     );
@@ -214,11 +216,15 @@ export function useFollowLocationMode({
                 !recenterIsNeeded,
             padding: followCameraPadding,
             pitch: followPitch,
+            ...(Number.isFinite(followHeading)
+                ? { heading: followHeading }
+                : {}),
             zoomLevel: nativeFollowZoomLevel,
         }),
         [
             followCameraPadding,
             followIsEnabled,
+            followHeading,
             followPitch,
             isDrivingMode,
             locationTrackingMode,
@@ -383,6 +389,31 @@ export function useFollowLocationMode({
         (trackingMode) => trackingMode === LOCATION_TRACKING_FOLLOW,
         [],
     );
+
+    useEffect(() => {
+        if (previousFollowZoomOffsetRef.current === followZoomOffset) {
+            return;
+        }
+
+        previousFollowZoomOffsetRef.current = followZoomOffset;
+        if (
+            isDrivingMode &&
+            locationTrackingMode === LOCATION_TRACKING_FOLLOW &&
+            userLocationRef.current &&
+            cameraUpdatesAreAllowed?.() !== false
+        ) {
+            clearUserZoomOverride();
+            syncNativeFollowZoomLevel(userLocationRef.current, { force: true });
+        }
+    }, [
+        cameraUpdatesAreAllowed,
+        clearUserZoomOverride,
+        followZoomOffset,
+        isDrivingMode,
+        locationTrackingMode,
+        syncNativeFollowZoomLevel,
+        userLocationRef,
+    ]);
 
     useEffect(() => {
         if (!followSpeedZoomEnabled) {

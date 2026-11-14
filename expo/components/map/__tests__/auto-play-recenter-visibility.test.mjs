@@ -135,7 +135,11 @@ for (const platform of ['android', 'ios']) {
                     Array.from(buttons, (button) => button.image),
                     platform === 'android'
                         ? ['zoom-in', 'zoom-out', 'view', ...recenterImages]
-                        : ['pan', ...recenterImages],
+                        : [
+                              'pan',
+                              ...(hasActiveNavigation ? [] : ['view']),
+                              ...recenterImages,
+                          ],
                 );
                 for (const button of buttons) {
                     assert.equal(

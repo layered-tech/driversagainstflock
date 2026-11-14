@@ -365,6 +365,136 @@ const { getFollowSpeedZoomLevel, useFollowLocationMode } = loadMapModule(
     new URL('../../map-follow-location-mode.js', import.meta.url),
 );
 
+test('north-up keeps native location follow enabled and tracks speed zoom three levels farther out', () => {
+    const makeFollow = (northUp) => {
+        const currentZoomRef = { current: 17 };
+        const hook = useFollowLocationMode({
+            cameraRef: { current: { setCamera() {} } },
+            cameraUpdatesAreAllowed: () => true,
+            clampZoomLevel: (value) => value,
+            currentZoomRef,
+            followHeading: northUp ? 0 : undefined,
+            followPitch: northUp ? 0 : 55,
+            followZoomOffset: northUp ? -3 : 0,
+            followSpeedZoomEnabled: true,
+            isDrivingMode: true,
+            locationTrackingMode: 'follow',
+            locationTrackingModeRef: { current: 'follow' },
+            markerLoadsEnabledRef: { current: true },
+            navigationRoute: null,
+            setTrackingMode() {},
+            userLocationRef: { current: null },
+        });
+        return { hook, currentZoomRef };
+    };
+    const perspective = makeFollow(false);
+    const northUp = makeFollow(true);
+    assert.equal(northUp.hook.nativeCameraFollowProps.enabled, true);
+    assert.equal(northUp.hook.nativeCameraFollowProps.heading, 0);
+    assert.equal(northUp.hook.nativeCameraFollowProps.pitch, 0);
+    assert.equal(perspective.hook.nativeCameraFollowProps.heading, undefined);
+    for (const [index, speedMph] of [0, 30, 45, 65].entries()) {
+        const fix = {
+            longitude: index / 100,
+            latitude: 0,
+            heading: index * 45,
+            speed: speedMph * 0.44704,
+            recordedAt: epoch + index * 10000,
+        };
+        for (const { hook } of [perspective, northUp]) {
+            hook.handleLocationUpdate('follow', fix);
+        }
+        assert.equal(
+            northUp.currentZoomRef.current,
+            perspective.currentZoomRef.current - 3,
+        );
+        assert.equal(northUp.hook.nativeCameraFollowProps.heading, 0);
+    }
+});
+
+test('switching north-up on and off immediately recalculates zoom, including after manual zoom', (t) => {
+    const slots = [];
+    let cursor = 0;
+    let effects = [];
+    const react = nativeModules['react.js'];
+    t.mock.method(react, 'useRef', (value) => {
+        const index = cursor++;
+        slots[index] ??= { current: value };
+        return slots[index];
+    });
+    t.mock.method(react, 'useState', (value) => {
+        const index = cursor++;
+        slots[index] ??= {
+            value: typeof value === 'function' ? value() : value,
+        };
+        return [
+            slots[index].value,
+            (next) => {
+                slots[index].value = next;
+            },
+        ];
+    });
+    t.mock.method(react, 'useEffect', (effect) => {
+        effects.push(effect);
+    });
+    const fix = {
+        longitude: 0,
+        latitude: 0,
+        speed: 45 * 0.44704,
+        recordedAt: epoch,
+    };
+    const options = {
+        cameraRef: { current: { setCamera() {} } },
+        cameraUpdatesAreAllowed: () => true,
+        clampZoomLevel: (value) => value,
+        currentZoomRef: { current: 17 },
+        followZoomOffset: 0,
+        followPitch: 55,
+        followSpeedZoomEnabled: true,
+        isDrivingMode: true,
+        locationTrackingMode: 'follow',
+        locationTrackingModeRef: { current: 'follow' },
+        markerLoadsEnabledRef: { current: true },
+        navigationRoute: null,
+        setTrackingMode() {},
+        userLocationRef: { current: fix },
+    };
+    const render = () => {
+        cursor = 0;
+        effects = [];
+        const hook = useFollowLocationMode(options);
+        effects.forEach((effect) => effect());
+        return hook;
+    };
+    let hook = render();
+    hook.start(fix);
+    hook = render();
+    const followZoom = hook.nativeCameraFollowProps.zoomLevel;
+    hook.handleZoomLevelChange('follow', 20);
+    assert.equal(render().nativeCameraFollowProps.zoomLevel, 20);
+    Object.assign(options, {
+        followZoomOffset: -3,
+        followPitch: 0,
+        followHeading: 0,
+    });
+    render();
+    hook = render();
+    assert.equal(hook.nativeCameraFollowProps.enabled, true);
+    assert.equal(hook.nativeCameraFollowProps.zoomLevel, followZoom - 3);
+    assert.equal(hook.nativeCameraFollowProps.heading, 0);
+    assert.equal(hook.nativeCameraFollowProps.pitch, 0);
+    Object.assign(options, {
+        followZoomOffset: 0,
+        followPitch: 55,
+        followHeading: undefined,
+    });
+    render();
+    hook = render();
+    assert.equal(hook.nativeCameraFollowProps.zoomLevel, followZoom);
+    assert.equal(hook.nativeCameraFollowProps.pitch, 55);
+    assert.equal(hook.nativeCameraFollowProps.heading, undefined);
+});
+
 test('speed-derived follow zoom changes only at bracket boundaries', () => {
     const zoomAtMph = (speedMph) =>
         getFollowSpeedZoomLevel(speedMph * 0.44704, (zoom) => zoom);

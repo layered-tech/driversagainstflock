@@ -606,7 +606,11 @@ export const MapCanvas = memo(function MapCanvas({
         [mapRoutePalette],
     );
     const locationBoundCameraFollowProps = nativeCameraFollowProps;
-    const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
+    const drivingCameraFollowMode = Number.isFinite(
+        locationBoundCameraFollowProps?.heading,
+    )
+        ? Mapbox.UserTrackingMode.Follow
+        : Mapbox.UserTrackingMode.FollowWithHeading;
     const nativeLocationPuckCameraFollowIsSupported =
         isLocationPuckCameraFollowSupported();
     const puckBearing = isDrivingMode

@@ -87,6 +87,7 @@ import {
     selectDirectionsRoute,
 } from './map/directions';
 import {
+    DRIVING_MAP_VIEW_NORTH_UP,
     DRIVING_MAP_VIEW_PERSPECTIVE,
     DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
 } from './map/driving-map-view';
@@ -3131,8 +3132,7 @@ function updateRootMapButtonAppearance(appearance) {
     );
     const perspectiveCompassButtonIsVisible = Boolean(
         drivingMapViewButtonIsVisible &&
-        (!activeNavigationRoute ||
-            nextAppearance.drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE),
+        nextAppearance.drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE,
     );
 
     if (
@@ -3271,6 +3271,9 @@ function getRootHeaderExitNavigationButtonImage() {
 }
 
 function getRootHeaderDrivingMapViewButtonImage() {
+    const northUpIsActive =
+        rootMapButtonAppearance.drivingMapViewMode ===
+        DRIVING_MAP_VIEW_NORTH_UP;
     const routeOverviewIsActive =
         Boolean(activeNavigationRoute) &&
         rootMapButtonAppearance.drivingMapViewMode ===
@@ -3278,12 +3281,17 @@ function getRootHeaderDrivingMapViewButtonImage() {
 
     if (
         !routeOverviewIsActive &&
-        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true
+        (northUpIsActive ||
+            autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true)
     ) {
         return {
-            color: autoPlayPlatform?.buttonIconColor,
+            color: autoPlayPlatform?.usesHostButtonColors
+                ? 'default'
+                : autoPlayPlatform?.buttonIconColor,
             image: getAutoPlayCompassNeedleImage(
-                rootMapButtonAppearance.compassNorthDirection,
+                northUpIsActive
+                    ? 0
+                    : rootMapButtonAppearance.compassNorthDirection,
                 rootMapButtonAppearance.isDarkMapLayer,
             ),
             type: 'asset',
@@ -3337,21 +3345,25 @@ function getRootMapButtons() {
     const showsDrivingMapViewButton = Boolean(
         autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true,
     );
-    const effectiveDrivingMapViewMode = activeNavigationRoute
-        ? rootMapButtonAppearance.drivingMapViewMode
-        : DRIVING_MAP_VIEW_PERSPECTIVE;
+    const effectiveDrivingMapViewMode =
+        rootMapButtonAppearance.drivingMapViewMode ??
+        DRIVING_MAP_VIEW_PERSPECTIVE;
     const routeOverviewIsActive =
+        Boolean(activeNavigationRoute) &&
         effectiveDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW;
-    const drivingMapViewModeKey = showsDrivingMapViewButton
-        ? effectiveDrivingMapViewMode
-        : 'hidden';
+    const usesPanZoomControlsOnly =
+        autoPlayPlatform?.usesPanZoomControlsOnly === true;
+    const idleCompassIsVisible =
+        usesPanZoomControlsOnly && !activeNavigationRoute;
+    const drivingMapViewModeKey =
+        showsDrivingMapViewButton || idleCompassIsVisible
+            ? effectiveDrivingMapViewMode
+            : 'hidden';
     const compassNorthDirectionKey =
         showsDrivingMapViewButton &&
         effectiveDrivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE
             ? rootMapButtonAppearance.compassNorthDirection
             : 'hidden';
-    const usesPanZoomControlsOnly =
-        autoPlayPlatform?.usesPanZoomControlsOnly === true;
     const panZoomIsVisible =
         usesPanZoomControlsOnly && rootMapPanningInterfaceIsVisible;
     const rootMapButtonsKey = `${rootMapButtonAppearanceKey}:${showsDrivingMapViewButton ? 'driving-map-view' : 'pan'}:${drivingMapViewModeKey}:${compassNorthDirectionKey}:${panZoomIsVisible}:${routeOverviewIsActive}:${autoPlaySearchWorkflowIsActive}:${routePreviewIsVisible}`;
@@ -3377,6 +3389,16 @@ function getRootMapButtons() {
               image: getRootMapPanButtonImage(),
               type: 'pan',
           };
+    const idleCompassButtons = idleCompassIsVisible
+        ? [
+              {
+                  flags: Flag.Persistent,
+                  image: getRootHeaderDrivingMapViewButtonImage(),
+                  onPress: handleRootHeaderDrivingMapViewPress,
+                  type: 'custom',
+              },
+          ]
+        : [];
     const zoomInButton = {
         image: getRootMapZoomInButtonImage(),
         onPress: handleRootZoomInPress,
@@ -3406,7 +3428,7 @@ function getRootMapButtons() {
             ? []
             : panZoomIsVisible
               ? [zoomInButton, zoomOutButton]
-              : [mapViewButton, ...recenterButtons]
+              : [mapViewButton, ...idleCompassButtons, ...recenterButtons]
         : showsDrivingMapViewButton
           ? [zoomInButton, zoomOutButton, mapViewButton, ...recenterButtons]
           : [

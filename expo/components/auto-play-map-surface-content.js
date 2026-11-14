@@ -89,6 +89,7 @@ import {
 } from './map/directions';
 import { getLocationWithDrivingMotionState } from './map/driving-location-state';
 import {
+    DRIVING_MAP_VIEW_NORTH_UP,
     DRIVING_MAP_VIEW_PERSPECTIVE,
     DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
     getDrivingMapViewFollowConfiguration,
@@ -659,21 +660,31 @@ function useAutoPlayMapController({
         pendingCameraStopRef,
         setTrackingMode,
     });
+    const drivingMapViewFollowConfiguration =
+        getDrivingMapViewFollowConfiguration(drivingMapViewMode);
     const followLocationMode = useFollowLocationMode({
         cameraUpdatesAreAllowed,
         cameraRef,
         cameraViewportInsets: viewportMetrics.cameraPadding,
         clampZoomLevel,
         currentZoomRef,
-        ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
-        followPitch,
-        followZoomOffset,
+        followHeading: drivingMapViewFollowConfiguration.heading,
+        followPitch:
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
+                ? drivingMapViewFollowConfiguration.pitch
+                : followPitch,
+        followZoomOffset:
+            (followZoomOffset ?? 0) +
+            (drivingMapViewFollowConfiguration.zoomOffset ?? 0),
         followIsEnabled:
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
         navigationRoute,
-        followViewportAnchorY,
+        followViewportAnchorY:
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
+                ? undefined
+                : followViewportAnchorY,
         isDrivingMode,
         locationTrackingMode,
         locationTrackingModeRef,
@@ -2065,15 +2076,13 @@ export function AutoPlayMapSurfaceContent({
         scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
     });
     const handleDrivingMapViewPress = useCallback(() => {
-        if (
-            !isRootMapSurface ||
-            !activeDirectionsRoute ||
-            !controller.cameraUpdatesAreAllowed()
-        ) {
+        if (!isRootMapSurface || !controller.cameraUpdatesAreAllowed()) {
             return;
         }
 
-        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode);
+        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode, {
+            hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
+        });
 
         setAutoPlayState({ drivingMapViewMode: nextMode });
         logAutoPlayMapSurfaceAction(`driving-map-view-${nextMode}-requested`);
@@ -2087,15 +2096,18 @@ export function AutoPlayMapSurfaceContent({
         const previousDrivingMapViewMode =
             previousDrivingMapViewModeRef.current;
         const isReturningToPerspective =
-            previousDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW &&
+            (previousDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW ||
+                previousDrivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP) &&
             drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE;
+        const isEnteringNorthUp =
+            previousDrivingMapViewMode !== drivingMapViewMode &&
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP;
 
         previousDrivingMapViewModeRef.current = drivingMapViewMode;
 
         if (
             !isRootMapSurface ||
-            !activeDirectionsRoute ||
-            !isReturningToPerspective
+            (!isReturningToPerspective && !isEnteringNorthUp)
         ) {
             return;
         }
@@ -2103,7 +2115,7 @@ export function AutoPlayMapSurfaceContent({
         controller.handleDrivingRecenterPress().then(
             () => {
                 logAutoPlayMapSurfaceAction(
-                    'driving-map-view-perspective-restored',
+                    `driving-map-view-${drivingMapViewMode}-restored`,
                 );
             },
             () => {},
@@ -2375,7 +2387,7 @@ export function AutoPlayMapSurfaceContent({
                 }),
             handleDrivingMapViewPress,
             handleLocationTrackingPress:
-                drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+                drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE
                     ? handleDrivingMapViewPress
                     : isDrivingMode
                       ? controller.handleDrivingRecenterPress
@@ -2446,11 +2458,13 @@ export function AutoPlayMapSurfaceContent({
     }, [isRootMapSurface]);
 
     useEffect(() => {
-        if (!isRootMapSurface || activeDirectionsRoute) {
+        if (!isRootMapSurface) {
             return;
         }
 
-        fittedDrivingRouteOverviewKeyRef.current = '';
+        if (!activeDirectionsRoute) {
+            fittedDrivingRouteOverviewKeyRef.current = '';
+        }
         if (
             shouldRestoreDrivingPerspective({
                 hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),

@@ -1,5 +1,6 @@
 export const DRIVING_MAP_VIEW_PERSPECTIVE = 'perspective';
 export const DRIVING_MAP_VIEW_ROUTE_OVERVIEW = 'route-overview';
+export const DRIVING_MAP_VIEW_NORTH_UP = 'north-up';
 
 const DRIVING_ROUTE_OVERVIEW_BOTTOM_PADDING = 144;
 const DRIVING_ROUTE_OVERVIEW_HORIZONTAL_PADDING = 24;
@@ -29,9 +30,23 @@ const DRIVING_MAP_VIEW_FOLLOW_CONFIGURATIONS = {
     [DRIVING_MAP_VIEW_ROUTE_OVERVIEW]: {
         pitch: 0,
     },
+    [DRIVING_MAP_VIEW_NORTH_UP]: {
+        pitch: 0,
+        heading: 0,
+        zoomOffset: -3,
+    },
 };
 
-export function getNextDrivingMapViewMode(mode) {
+export function getNextDrivingMapViewMode(
+    mode,
+    { hasActiveDirectionsRoute = true } = {},
+) {
+    if (!hasActiveDirectionsRoute) {
+        return mode === DRIVING_MAP_VIEW_PERSPECTIVE
+            ? DRIVING_MAP_VIEW_NORTH_UP
+            : DRIVING_MAP_VIEW_PERSPECTIVE;
+    }
+
     const currentIndex = DRIVING_MAP_VIEW_MODES.indexOf(mode);
 
     return DRIVING_MAP_VIEW_MODES[
@@ -64,8 +79,9 @@ export function shouldRestoreDrivingPerspective({
 }) {
     return (
         isRootMapSurface &&
-        !hasActiveDirectionsRoute &&
-        mode !== DRIVING_MAP_VIEW_PERSPECTIVE
+        (hasActiveDirectionsRoute
+            ? mode === DRIVING_MAP_VIEW_NORTH_UP
+            : mode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW)
     );
 }
 

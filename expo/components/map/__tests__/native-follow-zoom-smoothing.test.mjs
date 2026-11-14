@@ -20,6 +20,24 @@ const android = readFileSync(
     'utf8',
 );
 
+test('native follow uses a fixed bearing when requested and follows the puck heading otherwise', () => {
+    for (const source of [ios, android]) {
+        assert.match(
+            source,
+            /AsyncFunction\("setLocationPuckCameraFollowBearing"\)/,
+        );
+        assert.match(source, /cameraFollowBearings/);
+    }
+    assert.match(
+        ios,
+        /options\.bearing = cameraFollowBearings[\s\S]*?\.constant\(\$0\.doubleValue\)[\s\S]*?\?\? \.heading/,
+    );
+    assert.match(
+        android,
+        /\.bearing\([\s\S]*?cameraFollowBearings\[mapView\][\s\S]*?FollowPuckViewportStateBearing\.Constant\(it\)[\s\S]*?FollowPuckViewportStateBearing\.SyncWithLocationPuck/,
+    );
+});
+
 function smoothingSource(source) {
     const start = source.indexOf('private func smoothCameraFollowZoom');
     const androidStart = source.indexOf('private fun smoothCameraFollowZoom');
@@ -125,6 +143,7 @@ struct FollowPuckViewportStateOptions {
   var zoom: CGFloat?
   var pitch: CGFloat? = 45
   var padding = 120
+  var bearing: Double? = nil
 }
 @MainActor final class FollowPuckViewportState {
   var options = FollowPuckViewportStateOptions(zoom: 18)
@@ -154,10 +173,10 @@ MainActor.assumeIsolated {
   let map = MapView()
   let state = FollowPuckViewportState()
   smoother.cameraFollowStates.setObject(state, forKey: map)
-  let target = FollowPuckViewportStateOptions(zoom: 16, pitch: 50, padding: 200)
+  let target = FollowPuckViewportStateOptions(zoom: 16, pitch: 0, padding: 200, bearing: 0)
   smoother.smoothCameraFollowZoom(on: map, followState: state, options: target)
   precondition(state.options.zoom == 18, "start must not snap to target")
-  precondition(state.options.pitch == 50 && state.options.padding == 200)
+  precondition(state.options.pitch == 0 && state.options.padding == 200 && state.options.bearing == 0)
   let first = smoother.cameraFollowZoomTimers.object(forKey: map)!
   ProcessInfo.processInfo.systemUptime = 0.1875
   first.fire()
@@ -165,6 +184,7 @@ MainActor.assumeIsolated {
   ProcessInfo.processInfo.systemUptime = 0.375
   first.fire()
   precondition(state.options.zoom == 17, "midpoint must be between endpoints")
+  precondition(state.options.bearing == 0 && state.options.pitch == 0)
 
   // A new target begins at the rendered camera value, not the old endpoint.
   map.mapboxMap.cameraState.zoom = 17

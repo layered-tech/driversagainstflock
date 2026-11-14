@@ -34,6 +34,28 @@ function requestFollow(lifecycle, mapViewRef, overrides = {}) {
 }
 
 describe('location puck camera follow fallback', () => {
+    for (const platform of ['ios', 'android']) {
+        test(`${platform} fallback keeps north-up location follow at a fixed heading`, () => {
+            const props = getLocationPuckCameraFollowFallbackProps({
+                followProps: {
+                    ...defaultFollowProps,
+                    heading: 0,
+                    pitch: 0,
+                    zoomLevel: 13.5,
+                },
+                followUserMode: 'follow',
+                mapIsReady: true,
+                nativeFollowIsSupported: true,
+                nativeFollowStatus: 'failed',
+                platform,
+            });
+            assert.equal(props.followUserLocation, true);
+            assert.equal(props.followUserMode, 'follow');
+            assert.equal(props.followHeading, 0);
+            assert.equal(props.followPitch, 0);
+            assert.equal(props.followZoomLevel, 13.5);
+        });
+    }
     test('waits for a fallback Camera commit before releasing manual pan', async () => {
         let completeCameraCommit;
         let waitCount = 0;
@@ -239,6 +261,88 @@ describe('location puck camera follow fallback', () => {
 });
 
 describe('location puck camera follow lifecycle', () => {
+    test('north-up follow updates native padding as the host safe area changes without restarting follow', async () => {
+        const updates = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_view, props) => {
+                updates.push(props);
+                return true;
+            },
+            verifyCameraFollow: async () => true,
+            waitForCameraCommit: async () => {},
+        });
+        const mapViewRef = { current: {} };
+        const paddings = [
+            {
+                paddingTop: 0,
+                paddingBottom: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+            },
+            {
+                paddingTop: 40,
+                paddingBottom: 80,
+                paddingLeft: 100,
+                paddingRight: 20,
+            },
+            {
+                paddingTop: 16,
+                paddingBottom: 160,
+                paddingLeft: 240,
+                paddingRight: 0,
+            },
+            {
+                paddingTop: 0,
+                paddingBottom: 0,
+                paddingLeft: 0,
+                paddingRight: 0,
+            },
+        ];
+        for (const padding of paddings) {
+            await lifecycle.request({
+                attachmentKey: 1,
+                cameraIsPrepared: true,
+                mapViewRef,
+                followProps: {
+                    ...defaultFollowProps,
+                    heading: 0,
+                    pitch: 0,
+                    padding,
+                },
+            });
+        }
+        assert.deepEqual(
+            updates.map((props) => props.padding),
+            paddings,
+        );
+        assert.ok(
+            updates.every(
+                (props) =>
+                    props.enabled && props.heading === 0 && props.pitch === 0,
+            ),
+        );
+    });
+    test('changing only the follow bearing submits a fresh native request', async () => {
+        const headings = [];
+        const lifecycle = createLocationPuckCameraFollowLifecycle({
+            configureCameraFollow: async (_view, props) => {
+                headings.push(props.heading);
+                return true;
+            },
+            verifyCameraFollow: async () => true,
+            waitForCameraCommit: async () => {},
+        });
+        const mapViewRef = { current: {} };
+        for (const heading of [undefined, 0, undefined]) {
+            await lifecycle.request({
+                attachmentKey: 1,
+                cameraIsPrepared: true,
+                mapViewRef,
+                followProps: { ...defaultFollowProps, heading },
+            });
+        }
+        assert.deepEqual(headings, [undefined, 0, undefined]);
+    });
     for (const platform of ['ios', 'android']) {
         test(`does not wait for handset frames during ${platform} native follow`, async () => {
             let frameWaitCallCount = 0;

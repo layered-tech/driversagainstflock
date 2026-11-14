@@ -42,6 +42,8 @@ test('CarPlay swaps standard Pan/Recenter controls for exactly two zoom controls
         getRootMapZoomInButtonImage: () => 'zoom-in',
         getRootMapZoomOutButtonImage: () => 'zoom-out',
         getRootMapTrackingButtonImage: () => 'recenter',
+        getRootHeaderDrivingMapViewButtonImage: () => 'compass',
+        handleRootHeaderDrivingMapViewPress: () => presses.push('compass'),
         getAutoPlayMapControlHandlers: () => ({
             handleZoomInPress: () => presses.push('in'),
             handleZoomOutPress: () => presses.push('out'),
@@ -82,6 +84,26 @@ test('CarPlay swaps standard Pan/Recenter controls for exactly two zoom controls
     assert.deepEqual(images(context.getRootMapButtons()), []);
     context.rootMapButtonAppearance.drivingMapViewMode = 'perspective';
     assert.deepEqual(images(context.getRootMapButtons()), ['pan', 'recenter']);
+    context.activeNavigationRoute = null;
+    assert.deepEqual(images(context.getRootMapButtons()), [
+        'pan',
+        'compass',
+        'recenter',
+    ]);
+    context.getRootMapButtons()[1].onPress();
+    assert.equal(presses.at(-1), 'compass');
+    const perspectiveButtons = context.getRootMapButtons();
+    context.rootMapButtonAppearance.drivingMapViewMode = 'north-up';
+    assert.notEqual(context.getRootMapButtons(), perspectiveButtons);
+    assert.deepEqual(images(context.getRootMapButtons()), [
+        'pan',
+        'compass',
+        'recenter',
+    ]);
+    context.handleRootMapPanningInterfaceChanged(true);
+    assert.deepEqual(images(updates.at(-1)), ['zoom-in', 'zoom-out']);
+    context.handleRootMapPanningInterfaceChanged(false);
+    assert.deepEqual(images(updates.at(-1)), ['pan', 'compass', 'recenter']);
 });
 
 test('CarPlay hides only the header during navigation and restores idle visibility after stopping', () => {
