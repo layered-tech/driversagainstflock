@@ -1,3 +1,4 @@
+import { NAVIGATION_TUNING } from '../navigation-tuning.js';
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
 import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
@@ -74,7 +75,7 @@ describe('current road pill layout', () => {
         assert.deepEqual(
             AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES,
             NAVIGATION_PUCK_3D_ZOOM_SCALES.map(({ mapScale, zoomLevel }) => ({
-                mapScale: mapScale * 0.8,
+                mapScale,
                 zoomLevel,
             })),
         );
@@ -102,7 +103,54 @@ describe('current road pill layout', () => {
         }
     });
 
-    test('applies the shared iOS map overlay scale to phone and CarPlay 3D pucks', () => {
+    test('overview tuning changes only overview scales on phone and car hosts', () => {
+        const overviewStop = { zoomLevel: 9 };
+        const overrides =
+            NAVIGATION_TUNING.modes['route-overview'].puckScaleByZoom;
+        const originalScale = overrides[9];
+
+        try {
+            overrides[9] = 500;
+
+            for (const platform of ['android', 'ios']) {
+                for (const variant of ['default', 'auto-play']) {
+                    const options = { platform, variant };
+                    const perspective = JSON.parse(
+                        getNavigationPuck3DScaleExpression(options),
+                    );
+                    const overview = JSON.parse(
+                        getNavigationPuck3DScaleExpression({
+                            ...options,
+                            isRouteOverview: true,
+                        }),
+                    );
+                    assert.equal(overview[3], overviewStop.zoomLevel);
+                    assert.deepEqual(overview[4], [
+                        'literal',
+                        Array(3).fill(500),
+                    ]);
+                    assert.notDeepEqual(overview[4], perspective[4]);
+                    assert.deepEqual(
+                        JSON.parse(
+                            getNavigationPuck3DScaleExpression({
+                                ...options,
+                                isRouteOverview: false,
+                            }),
+                        ),
+                        perspective,
+                    );
+                }
+            }
+        } finally {
+            if (originalScale === undefined) {
+                delete overrides[9];
+            } else {
+                overrides[9] = originalScale;
+            }
+        }
+    });
+
+    test('uses the same baseline scale for Android, iOS and car-host 3D pucks', () => {
         const getExpressionScales = ({ platform, variant = 'default' }) =>
             JSON.parse(
                 getNavigationPuck3DScaleExpression({ platform, variant }),
@@ -119,7 +167,7 @@ describe('current road pill layout', () => {
 
         assert.deepEqual(
             getExpressionScales({ platform: 'ios' }),
-            defaultScales.map((mapScale) => mapScale * (0.6 * 0.85)),
+            defaultScales,
         );
         assert.deepEqual(
             getExpressionScales({ platform: 'android' }),
@@ -127,7 +175,7 @@ describe('current road pill layout', () => {
         );
         assert.deepEqual(
             getExpressionScales({ platform: 'ios', variant: 'auto-play' }),
-            autoPlayScales.map((mapScale) => mapScale * 0.85),
+            autoPlayScales,
         );
         assert.deepEqual(
             getExpressionScales({

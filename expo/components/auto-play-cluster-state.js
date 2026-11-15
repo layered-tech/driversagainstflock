@@ -1,9 +1,12 @@
+import { resolveNavigationTuning } from './map/navigation-tuning.js';
+
 const EMPTY_SEARCH_RESULTS = [];
 
 export const AUTO_PLAY_CLUSTER_PLATFORM_CONFIG = {
     currentRoadPill: { compact: true },
     followPitch: 60,
-    followZoomOffset: -1,
+    followZoomOffset: resolveNavigationTuning({ surface: 'cluster' })
+        .zoomOffset,
     hideMapboxCompass: true,
     hostOwnsNavigationUI: true,
     isClusterMapSurface: true,

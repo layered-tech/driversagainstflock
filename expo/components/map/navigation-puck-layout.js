@@ -1,3 +1,4 @@
+import { getPuckZoomStops } from './navigation-tuning.js';
 import { getMapPresentationScale } from './map-presentation-scale.js';
 
 const BASE_NAVIGATION_PUCK_SIZE = 50;
@@ -7,34 +8,16 @@ const AUTO_PLAY_NAVIGATION_PUCK_MAXIMUM_SIZE = 80;
 const NAVIGATION_PUCK_VIEWPORT_RATIO = 0.19;
 const NAVIGATION_PUCK_MINIMUM_SIZE = 56;
 const NAVIGATION_PUCK_MAXIMUM_SIZE = 88;
-const AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.8;
-const IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR = 0.6;
-const NAVIGATION_PUCK_3D_VERTICAL_SCALE_FACTOR = 1;
-
 export const AUTO_PLAY_NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.25;
 export const NAVIGATION_PUCK_SIZE = BASE_NAVIGATION_PUCK_SIZE * 1.5;
-// Mapbox's 3D puck uses map coordinates, not React Native points. Keep the
-// tuned scale curve in one renderer-owned expression so a camera jump and its
-// matching puck scale are committed in the same frame.
-export const NAVIGATION_PUCK_3D_ZOOM_SCALES = [
-    { mapScale: 384, zoomLevel: 10 }, // 1/3
-    { mapScale: 384, zoomLevel: 11 }, // 1/3
-    { mapScale: 384, zoomLevel: 12 }, // 1/3
-    { mapScale: 384, zoomLevel: 13 }, // 1/2
-    { mapScale: 256, zoomLevel: 14 }, // 1/2
-    { mapScale: 128, zoomLevel: 15 }, // 1/2
-    { mapScale: 64, zoomLevel: 16 }, // 1/2
-    { mapScale: 32, zoomLevel: 17 }, // 1
-    { mapScale: 16, zoomLevel: 18 }, // 1
-    { mapScale: 8, zoomLevel: 19 }, // 1
-    { mapScale: 4, zoomLevel: 20 },
-];
-
-export const AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES =
-    NAVIGATION_PUCK_3D_ZOOM_SCALES.map(({ mapScale, zoomLevel }) => ({
-        mapScale: mapScale * AUTO_PLAY_NAVIGATION_PUCK_3D_SCALE_FACTOR,
-        zoomLevel,
-    }));
+// Compatibility exports; all editable values live in navigation-tuning.js.
+export const NAVIGATION_PUCK_3D_ZOOM_SCALES = getPuckZoomStops();
+export const NAVIGATION_PUCK_3D_OVERVIEW_ZOOM_SCALES = getPuckZoomStops({
+    mode: 'route-overview',
+});
+export const AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES = getPuckZoomStops({
+    surface: 'automotive',
+});
 
 function getPositiveDimension(value) {
     const numericValue = Number(value);
@@ -88,20 +71,13 @@ export function getNavigationPuckSize({
 }
 
 export function getNavigationPuck3DScaleExpression({
+    isRouteOverview = false,
     platform,
     variant = 'default',
+    surface = variant === 'auto-play' ? 'automotive' : 'phone',
+    mode = isRouteOverview ? 'route-overview' : 'perspective',
 } = {}) {
-    const zoomScales =
-        variant === 'auto-play'
-            ? AUTO_PLAY_NAVIGATION_PUCK_3D_ZOOM_SCALES
-            : NAVIGATION_PUCK_3D_ZOOM_SCALES;
-    const platformScaleFactor =
-        platform === 'ios' && variant !== 'auto-play'
-            ? IOS_NAVIGATION_PUCK_3D_SCALE_FACTOR
-            : 1;
-    const presentationScale = getMapPresentationScale(platform);
-    const scale = (mapScale) =>
-        mapScale * (platformScaleFactor * presentationScale);
+    const zoomScales = getPuckZoomStops({ platform, surface, mode });
 
     return JSON.stringify([
         'interpolate',
@@ -109,14 +85,7 @@ export function getNavigationPuck3DScaleExpression({
         ['zoom'],
         ...zoomScales.flatMap(({ mapScale, zoomLevel }) => [
             zoomLevel,
-            [
-                'literal',
-                [
-                    scale(mapScale),
-                    scale(mapScale),
-                    scale(mapScale) * NAVIGATION_PUCK_3D_VERTICAL_SCALE_FACTOR,
-                ],
-            ],
+            ['literal', [mapScale, mapScale, mapScale]],
         ]),
     ]);
 }

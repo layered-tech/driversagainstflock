@@ -94,7 +94,6 @@ export function useMapLocationController({
     mapBearingUpdatesEnabled = false,
     mapPreferencesAreLoaded,
     markersAreVisible = true,
-    navigationRoute = null,
     scheduleSharedMarkerLoad,
     screenIsFocused = true,
     setUserLocation,
@@ -275,9 +274,9 @@ export function useMapLocationController({
         clampZoomLevel,
         currentZoomRef,
         ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
+        navigationViewMode: drivingMapViewMode,
         followIsEnabled: drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
-        navigationRoute,
         followViewportAnchorY: drivingCameraFollowViewportAnchorY,
         cameraViewportInsets: isDrivingMode
             ? drivingCameraViewportInsets

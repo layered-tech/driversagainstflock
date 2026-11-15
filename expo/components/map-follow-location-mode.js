@@ -1,5 +1,6 @@
+import { resolveNavigationTuning } from './map/navigation-tuning';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { useWindowDimensions } from 'react-native';
+import { Platform, useWindowDimensions } from 'react-native';
 import { useSafeAreaInsets } from '../lib/safe-area-insets';
 import {
     EMPTY_CAMERA_PADDING,
@@ -17,7 +18,6 @@ import {
     createFollowSpeedZoomController,
     getFollowZoomUpdate,
 } from './map/follow-zoom-update';
-import { createManeuverFollowZoomController } from './map/maneuver-follow-zoom';
 
 export { getFollowSpeedZoomLevel } from './map/follow-zoom-update';
 
@@ -34,13 +34,14 @@ export function useFollowLocationMode({
     followIsEnabled = true,
     followPitch = LOCATION_FOLLOW_CAMERA_PITCH,
     followSpeedZoomEnabled = false,
-    followZoomOffset = 0,
+    followZoomOffset: requestedFollowZoomOffset,
+    navigationSurface = 'phone',
+    navigationViewMode = 'perspective',
     followViewportAnchorY,
     isDrivingMode,
     locationTrackingMode,
     locationTrackingModeRef,
     markerLoadsEnabledRef,
-    navigationRoute = null,
     setTrackingMode,
     userLocationRef,
     viewportHeight,
@@ -51,12 +52,23 @@ export function useFollowLocationMode({
             ? viewportHeight
             : windowHeight;
     const insets = useSafeAreaInsets();
-    const [maneuverZoomController] = useState(
-        createManeuverFollowZoomController,
+    const tuningOptions = useMemo(
+        () => ({
+            platform: Platform.OS,
+            surface: navigationSurface,
+            mode: navigationViewMode,
+        }),
+        [navigationSurface, navigationViewMode],
     );
-    const [speedZoomController] = useState(createFollowSpeedZoomController);
-    const navigationRouteRef = useRef(navigationRoute);
-    navigationRouteRef.current = navigationRoute;
+    const tuning = useMemo(
+        () => resolveNavigationTuning(tuningOptions),
+        [tuningOptions],
+    );
+    const followZoomOffset = requestedFollowZoomOffset ?? tuning.zoomOffset;
+    const speedZoomController = useMemo(
+        () => createFollowSpeedZoomController(tuningOptions),
+        [tuningOptions],
+    );
     const recenterReasonRef = useRef(null);
     const recenterIsNeededRef = useRef(false);
     const initialFollowZoomLevel = clampZoomLevel(
@@ -66,6 +78,7 @@ export function useFollowLocationMode({
     const lastFollowSpeedZoomUpdateAtRef = useRef(null);
     const userZoomOverrideIsActiveRef = useRef(false);
     const previousFollowZoomOffsetRef = useRef(followZoomOffset);
+    const previousTuningRef = useRef(tuning);
     const [nativeFollowZoomLevel, setNativeFollowZoomLevelState] = useState(
         initialFollowZoomLevel,
     );
@@ -137,21 +150,7 @@ export function useFollowLocationMode({
             const recordedAt = Number(location?.recordedAt);
             const now = Number.isFinite(recordedAt) ? recordedAt : Date.now();
             const speedZoom = getFollowZoomLevel(location, { force, now });
-            const baseZoomLevel = followSpeedZoomEnabled
-                ? clampZoomLevel(
-                      maneuverZoomController.update({
-                          route: isDrivingMode
-                              ? navigationRouteRef.current
-                              : null,
-                          location,
-                          speedZoom,
-                          force,
-                      }),
-                  )
-                : speedZoom;
-            const nextZoomLevel = clampZoomLevel(
-                baseZoomLevel + followZoomOffset,
-            );
+            const nextZoomLevel = clampZoomLevel(speedZoom + followZoomOffset);
             const zoomUpdate = getFollowZoomUpdate({
                 currentZoomLevel: nativeFollowZoomLevelRef.current,
                 force,
@@ -183,7 +182,7 @@ export function useFollowLocationMode({
             followZoomOffset,
             getFollowZoomLevel,
             isDrivingMode,
-            maneuverZoomController,
+            tuning,
             setNativeFollowZoomLevel,
         ],
     );
@@ -391,11 +390,15 @@ export function useFollowLocationMode({
     );
 
     useEffect(() => {
-        if (previousFollowZoomOffsetRef.current === followZoomOffset) {
+        if (
+            previousFollowZoomOffsetRef.current === followZoomOffset &&
+            previousTuningRef.current === tuning
+        ) {
             return;
         }
 
         previousFollowZoomOffsetRef.current = followZoomOffset;
+        previousTuningRef.current = tuning;
         if (
             isDrivingMode &&
             locationTrackingMode === LOCATION_TRACKING_FOLLOW &&
@@ -408,6 +411,7 @@ export function useFollowLocationMode({
     }, [
         cameraUpdatesAreAllowed,
         clearUserZoomOverride,
+        tuning,
         followZoomOffset,
         isDrivingMode,
         locationTrackingMode,

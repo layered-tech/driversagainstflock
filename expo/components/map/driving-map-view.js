@@ -1,3 +1,5 @@
+import { resolveNavigationTuning } from './navigation-tuning.js';
+
 export const DRIVING_MAP_VIEW_PERSPECTIVE = 'perspective';
 export const DRIVING_MAP_VIEW_ROUTE_OVERVIEW = 'route-overview';
 export const DRIVING_MAP_VIEW_NORTH_UP = 'north-up';
@@ -33,7 +35,7 @@ const DRIVING_MAP_VIEW_FOLLOW_CONFIGURATIONS = {
     [DRIVING_MAP_VIEW_NORTH_UP]: {
         pitch: 0,
         heading: 0,
-        zoomOffset: -3,
+        zoomOffset: resolveNavigationTuning({ mode: 'north-up' }).zoomOffset,
     },
 };
 

@@ -1,3 +1,4 @@
+import * as tuning from '../navigation-tuning.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
@@ -28,7 +29,10 @@ function loadHook(filename, hookName, events) {
             ],
             useEffect: () => {},
         },
-        'react-native': { useWindowDimensions: () => ({ height: 800 }) },
+        'react-native': {
+            Platform: { OS: 'android' },
+            useWindowDimensions: () => ({ height: 800 }),
+        },
         '../lib/safe-area-insets': { useSafeAreaInsets: () => ({ bottom: 0 }) },
         './map-location-mode-shared': {
             EMPTY_CAMERA_PADDING: {},
@@ -45,11 +49,7 @@ function loadHook(filename, hookName, events) {
         },
         './map/follow-camera-padding': { getFollowCameraPadding: () => ({}) },
         './map/follow-zoom-update': followZoom,
-        './map/maneuver-follow-zoom': {
-            createManeuverFollowZoomController: () => ({
-                update: ({ speedZoom }) => speedZoom,
-            }),
-        },
+        './map/navigation-tuning': tuning,
     };
     const exports = {};
     new Function('require', 'exports', code)((name) => {
