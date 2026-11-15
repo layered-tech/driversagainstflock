@@ -3128,7 +3128,9 @@ function updateRootMapButtonAppearance(appearance) {
         nextAppearanceKey !== rootMapButtonAppearanceKey;
 
     const drivingMapViewButtonIsVisible = Boolean(
-        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true,
+        autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true ||
+        (autoPlayPlatform?.usesPanZoomControlsOnly === true &&
+            !activeNavigationRoute),
     );
     const perspectiveCompassButtonIsVisible = Boolean(
         drivingMapViewButtonIsVisible &&
@@ -3220,7 +3222,7 @@ function getRootMapPanButtonImage() {
         ...makeButtonGlyphImage('arrows', {
             color: getRootMapButtonDefaultIconColor(),
         }),
-        fontScale: 0.78,
+        fontScale: autoPlayPlatform?.usesPanZoomControlsOnly ? 0.65 : 0.78,
     };
 }
 
@@ -3282,9 +3284,12 @@ function getRootHeaderDrivingMapViewButtonImage() {
     if (
         !routeOverviewIsActive &&
         (northUpIsActive ||
-            autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true)
+            autoPlayPlatform?.usesDrivingMapViewButtonForDebugging === true ||
+            (autoPlayPlatform?.usesPanZoomControlsOnly === true &&
+                !activeNavigationRoute))
     ) {
         return {
+            backgroundColor: 'transparent',
             color: autoPlayPlatform?.usesHostButtonColors
                 ? 'default'
                 : autoPlayPlatform?.buttonIconColor,
@@ -3293,6 +3298,7 @@ function getRootHeaderDrivingMapViewButtonImage() {
                     ? 0
                     : rootMapButtonAppearance.compassNorthDirection,
                 rootMapButtonAppearance.isDarkMapLayer,
+                autoPlayPlatform?.usesHostButtonColors ? 26 : undefined,
             ),
             type: 'asset',
         };
@@ -3360,7 +3366,7 @@ function getRootMapButtons() {
             ? effectiveDrivingMapViewMode
             : 'hidden';
     const compassNorthDirectionKey =
-        showsDrivingMapViewButton &&
+        (showsDrivingMapViewButton || idleCompassIsVisible) &&
         effectiveDrivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE
             ? rootMapButtonAppearance.compassNorthDirection
             : 'hidden';
@@ -3414,7 +3420,9 @@ function getRootMapButtons() {
         rootMapButtonAppearance.trackingState !== 'active'
             ? [
                   {
-                      flags: Flag.Persistent,
+                      flags: usesPanZoomControlsOnly
+                          ? Flag.Persistent
+                          : undefined,
                       image: getRootMapTrackingButtonImage(),
                       onPress: handleRootTrackingPress,
                       type: 'custom',
@@ -3430,7 +3438,7 @@ function getRootMapButtons() {
               ? [zoomInButton, zoomOutButton]
               : [mapViewButton, ...idleCompassButtons, ...recenterButtons]
         : showsDrivingMapViewButton
-          ? [zoomInButton, zoomOutButton, mapViewButton, ...recenterButtons]
+          ? [...recenterButtons, zoomInButton, zoomOutButton, mapViewButton]
           : [
                 ...(routeOverviewIsActive ? [] : [mapViewButton]),
                 zoomInButton,

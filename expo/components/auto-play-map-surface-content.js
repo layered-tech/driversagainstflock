@@ -79,6 +79,7 @@ import {
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
 } from './map/debug-overlays';
 import {
+    createNavigationOverviewBoundsTracker,
     DIRECTIONS_FIELD_DESTINATION,
     DIRECTIONS_FIELD_START,
     getDirectionsRouteBounds,
@@ -2480,6 +2481,29 @@ export function AutoPlayMapSurfaceContent({
         }
     }, [activeDirectionsRoute, drivingMapViewMode, isRootMapSurface]);
 
+    const trackNavigationOverviewBounds = useMemo(
+        () => createNavigationOverviewBoundsTracker(),
+        [],
+    );
+    const navigationOverviewBounds = useMemo(
+        () =>
+            isRootMapSurface &&
+            activeDirectionsRoute &&
+            drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+                ? trackNavigationOverviewBounds(
+                      activeDirectionsRoute,
+                      mapPreferences.userLocation,
+                  )
+                : null,
+        [
+            isRootMapSurface,
+            activeDirectionsRoute,
+            drivingMapViewMode,
+            mapPreferences.userLocation,
+            trackNavigationOverviewBounds,
+        ],
+    );
+
     useEffect(() => {
         if (
             !isRootMapSurface ||
@@ -2493,9 +2517,7 @@ export function AutoPlayMapSurfaceContent({
             return undefined;
         }
 
-        const bounds =
-            getDirectionsRouteBounds(activeDirectionsRoute) ??
-            activeDirectionsRoute.bounds;
+        const bounds = navigationOverviewBounds;
         const overviewKey = [
             bounds?.sw,
             bounds?.ne,
@@ -2536,6 +2558,7 @@ export function AutoPlayMapSurfaceContent({
         };
     }, [
         activeDirectionsRoute,
+        navigationOverviewBounds,
         controller.fitDrivingCameraToBounds,
         controller.isMapReady,
         drivingMapViewMode,

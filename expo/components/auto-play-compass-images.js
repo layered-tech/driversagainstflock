@@ -1,3 +1,5 @@
+import { Image } from 'react-native';
+
 const COMPASS_DIRECTION_COUNT = 32;
 const COMPASS_DIRECTION_STEP_DEGREES = 360 / COMPASS_DIRECTION_COUNT;
 
@@ -94,8 +96,7 @@ export function getAutoPlayCompassNorthDirection(cameraHeading) {
         return 0;
     }
 
-    const northRelativeToCamera =
-        ((-numericCameraHeading % 360) + 360) % 360;
+    const northRelativeToCamera = ((-numericCameraHeading % 360) + 360) % 360;
 
     return normalizeCompassDirectionIndex(
         northRelativeToCamera / COMPASS_DIRECTION_STEP_DEGREES,
@@ -105,10 +106,29 @@ export function getAutoPlayCompassNorthDirection(cameraHeading) {
 export function getAutoPlayCompassNeedleImage(
     directionIndex,
     usesDarkAppearance,
+    hostTintedImageSize,
 ) {
     const images = usesDarkAppearance
         ? DARK_COMPASS_NEEDLE_IMAGES
         : LIGHT_COMPASS_NEEDLE_IMAGES;
 
-    return images[normalizeCompassDirectionIndex(directionIndex)];
+    const image = images[normalizeCompassDirectionIndex(directionIndex)];
+
+    if (!hostTintedImageSize) {
+        return image;
+    }
+
+    const source = Image.resolveAssetSource(image);
+    const pixelSize = source.width * source.scale;
+    // AutoPlay's iOS asset tint renderer applies the image scale twice:
+    // once when decoding and again after drawing into a point-sized bitmap.
+    const scale = Math.sqrt(pixelSize / hostTintedImageSize);
+    const decodedSize = pixelSize / scale;
+
+    return {
+        ...source,
+        height: decodedSize,
+        width: decodedSize,
+        scale,
+    };
 }

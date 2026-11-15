@@ -27,14 +27,17 @@ function createHarness(platform, isDarkMapLayer) {
         DRIVING_MAP_VIEW_PERSPECTIVE: 'perspective',
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'overview',
         activeNavigationRoute: null,
+        compassImageRequests: [],
         rootMapButtonAppearance: {
             isDarkMapLayer,
             trackingState: 'inactive',
             compassNorthDirection: 0,
             drivingMapViewMode: 'perspective',
         },
-        getAutoPlayCompassNeedleImage: (direction, dark) =>
-            `compass-asset-${direction}-${dark}`,
+        getAutoPlayCompassNeedleImage: (direction, dark, size) => {
+            context.compassImageRequests.push({ direction, dark, size });
+            return `compass-asset-${direction}-${dark}`;
+        },
     });
     vm.runInContext(
         adapter
@@ -82,12 +85,12 @@ for (const isDarkMapLayer of [false, true]) {
                 "rootMapButtonAppearance.drivingMapViewMode = 'perspective'",
             );
             evaluate('rootMapButtonAppearance.compassNorthDirection = 12');
-            if (platform === 'android') {
-                assert.equal(
-                    evaluate('getRootHeaderDrivingMapViewButtonImage().image'),
-                    `compass-asset-12-${isDarkMapLayer}`,
-                );
-            } else {
+            assert.equal(
+                evaluate('getRootHeaderDrivingMapViewButtonImage()').image,
+                `compass-asset-12-${isDarkMapLayer}`,
+            );
+            if (platform === 'ios') {
+                evaluate('activeNavigationRoute = {}');
                 assert.equal(
                     evaluate('getRootHeaderDrivingMapViewButtonImage().name'),
                     'location-arrow',
@@ -155,7 +158,7 @@ for (const isDarkMapLayer of [false, true]) {
             `compass-asset-0-${isDarkMapLayer}`,
         );
         assert.equal(
-            evaluate('getRootHeaderDrivingMapViewButtonImage().color'),
+            evaluate('getRootHeaderDrivingMapViewButtonImage()').color,
             'default',
         );
         evaluate('activeNavigationRoute = {}');
@@ -170,6 +173,19 @@ for (const isDarkMapLayer of [false, true]) {
             ),
             'transparent',
         );
+    });
+
+    test(`CarPlay sizes the tinted compass at 26 points and keeps the smaller pan glyph on a ${mode} map`, () => {
+        const evaluate = createHarness('ios', isDarkMapLayer);
+        evaluate('getRootHeaderDrivingMapViewButtonImage()');
+        assert.deepEqual(evaluate('compassImageRequests.at(-1)'), {
+            direction: 0,
+            dark: isDarkMapLayer,
+            size: 26,
+        });
+        assert.equal(evaluate('getRootMapPanButtonImage().fontScale'), 0.65);
+        const android = createHarness('android', isDarkMapLayer);
+        assert.equal(android('getRootMapPanButtonImage().fontScale'), 0.78);
     });
 
     for (const platform of ['android']) {

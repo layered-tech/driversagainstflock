@@ -41,22 +41,29 @@ export const NAVIGATION_TUNING = {
     platforms: {
         android: {
             surfaces: {
-                phone: { modes: {} },
+                phone: {},
                 automotive: {
-                    puckScaleFactor: 0.6,
+                    puckScaleFactor: 0.65,
                     modes: {
                         'north-up': { puckScaleFactor: 0.4, zoomOffset: -3 },
+                        'route-overview': { puckScaleFactor: 0.5 },
                     },
                 },
-                cluster: { puckScaleFactor: 0.6 },
+                cluster: { puckScaleFactor: 0.65 },
             },
         },
         ios: {
             surfaces: {
                 phone: { modes: {} },
-                automotive: { modes: {} },
-                dashboard: { modes: {} },
-                cluster: { modes: {} },
+                automotive: {
+                    puckScaleFactor: 0.65,
+                    modes: {
+                        'north-up': { puckScaleFactor: 0.4, zoomOffset: -4 },
+                        'route-overview': { puckScaleFactor: 0.5 },
+                    },
+                },
+                dashboard: { puckScaleFactor: 0.65 },
+                cluster: { puckScaleFactor: 0.65 },
             },
         },
     },

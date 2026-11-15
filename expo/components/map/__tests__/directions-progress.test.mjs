@@ -570,3 +570,73 @@ test('step preview headings follow each outgoing segment and the final arrival a
     );
     assert.equal(directions.getDirectionsStepHeading(stationary, 0), null);
 });
+
+describe('active automotive navigation overview bounds', () => {
+    const route = makeRoute([
+        [0, 0],
+        [0.01, 0],
+        [0.01, 0.01],
+        [0.02, 0.01],
+    ]);
+    test('shrinks with progress while retaining upcoming bends and the destination', () => {
+        const track = directions.createNavigationOverviewBoundsTracker();
+        const first = track(route, {
+            longitude: 0.005,
+            latitude: 0,
+            recordedAt: 1000,
+        });
+        assert.ok(first.sw[0] > 0);
+        assert.ok(first.sw[0] < 0.005);
+        assert.ok(first.ne[0] > 0.02);
+        assert.ok(first.ne[1] > 0.01);
+        const later = track(route, {
+            longitude: 0.015,
+            latitude: 0.01,
+            recordedAt: 2000,
+        });
+        assert.ok(later.sw[0] > 0.01);
+        assert.ok(later.sw[1] > 0);
+        assert.ok(later.ne[0] > 0.02);
+    });
+    test('keeps geographic buffer at arrival and includes an off-route user', () => {
+        const track = directions.createNavigationOverviewBoundsTracker();
+        const arrived = track(route, { longitude: 0.02, latitude: 0.01 });
+        assert.ok(arrived.ne[0] > arrived.sw[0]);
+        assert.ok(arrived.ne[1] > arrived.sw[1]);
+        const offRoute = track(route, { longitude: 0.025, latitude: 0.015 });
+        assert.ok(offRoute.ne[0] > 0.025);
+        assert.ok(offRoute.ne[1] > 0.015);
+    });
+    test('falls back to full-route bounds without location and resets for a replacement route', () => {
+        const track = directions.createNavigationOverviewBoundsTracker();
+        assert.deepEqual(
+            track(route, null),
+            directions.getDirectionsRouteBounds(route),
+        );
+        track(route, { longitude: 0.02, latitude: 0.01, recordedAt: 2000 });
+        const replacement = makeRoute([
+            [1, 1],
+            [1.01, 1],
+            [1.02, 1],
+        ]);
+        const bounds = track(replacement, {
+            longitude: 1.005,
+            latitude: 1,
+            recordedAt: 3000,
+        });
+        assert.ok(bounds.sw[0] > 1);
+        assert.ok(bounds.ne[0] > 1.02);
+        assert.equal(track(null, null), null);
+    });
+    test('phone overview still fits the complete route', () => {
+        const source = readFileSync(
+            new URL('../../map-screen.js', import.meta.url),
+            'utf8',
+        );
+        assert.match(
+            source,
+            /const drivingRouteOverviewBounds = useMemo\(\s*\(\) => getDirectionsRouteBounds\(directionsRoute\)/,
+        );
+        assert.doesNotMatch(source, /createNavigationOverviewBoundsTracker/);
+    });
+});

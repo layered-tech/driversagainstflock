@@ -806,6 +806,47 @@ export function getDirectionsRouteBounds(route) {
     );
 }
 
+/** Bounds for active guidance: retain upcoming bends, discard traveled geometry.
+ * Keep a 100-meter geographic buffer as well as the surface's screen padding,
+ * so arrival never produces a zero-area fit or excessive close-up.
+ */
+export function createNavigationOverviewBoundsTracker() {
+    const tracker = createDirectionsRouteProgressTracker();
+
+    return (route, userLocation) => {
+        const coordinates =
+            getSelectedDirectionsRouteOption(route)?.coordinates;
+        const userCoordinate = getLocationCoordinate(userLocation);
+        const progress = tracker.update(route, userLocation);
+        if (!userCoordinate || !progress || !coordinates?.length) {
+            return getDirectionsRouteBounds(route);
+        }
+
+        const bounds = getRouteBoundsFromCoordinates([
+            userCoordinate,
+            progress.coordinate,
+            ...coordinates.slice(progress.coordinateIndex + 1),
+        ]);
+        if (!bounds) return getDirectionsRouteBounds(route);
+
+        const latitudeBuffer = 100 / 111195;
+        const middleLatitude = (bounds.ne[1] + bounds.sw[1]) / 2;
+        const longitudeBuffer =
+            latitudeBuffer /
+            Math.max(0.01, Math.cos((middleLatitude * Math.PI) / 180));
+        return {
+            sw: [
+                Math.max(-180, bounds.sw[0] - longitudeBuffer),
+                Math.max(-85, bounds.sw[1] - latitudeBuffer),
+            ],
+            ne: [
+                Math.min(180, bounds.ne[0] + longitudeBuffer),
+                Math.min(85, bounds.ne[1] + latitudeBuffer),
+            ],
+        };
+    };
+}
+
 export function getDirectionsRouteOptionsBounds(route) {
     return getRouteBoundsFromCoordinates(
         getDirectionsRouteOptions(route).flatMap(
