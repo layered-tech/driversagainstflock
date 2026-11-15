@@ -1,3 +1,4 @@
+import * as navigationTuning from '../navigation-tuning.js';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
@@ -97,6 +98,7 @@ function loadNavigationPuckLayout() {
 
     new Function('require', 'module', 'exports', code)(
         (name) => {
+            if (name === './navigation-tuning.js') return navigationTuning;
             assert.equal(name, './map-presentation-scale.js');
             return { getMapPresentationScale: () => 1 };
         },

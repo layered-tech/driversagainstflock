@@ -446,11 +446,10 @@ function getPointCoordinate(point) {
 }
 
 function useAutoPlayMapController({
-    navigationRoute = null,
     cameraDebugStateUpdatesEnabled = false,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     followPitch,
-    followZoomOffset,
+    navigationSurface,
     initialCameraSettings,
     isDrivingMode,
     locationUpdatesEnabled = true,
@@ -673,14 +672,12 @@ function useAutoPlayMapController({
             drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
                 ? drivingMapViewFollowConfiguration.pitch
                 : followPitch,
-        followZoomOffset:
-            (followZoomOffset ?? 0) +
-            (drivingMapViewFollowConfiguration.zoomOffset ?? 0),
+        navigationSurface,
+        navigationViewMode: drivingMapViewMode,
         followIsEnabled:
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
-        navigationRoute,
         followViewportAnchorY:
             drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
                 ? undefined
@@ -1880,7 +1877,6 @@ export function AutoPlayMapSurfaceContent({
         applyWindowScaleToMapGestures,
         currentRoadPill,
         followPitch,
-        followZoomOffset,
         hideCompassDuringNavigation,
         hideMapboxCompass,
         hostOwnsNavigationUI,
@@ -1896,6 +1892,11 @@ export function AutoPlayMapSurfaceContent({
     const autoPlayState = stateOverride ?? sharedAutoPlayState;
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
+    const navigationSurface = isClusterMapSurface
+        ? 'cluster'
+        : isDashboardMapSurface
+          ? 'dashboard'
+          : 'automotive';
     const { rendersDrivingStatus, rendersSpeedLimit } =
         getAutoPlayDrivingStatusVisibility({
             isDashboardMapSurface,
@@ -2042,7 +2043,6 @@ export function AutoPlayMapSurfaceContent({
         );
     }, []);
     const controller = useAutoPlayMapController({
-        navigationRoute: activeDirectionsRoute,
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
                 debugOverlayVisibility,
@@ -2050,7 +2050,7 @@ export function AutoPlayMapSurfaceContent({
             }),
         drivingMapViewMode,
         followPitch,
-        followZoomOffset,
+        navigationSurface,
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,
@@ -2328,6 +2328,8 @@ export function AutoPlayMapSurfaceContent({
         ),
         initialCameraSettings,
         isDrivingMode,
+        navigationViewMode: drivingMapViewMode,
+        navigationSurface,
         mapLightPreset,
         // Keep the Android Auto status views in the map's render hierarchy.
         mapTextureViewIsRequired:
