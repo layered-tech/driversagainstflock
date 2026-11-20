@@ -83,6 +83,22 @@ test('Waze error responses carry Retry-After into the backoff policy', async () 
     }
 });
 
+test('Waze treats a deferred HTTP 200 as unavailable and honors Retry-After', async () => {
+    const { api } = loadWazeModules({
+        ok: true,
+        headers: new Headers({ 'Retry-After': '120' }),
+        json: async () => ({
+            ok: false,
+            error: 'Police alerts are temporarily unavailable.',
+        }),
+    });
+
+    await assert.rejects(
+        api.getWazePoliceAlerts({ location: { latitude: 30, longitude: -97 } }),
+        (error) => error.retryAfterMs === 120000,
+    );
+});
+
 test('Waze refreshes after five minutes or eight kilometers and enables bounded backoff', () => {
     const { policy } = loadWazeModules();
     const state = {
