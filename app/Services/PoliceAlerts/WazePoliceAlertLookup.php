@@ -6,9 +6,14 @@ use App\Services\Directions\DirectionsException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WazePoliceAlertLookup
 {
+    private const QUOTA_COOLDOWN_KEY = 'police-alerts:quota-cooldown-until';
+
+    private const FAILURE_COOLDOWN_KEY = 'police-alerts:failure-cooldown-until';
+
     /**
      * Share a five-minute snapshot across a 0.05-degree cell (~5km).
      * The first caller supplies the center of the upstream 10-mile search.
@@ -50,8 +55,8 @@ class WazePoliceAlertLookup
     private function ensureAvailable(): void
     {
         $remaining = max(
-            (int) Cache::get('police-alerts:quota-cooldown-until', 0),
-            (int) Cache::get('police-alerts:failure-cooldown-until', 0),
+            (int) Cache::get(self::QUOTA_COOLDOWN_KEY, 0),
+            (int) Cache::get(self::FAILURE_COOLDOWN_KEY, 0),
         ) - now()->timestamp;
 
         if ($remaining > 0) {
@@ -59,13 +64,16 @@ class WazePoliceAlertLookup
         }
     }
 
-    private function pauseRequests(int $seconds, int $status = 429): never
+    private function pauseRequests(int $seconds, string $key, ?int $providerStatus = null): never
     {
         $seconds = max(1, $seconds);
-        $key = $status === 429 ? 'police-alerts:quota-cooldown-until' : 'police-alerts:failure-cooldown-until';
         Cache::put($key, now()->timestamp + $seconds, $seconds);
+        Log::warning('Police alert provider request failed.', [
+            'provider_status' => $providerStatus,
+            'retry_after' => $seconds,
+        ]);
 
-        throw new PoliceAlertsUnavailable($seconds, $status);
+        throw new PoliceAlertsUnavailable($seconds, 503);
     }
 
     /**
@@ -80,7 +88,6 @@ class WazePoliceAlertLookup
         }
 
         $this->ensureAvailable();
-        $this->consumeMonthlyQuota();
 
         try {
             $response = Http::withHeaders(['x-api-key' => $apiKey])
@@ -96,7 +103,7 @@ class WazePoliceAlertLookup
                     'max_jams' => 0,
                 ]);
         } catch (ConnectionException) {
-            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), 503);
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), self::FAILURE_COOLDOWN_KEY);
         }
 
         if ($response->status() === 429) {
@@ -105,11 +112,15 @@ class WazePoliceAlertLookup
                 ? (int) $retryAfter
                 : max(0, (int) strtotime($retryAfter) - now()->timestamp);
 
-            $this->pauseRequests(max((int) config('police-alerts.quota_cooldown_seconds'), $seconds));
+            $this->pauseRequests(max((int) config('police-alerts.quota_cooldown_seconds'), $seconds), self::QUOTA_COOLDOWN_KEY, 429);
+        }
+
+        if ($response->status() === 402) {
+            $this->pauseRequests((int) config('police-alerts.quota_cooldown_seconds'), self::QUOTA_COOLDOWN_KEY, 402);
         }
 
         if (! $response->successful()) {
-            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), 503);
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), self::FAILURE_COOLDOWN_KEY, $response->status());
         }
 
         $alerts = [];
@@ -123,29 +134,6 @@ class WazePoliceAlertLookup
         }
 
         return $alerts;
-    }
-
-    /**
-     * Atomically reserves one request against the app-wide monthly
-     * OpenWebNinja budget, refusing to call upstream once it is spent.
-     * Incrementing before checking means the reserved slot is never
-     * exceeded even under concurrent cache misses.
-     */
-    private function consumeMonthlyQuota(): void
-    {
-        $limit = (int) config('police-alerts.monthly_request_limit');
-
-        if ($limit <= 0) {
-            return;
-        }
-
-        $quotaKey = 'police-alerts:monthly-quota:'.now()->format('Y-m');
-
-        Cache::add($quotaKey, 0, now()->endOfMonth()->addDay());
-
-        if (Cache::increment($quotaKey) > $limit) {
-            throw new PoliceAlertsUnavailable(max(1, now()->addMonthNoOverflow()->startOfMonth()->timestamp - now()->timestamp));
-        }
     }
 
     /**

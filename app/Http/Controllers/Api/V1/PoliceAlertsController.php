@@ -20,13 +20,13 @@ class PoliceAlertsController extends Controller
                     'alerts' => $lookup->find($request->latitude(), $request->longitude()),
                 ],
             ]);
+        } catch (PoliceAlertsUnavailable $exception) {
+            return $exception->toResponse();
         } catch (DirectionsException $exception) {
             return response()->json([
                 'ok' => false,
                 'error' => $exception->getMessage(),
-            ], $exception->status, $exception instanceof PoliceAlertsUnavailable
-                ? ['Retry-After' => (string) $exception->retryAfter]
-                : []);
+            ], $exception->status);
         }
     }
 }
