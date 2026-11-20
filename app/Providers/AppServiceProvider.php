@@ -4,8 +4,10 @@ namespace App\Providers;
 
 use App\Jobs\DrainModerationSummaries;
 use App\Jobs\ProcessModeration;
+use App\Services\PoliceAlerts\PoliceAlertsUnavailable;
 use App\Support\NightwatchPrivacyRedactor;
 use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Queue\Events\JobProcessing;
 use Illuminate\Support\Facades\Gate;
@@ -99,12 +101,13 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(60)->by($request->ip());
         });
 
-        RateLimiter::for('police-alerts', function (Request $request) {
-            if ($user = $request->user('sanctum') ?? $request->user()) {
-                return Limit::perMinute(60)->by($user->id);
-            }
+        RateLimiter::for('police-alerts', function (Request $request): Limit {
+            $user = $request->user('sanctum') ?? $request->user();
+            $limit = $user ? Limit::perMinute(60)->by($user->id) : Limit::perMinute(30)->by($request->ip());
 
-            return Limit::perMinute(30)->by($request->ip());
+            return $limit->response(
+                static fn (Request $_request, array $headers): JsonResponse => (new PoliceAlertsUnavailable(max(1, (int) $headers['Retry-After'])))->toResponse($headers),
+            );
         });
 
         RateLimiter::for('electronic-horizon', function (Request $request) {

@@ -6,12 +6,16 @@ use App\Services\Directions\DirectionsException;
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class WazePoliceAlertLookup
 {
+    private const QUOTA_COOLDOWN_KEY = 'police-alerts:quota-cooldown-until';
+
+    private const FAILURE_COOLDOWN_KEY = 'police-alerts:failure-cooldown-until';
+
     /**
-     * Cached lists are keyed on a ~1km coordinate grid so nearby users share
-     * one upstream request against the metered OpenWebNinja quota.
+     * Share a cached snapshot across a ~1 km cell.
      *
      * @return list<array<string, mixed>>
      */
@@ -23,11 +27,52 @@ class WazePoliceAlertLookup
             round($longitude, 2),
         );
 
-        return Cache::remember(
-            $cacheKey,
-            now()->addSeconds((int) config('police-alerts.cache_seconds')),
-            fn () => $this->fetch($latitude, $longitude),
-        );
+        $cached = Cache::get($cacheKey);
+
+        if (is_array($cached)) {
+            return $cached;
+        }
+
+        $this->ensureAvailable();
+        $lock = Cache::lock($cacheKey.':lock', 15);
+
+        if (! $lock->get()) {
+            throw new PoliceAlertsUnavailable(60);
+        }
+
+        try {
+            return Cache::remember(
+                $cacheKey,
+                now()->addSeconds((int) config('police-alerts.cache_seconds')),
+                fn () => $this->fetch($latitude, $longitude),
+            );
+        } finally {
+            $lock->release();
+        }
+    }
+
+    private function ensureAvailable(): void
+    {
+        $remaining = max(
+            (int) Cache::get(self::QUOTA_COOLDOWN_KEY, 0),
+            (int) Cache::get(self::FAILURE_COOLDOWN_KEY, 0),
+        ) - now()->timestamp;
+
+        if ($remaining > 0) {
+            throw new PoliceAlertsUnavailable($remaining);
+        }
+    }
+
+    private function pauseRequests(int $seconds, string $key, ?int $providerStatus = null): never
+    {
+        $seconds = max(1, $seconds);
+        Cache::put($key, now()->timestamp + $seconds, $seconds);
+        Log::warning('Police alert provider request failed.', [
+            'provider_status' => $providerStatus,
+            'retry_after' => $seconds,
+        ]);
+
+        throw new PoliceAlertsUnavailable($seconds, 503);
     }
 
     /**
@@ -41,7 +86,7 @@ class WazePoliceAlertLookup
             throw DirectionsException::upstream('Police alerts are not configured.');
         }
 
-        $this->consumeMonthlyQuota();
+        $this->ensureAvailable();
 
         try {
             $response = Http::withHeaders(['x-api-key' => $apiKey])
@@ -57,11 +102,24 @@ class WazePoliceAlertLookup
                     'max_jams' => 0,
                 ]);
         } catch (ConnectionException) {
-            throw DirectionsException::upstream('Police alerts could not be loaded.');
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), self::FAILURE_COOLDOWN_KEY);
+        }
+
+        if ($response->status() === 429) {
+            $retryAfter = $response->header('Retry-After');
+            $seconds = is_numeric($retryAfter)
+                ? (int) $retryAfter
+                : max(0, (int) strtotime($retryAfter) - now()->timestamp);
+
+            $this->pauseRequests(max((int) config('police-alerts.quota_cooldown_seconds'), $seconds), self::QUOTA_COOLDOWN_KEY, 429);
+        }
+
+        if ($response->status() === 402) {
+            $this->pauseRequests((int) config('police-alerts.quota_cooldown_seconds'), self::QUOTA_COOLDOWN_KEY, 402);
         }
 
         if (! $response->successful()) {
-            throw DirectionsException::upstream('Police alerts could not be loaded.');
+            $this->pauseRequests((int) config('police-alerts.failure_cooldown_seconds'), self::FAILURE_COOLDOWN_KEY, $response->status());
         }
 
         $alerts = [];
@@ -75,29 +133,6 @@ class WazePoliceAlertLookup
         }
 
         return $alerts;
-    }
-
-    /**
-     * Atomically reserves one request against the app-wide monthly
-     * OpenWebNinja budget, refusing to call upstream once it is spent.
-     * Incrementing before checking means the reserved slot is never
-     * exceeded even under concurrent cache misses.
-     */
-    private function consumeMonthlyQuota(): void
-    {
-        $limit = (int) config('police-alerts.monthly_request_limit');
-
-        if ($limit <= 0) {
-            return;
-        }
-
-        $quotaKey = 'police-alerts:monthly-quota:'.now()->format('Y-m');
-
-        Cache::add($quotaKey, 0, now()->endOfMonth()->addDay());
-
-        if (Cache::increment($quotaKey) > $limit) {
-            throw DirectionsException::upstream('Police alerts are temporarily unavailable.');
-        }
     }
 
     /**

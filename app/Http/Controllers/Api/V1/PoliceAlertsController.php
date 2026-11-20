@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\Api\V1\PoliceAlertsRequest;
 use App\Services\Directions\DirectionsException;
+use App\Services\PoliceAlerts\PoliceAlertsUnavailable;
 use App\Services\PoliceAlerts\WazePoliceAlertLookup;
 use Illuminate\Http\JsonResponse;
 
@@ -19,6 +20,8 @@ class PoliceAlertsController extends Controller
                     'alerts' => $lookup->find($request->latitude(), $request->longitude()),
                 ],
             ]);
+        } catch (PoliceAlertsUnavailable $exception) {
+            return $exception->toResponse();
         } catch (DirectionsException $exception) {
             return response()->json([
                 'ok' => false,
