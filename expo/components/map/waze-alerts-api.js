@@ -51,11 +51,17 @@ async function readPoliceAlertsResponse(response) {
     const data = await response.json().catch(() => ({}));
 
     if (!response.ok || data?.ok === false) {
-        throw new Error(
+        const error = new Error(
             data?.error ||
                 data?.message ||
                 'Police alerts could not be loaded.',
         );
+        const retryAfter = response.headers?.get('Retry-After');
+        const seconds = Number(retryAfter);
+        error.retryAfterMs = Number.isFinite(seconds)
+            ? Math.max(0, seconds * 1000)
+            : Math.max(0, Date.parse(retryAfter) - Date.now());
+        throw error;
     }
 
     return normalizeWazePoliceAlerts(data?.result?.alerts);

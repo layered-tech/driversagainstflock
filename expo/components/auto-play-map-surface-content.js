@@ -79,6 +79,7 @@ import {
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
 } from './map/debug-overlays';
 import {
+    createNavigationOverviewBoundsTracker,
     DIRECTIONS_FIELD_DESTINATION,
     DIRECTIONS_FIELD_START,
     getDirectionsRouteBounds,
@@ -89,6 +90,7 @@ import {
 } from './map/directions';
 import { getLocationWithDrivingMotionState } from './map/driving-location-state';
 import {
+    DRIVING_MAP_VIEW_NORTH_UP,
     DRIVING_MAP_VIEW_PERSPECTIVE,
     DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
     getDrivingMapViewFollowConfiguration,
@@ -445,11 +447,10 @@ function getPointCoordinate(point) {
 }
 
 function useAutoPlayMapController({
-    navigationRoute = null,
     cameraDebugStateUpdatesEnabled = false,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     followPitch,
-    followZoomOffset,
+    navigationSurface,
     initialCameraSettings,
     isDrivingMode,
     locationUpdatesEnabled = true,
@@ -659,21 +660,29 @@ function useAutoPlayMapController({
         pendingCameraStopRef,
         setTrackingMode,
     });
+    const drivingMapViewFollowConfiguration =
+        getDrivingMapViewFollowConfiguration(drivingMapViewMode);
     const followLocationMode = useFollowLocationMode({
         cameraUpdatesAreAllowed,
         cameraRef,
         cameraViewportInsets: viewportMetrics.cameraPadding,
         clampZoomLevel,
         currentZoomRef,
-        ...getDrivingMapViewFollowConfiguration(drivingMapViewMode),
-        followPitch,
-        followZoomOffset,
+        followHeading: drivingMapViewFollowConfiguration.heading,
+        followPitch:
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
+                ? drivingMapViewFollowConfiguration.pitch
+                : followPitch,
+        navigationSurface,
+        navigationViewMode: drivingMapViewMode,
         followIsEnabled:
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
-        navigationRoute,
-        followViewportAnchorY,
+        followViewportAnchorY:
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
+                ? undefined
+                : followViewportAnchorY,
         isDrivingMode,
         locationTrackingMode,
         locationTrackingModeRef,
@@ -1869,7 +1878,6 @@ export function AutoPlayMapSurfaceContent({
         applyWindowScaleToMapGestures,
         currentRoadPill,
         followPitch,
-        followZoomOffset,
         hideCompassDuringNavigation,
         hideMapboxCompass,
         hostOwnsNavigationUI,
@@ -1885,6 +1893,11 @@ export function AutoPlayMapSurfaceContent({
     const autoPlayState = stateOverride ?? sharedAutoPlayState;
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
+    const navigationSurface = isClusterMapSurface
+        ? 'cluster'
+        : isDashboardMapSurface
+          ? 'dashboard'
+          : 'automotive';
     const { rendersDrivingStatus, rendersSpeedLimit } =
         getAutoPlayDrivingStatusVisibility({
             isDashboardMapSurface,
@@ -2031,7 +2044,6 @@ export function AutoPlayMapSurfaceContent({
         );
     }, []);
     const controller = useAutoPlayMapController({
-        navigationRoute: activeDirectionsRoute,
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
                 debugOverlayVisibility,
@@ -2039,7 +2051,7 @@ export function AutoPlayMapSurfaceContent({
             }),
         drivingMapViewMode,
         followPitch,
-        followZoomOffset,
+        navigationSurface,
         initialCameraSettings: mapPreferences.initialCameraSettings,
         isDrivingMode,
         locationUpdatesEnabled: isRootMapSurface,
@@ -2065,15 +2077,13 @@ export function AutoPlayMapSurfaceContent({
         scheduleMarkerLoad: markerLoader.scheduleMarkerLoad,
     });
     const handleDrivingMapViewPress = useCallback(() => {
-        if (
-            !isRootMapSurface ||
-            !activeDirectionsRoute ||
-            !controller.cameraUpdatesAreAllowed()
-        ) {
+        if (!isRootMapSurface || !controller.cameraUpdatesAreAllowed()) {
             return;
         }
 
-        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode);
+        const nextMode = getNextDrivingMapViewMode(drivingMapViewMode, {
+            hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
+        });
 
         setAutoPlayState({ drivingMapViewMode: nextMode });
         logAutoPlayMapSurfaceAction(`driving-map-view-${nextMode}-requested`);
@@ -2087,15 +2097,18 @@ export function AutoPlayMapSurfaceContent({
         const previousDrivingMapViewMode =
             previousDrivingMapViewModeRef.current;
         const isReturningToPerspective =
-            previousDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW &&
+            (previousDrivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW ||
+                previousDrivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP) &&
             drivingMapViewMode === DRIVING_MAP_VIEW_PERSPECTIVE;
+        const isEnteringNorthUp =
+            previousDrivingMapViewMode !== drivingMapViewMode &&
+            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP;
 
         previousDrivingMapViewModeRef.current = drivingMapViewMode;
 
         if (
             !isRootMapSurface ||
-            !activeDirectionsRoute ||
-            !isReturningToPerspective
+            (!isReturningToPerspective && !isEnteringNorthUp)
         ) {
             return;
         }
@@ -2103,7 +2116,7 @@ export function AutoPlayMapSurfaceContent({
         controller.handleDrivingRecenterPress().then(
             () => {
                 logAutoPlayMapSurfaceAction(
-                    'driving-map-view-perspective-restored',
+                    `driving-map-view-${drivingMapViewMode}-restored`,
                 );
             },
             () => {},
@@ -2316,6 +2329,8 @@ export function AutoPlayMapSurfaceContent({
         ),
         initialCameraSettings,
         isDrivingMode,
+        navigationViewMode: drivingMapViewMode,
+        navigationSurface,
         mapLightPreset,
         // Keep the Android Auto status views in the map's render hierarchy.
         mapTextureViewIsRequired:
@@ -2375,7 +2390,7 @@ export function AutoPlayMapSurfaceContent({
                 }),
             handleDrivingMapViewPress,
             handleLocationTrackingPress:
-                drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+                drivingMapViewMode !== DRIVING_MAP_VIEW_PERSPECTIVE
                     ? handleDrivingMapViewPress
                     : isDrivingMode
                       ? controller.handleDrivingRecenterPress
@@ -2446,11 +2461,13 @@ export function AutoPlayMapSurfaceContent({
     }, [isRootMapSurface]);
 
     useEffect(() => {
-        if (!isRootMapSurface || activeDirectionsRoute) {
+        if (!isRootMapSurface) {
             return;
         }
 
-        fittedDrivingRouteOverviewKeyRef.current = '';
+        if (!activeDirectionsRoute) {
+            fittedDrivingRouteOverviewKeyRef.current = '';
+        }
         if (
             shouldRestoreDrivingPerspective({
                 hasActiveDirectionsRoute: Boolean(activeDirectionsRoute),
@@ -2463,6 +2480,29 @@ export function AutoPlayMapSurfaceContent({
             });
         }
     }, [activeDirectionsRoute, drivingMapViewMode, isRootMapSurface]);
+
+    const trackNavigationOverviewBounds = useMemo(
+        () => createNavigationOverviewBoundsTracker(),
+        [],
+    );
+    const navigationOverviewBounds = useMemo(
+        () =>
+            isRootMapSurface &&
+            activeDirectionsRoute &&
+            drivingMapViewMode === DRIVING_MAP_VIEW_ROUTE_OVERVIEW
+                ? trackNavigationOverviewBounds(
+                      activeDirectionsRoute,
+                      mapPreferences.userLocation,
+                  )
+                : null,
+        [
+            isRootMapSurface,
+            activeDirectionsRoute,
+            drivingMapViewMode,
+            mapPreferences.userLocation,
+            trackNavigationOverviewBounds,
+        ],
+    );
 
     useEffect(() => {
         if (
@@ -2477,9 +2517,7 @@ export function AutoPlayMapSurfaceContent({
             return undefined;
         }
 
-        const bounds =
-            getDirectionsRouteBounds(activeDirectionsRoute) ??
-            activeDirectionsRoute.bounds;
+        const bounds = navigationOverviewBounds;
         const overviewKey = [
             bounds?.sw,
             bounds?.ne,
@@ -2520,6 +2558,7 @@ export function AutoPlayMapSurfaceContent({
         };
     }, [
         activeDirectionsRoute,
+        navigationOverviewBounds,
         controller.fitDrivingCameraToBounds,
         controller.isMapReady,
         drivingMapViewMode,

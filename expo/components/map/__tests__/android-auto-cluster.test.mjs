@@ -1,7 +1,17 @@
+import { resolveNavigationTuning } from '../navigation-tuning.js';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import test from 'node:test';
+import { getAutoPlayViewportMetrics } from '../../auto-play-map-viewport.js';
+import {
+    getFollowCameraAnchorY,
+    getFollowCameraPadding,
+} from '../follow-camera-padding.js';
+import {
+    DRIVING_MAP_VIEW_NORTH_UP,
+    getDrivingMapViewFollowConfiguration,
+} from '../driving-map-view.js';
 import {
     AUTO_PLAY_CLUSTER_PLATFORM_CONFIG,
     getAutoPlayClusterState,
@@ -276,7 +286,7 @@ test('the cluster keeps only the selected route line and hides waypoint pins', (
     );
 });
 
-test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pitch', () => {
+test('the cluster uses the shared speed zoom hook with 60 degree pitch', () => {
     const navigationRoute = { selectedRouteKey: 'private' };
     const options = evaluateDeclaration('followLocationMode', {
         useFollowLocationMode: (options) => options,
@@ -285,11 +295,12 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         viewportMetrics: { cameraPadding: {}, height: 400 },
         clampZoomLevel: (zoom) => zoom,
         currentZoomRef: {},
-        getDrivingMapViewFollowConfiguration: () => ({ pitch: 55 }),
+        drivingMapViewFollowConfiguration: { pitch: 55 },
         drivingMapViewMode: 'perspective',
+        DRIVING_MAP_VIEW_NORTH_UP,
         DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
         followPitch: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followPitch,
-        followZoomOffset: AUTO_PLAY_CLUSTER_PLATFORM_CONFIG.followZoomOffset,
+        navigationSurface: 'cluster',
         presenceCameraIsLocked: false,
         navigationRoute,
         followViewportAnchorY: 280,
@@ -301,13 +312,21 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         userLocationRef: {},
     });
     assert.equal(options.followPitch, 60);
-    assert.equal(options.followZoomOffset, -1);
+    assert.equal(
+        resolveNavigationTuning({
+            surface: options.navigationSurface,
+            mode: options.navigationViewMode,
+        }).zoomOffset,
+        0,
+    );
     assert.equal(options.followIsEnabled, true);
     assert.equal(options.followSpeedZoomEnabled, true);
-    assert.equal(options.navigationRoute, navigationRoute);
+    assert.equal(options.navigationRoute, undefined);
+    assert.equal(options.followViewportAnchorY, 280);
+    assert.deepEqual(options.cameraViewportInsets, {});
     assert.match(
         sourceAt('../../map-follow-location-mode.js'),
-        /maneuverZoomController\.update/,
+        /speedZoomController\.update/,
     );
     assert.match(
         sourceAt('../../map-follow-location-mode.js'),
@@ -321,6 +340,90 @@ test('the cluster uses the shared speed and maneuver zoom hook with 60 degree pi
         sourceAt('../map-canvas.js'),
         /weatherEffectsEnabled \? \(\s*<WeatherEffect/,
     );
+});
+
+test('automotive north-up follows at zero pitch using the configured zoom offset', () => {
+    for (const zoomOffset of [undefined]) {
+        for (const { windowInfo, safeAreaInsets } of [
+            { windowInfo: { width: 600, height: 400 }, safeAreaInsets: {} },
+            {
+                windowInfo: { width: 600, height: 400 },
+                safeAreaInsets: { top: 40, bottom: 80, left: 100, right: 20 },
+            },
+            {
+                windowInfo: { width: 600, height: 400 },
+                safeAreaInsets: { top: 16, bottom: 160, left: 240, right: 0 },
+            },
+            {
+                windowInfo: { width: 400, height: 600 },
+                safeAreaInsets: { top: 80, bottom: 40, left: 20, right: 100 },
+            },
+        ]) {
+            const viewportMetrics = getAutoPlayViewportMetrics({
+                windowInfo,
+                safeAreaInsets,
+            });
+            const options = evaluateDeclaration('followLocationMode', {
+                useFollowLocationMode: (options) => options,
+                cameraUpdatesAreAllowed() {},
+                cameraRef: {},
+                viewportMetrics,
+                clampZoomLevel: (zoom) => zoom,
+                currentZoomRef: {},
+                drivingMapViewFollowConfiguration:
+                    getDrivingMapViewFollowConfiguration(
+                        DRIVING_MAP_VIEW_NORTH_UP,
+                    ),
+                drivingMapViewMode: DRIVING_MAP_VIEW_NORTH_UP,
+                DRIVING_MAP_VIEW_NORTH_UP,
+                DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
+                followPitch: 60,
+                navigationSurface: zoomOffset === -1 ? 'cluster' : 'automotive',
+                presenceCameraIsLocked: false,
+                navigationRoute: null,
+                followViewportAnchorY: 280,
+                isDrivingMode: true,
+                locationTrackingMode: 'follow',
+                locationTrackingModeRef: {},
+                markerLoadsEnabledRef: {},
+                setTrackingMode() {},
+                userLocationRef: {},
+            });
+            assert.equal(options.followPitch, 0);
+            assert.equal(options.followHeading, 0);
+            assert.equal(
+                resolveNavigationTuning({
+                    surface: options.navigationSurface,
+                    mode: options.navigationViewMode,
+                }).zoomOffset,
+                resolveNavigationTuning({ mode: DRIVING_MAP_VIEW_NORTH_UP })
+                    .zoomOffset,
+            );
+            assert.equal(options.followIsEnabled, true);
+            assert.equal(options.followSpeedZoomEnabled, true);
+            assert.equal(options.followViewportAnchorY, undefined);
+            const padding = getFollowCameraPadding({
+                followViewportAnchorY: options.followViewportAnchorY,
+                viewportHeight: options.viewportHeight,
+                viewportInsets: options.cameraViewportInsets,
+            });
+            assert.deepEqual(padding, viewportMetrics.cameraPadding);
+            assert.equal(
+                getFollowCameraAnchorY({
+                    viewportHeight: options.viewportHeight,
+                    viewportInsets: padding,
+                }),
+                viewportMetrics.center.y,
+            );
+            assert.equal(
+                (viewportMetrics.width +
+                    padding.paddingLeft -
+                    padding.paddingRight) /
+                    2,
+                viewportMetrics.center.x,
+            );
+        }
+    }
 });
 
 test('secondary surfaces update follow zoom for every shared location without publishing another fix', () => {
@@ -387,7 +490,7 @@ test('secondary surfaces update follow zoom for every shared location without pu
     assert.equal(locations.length, 2);
 });
 
-test('cluster automatic zoom stays one level farther out through speed and maneuver changes', () => {
+test('cluster automatic zoom shares the baseline through speed changes', () => {
     const source = sourceAt('../../map-follow-location-mode.js');
     for (const followSpeedZoomEnabled of [false, true]) {
         for (const baseZoom of [13.75, 16.5, 18.5, 22]) {
@@ -402,12 +505,11 @@ test('cluster automatic zoom stays one level farther out through speed and maneu
                     clampZoomLevel: (zoom) => Math.min(22, Math.max(0, zoom)),
                     currentZoomRef,
                     followSpeedZoomEnabled,
+                    tuning: resolveNavigationTuning(),
                     followZoomOffset,
-                    getFollowZoomLevel: () =>
-                        followSpeedZoomEnabled ? 13.75 : baseZoom,
+                    getFollowZoomLevel: () => baseZoom,
                     isDrivingMode: true,
                     navigationRouteRef: { current: {} },
-                    maneuverZoomController: { update: () => baseZoom },
                     nativeFollowZoomLevelRef: { current: 0 },
                     lastFollowSpeedZoomUpdateAtRef: { current: null },
                     userZoomOverrideIsActiveRef: { current: false },
@@ -427,7 +529,7 @@ test('cluster automatic zoom stays one level farther out through speed and maneu
                 assert.equal(currentZoomRef.current, expected);
                 results.push(expected);
             }
-            assert.equal(results[1], results[0] - 1);
+            assert.equal(results[1], results[0]);
         }
     }
 });

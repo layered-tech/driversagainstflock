@@ -51,7 +51,7 @@ async function settleSingleFlightFetch(
 ) {
     const settledFetch = Promise.resolve(fetchPromise).then(
         (value) => ({ status: 'fulfilled', value }),
-        () => ({ status: 'rejected', value: null }),
+        (error) => ({ status: 'rejected', value: null, error }),
     );
     let timeoutId = null;
     let timeoutDidFire = false;
@@ -102,6 +102,8 @@ async function settleSingleFlightFetch(
 
 export function createDurableAlertStore({
     emptyItems,
+    failureBackoffMs = 0,
+    maxFailureBackoffMs = failureBackoffMs,
     fetchItems,
     getMetadataForInput,
     inputsAreEquivalent,
@@ -115,6 +117,8 @@ export function createDurableAlertStore({
     storageTimeoutMs,
     timeoutMs,
 }) {
+    let failureCount = 0;
+    let retryAt = 0;
     let activeAbortController = null;
     let activeInput = null;
     let hydrationIsComplete = false;
@@ -275,13 +279,28 @@ export function createDurableAlertStore({
         await writePersistence(persistence);
     }
 
+    function recordFailure(error) {
+        if (failureBackoffMs <= 0) return;
+        failureCount += 1;
+        const serverDelay = Number(error?.retryAfterMs);
+        retryAt =
+            now() +
+            Math.max(
+                Math.min(
+                    maxFailureBackoffMs,
+                    failureBackoffMs * 2 ** Math.min(failureCount - 1, 20),
+                ),
+                Number.isFinite(serverDelay) ? serverDelay : 0,
+            );
+    }
+
     async function drainRefreshQueue() {
         while (pendingInput) {
             const input = pendingInput;
 
             pendingInput = null;
 
-            if (isFresh(state, input, now())) {
+            if (now() < retryAt || isFresh(state, input, now())) {
                 continue;
             }
 
@@ -304,10 +323,14 @@ export function createDurableAlertStore({
                 );
 
                 if (fetchResult.status !== 'fulfilled') {
+                    if (fetchResult.status !== 'aborted')
+                        recordFailure(fetchResult.error);
                     continue;
                 }
 
                 const fetchedItems = normalizeItems(fetchResult.value);
+
+                if (fetchedItems === null) recordFailure();
 
                 if (
                     fetchedItems === null ||
@@ -323,9 +346,12 @@ export function createDurableAlertStore({
                     metadata: getMetadataForInput(input),
                 };
 
+                failureCount = 0;
+                retryAt = 0;
                 applySnapshot(snapshot);
                 await persistSnapshot(snapshot);
-            } catch {
+            } catch (error) {
+                recordFailure(error);
                 // Keep the last successful snapshot visible and retryable.
             } finally {
                 activeAbortController = null;
@@ -355,6 +381,8 @@ export function createDurableAlertStore({
     }
 
     function enqueueRefresh(input) {
+        if (now() < retryAt) return queuePromise;
+
         latestRequestedInput = input;
 
         if (isFresh(state, input, now())) {
@@ -435,7 +463,10 @@ export function createDurableAlertStore({
                 return false;
             }
 
-            return !hydrationIsComplete || !isFresh(state, input, now());
+            return (
+                now() >= retryAt &&
+                (!hydrationIsComplete || !isFresh(state, input, now()))
+            );
         },
         refreshIfStale,
     };

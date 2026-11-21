@@ -134,23 +134,31 @@ for (const platform of ['android', 'ios']) {
                 assert.deepEqual(
                     Array.from(buttons, (button) => button.image),
                     platform === 'android'
-                        ? ['zoom-in', 'zoom-out', 'view', ...recenterImages]
-                        : ['pan', ...recenterImages],
+                        ? [...recenterImages, 'zoom-in', 'zoom-out', 'view']
+                        : [
+                              'pan',
+                              ...(hasActiveNavigation ? [] : ['view']),
+                              ...recenterImages,
+                          ],
                 );
                 for (const button of buttons) {
                     assert.equal(
                         button.flags,
-                        button.image.startsWith('zoom-') ? undefined : 2,
+                        button.image.startsWith('zoom-') ||
+                            (platform === 'android' &&
+                                button.image === 'recenter')
+                            ? undefined
+                            : 2,
                     );
                 }
                 if (platform === 'android') {
-                    // Keep the persistent controls together after the zoom controls.
+                    // Only the final compass remains visible when controls hide.
                     const persistentButtons = buttons.filter(
                         (button) => button.flags === 2,
                     );
                     assert.deepEqual(
                         Array.from(persistentButtons, (button) => button.image),
-                        ['view', ...recenterImages],
+                        ['view'],
                     );
                     persistentButtons.forEach((button, index) =>
                         assert.strictEqual(

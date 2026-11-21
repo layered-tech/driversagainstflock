@@ -515,6 +515,8 @@ export const MapCanvas = memo(function MapCanvas({
         initialCameraSettings,
         isDarkModeOverride,
         isDrivingMode,
+        navigationViewMode = 'perspective',
+        navigationSurface = 'phone',
         isFollowing,
         locationAccessGranted,
         localityBoundary,
@@ -606,7 +608,11 @@ export const MapCanvas = memo(function MapCanvas({
         [mapRoutePalette],
     );
     const locationBoundCameraFollowProps = nativeCameraFollowProps;
-    const drivingCameraFollowMode = Mapbox.UserTrackingMode.FollowWithHeading;
+    const drivingCameraFollowMode = Number.isFinite(
+        locationBoundCameraFollowProps?.heading,
+    )
+        ? Mapbox.UserTrackingMode.Follow
+        : Mapbox.UserTrackingMode.FollowWithHeading;
     const nativeLocationPuckCameraFollowIsSupported =
         isLocationPuckCameraFollowSupported();
     const puckBearing = isDrivingMode
@@ -678,10 +684,12 @@ export const MapCanvas = memo(function MapCanvas({
     const navigationPuck3DScaleExpression = useMemo(
         () =>
             getNavigationPuck3DScaleExpression({
+                mode: navigationViewMode,
+                surface: navigationSurface,
                 platform: Platform.OS,
                 variant: resolvedNavigationPuckVariant,
             }),
-        [resolvedNavigationPuckVariant],
+        [navigationViewMode, navigationSurface, resolvedNavigationPuckVariant],
     );
     const [locationPuck3DStatus, setLocationPuck3DStatus] =
         useState('inactive');

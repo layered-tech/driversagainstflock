@@ -15,7 +15,8 @@ class WazePoliceAlertLookup
     private const FAILURE_COOLDOWN_KEY = 'police-alerts:failure-cooldown-until';
 
     /**
-     * Share a cached snapshot across a ~1 km cell.
+     * Share a five-minute snapshot across a 0.05-degree cell (~5km).
+     * The first caller supplies the center of the upstream 10-mile search.
      *
      * @return list<array<string, mixed>>
      */
@@ -23,8 +24,8 @@ class WazePoliceAlertLookup
     {
         $cacheKey = sprintf(
             'police-alerts:%0.2f:%0.2f',
-            round($latitude, 2),
-            round($longitude, 2),
+            round($latitude * 20) / 20,
+            round($longitude * 20) / 20,
         );
 
         $cached = Cache::get($cacheKey);
@@ -91,8 +92,8 @@ class WazePoliceAlertLookup
         try {
             $response = Http::withHeaders(['x-api-key' => $apiKey])
                 ->accept('application/json')
-                ->timeout(10)
-                ->retry(1, 150, throw: false)
+                ->connectTimeout(3)
+                ->timeout(6)
                 ->get(config('police-alerts.url'), [
                     'center' => sprintf('%F,%F', $latitude, $longitude),
                     'radius' => (int) config('police-alerts.radius_miles'),

@@ -1,3 +1,8 @@
+import {
+    getSpeedZoomStops,
+    resolveNavigationTuning,
+} from './navigation-tuning.js';
+
 export const FOLLOW_ZOOM_UPDATE_EPSILON = 0.05;
 // A long throttle makes normal acceleration look like a sequence of large
 // camera jumps. This is short enough to track driving speed while still
@@ -6,29 +11,10 @@ export const FOLLOW_ZOOM_UPDATE_INTERVAL_MS = 750;
 export const FOLLOW_SPEED_ZOOM_RETURN_DEBOUNCE_MS = 5000;
 
 const METERS_PER_SECOND_PER_MPH = 0.44704;
-const LOCATION_FOLLOW_SPEED_ZOOM_LEVELS = [
-    { speedMph: 25, zoomLevel: 18.5 },
-    { speedMph: 30, zoomLevel: 18.25 },
-    { speedMph: 35, zoomLevel: 17.5 },
-    { speedMph: 40, zoomLevel: 16.75 },
-    { speedMph: 45, zoomLevel: 16 },
-    { speedMph: 50, zoomLevel: 15.25 },
-    { speedMph: 55, zoomLevel: 14.5 },
-    { speedMph: 65, zoomLevel: 13.75 },
-];
-
-function getFollowSpeedZoomBracket(speed) {
+function getFollowSpeedZoomBracket(speed, levels) {
     if (Number.isFinite(speed)) {
-        for (
-            let index = LOCATION_FOLLOW_SPEED_ZOOM_LEVELS.length - 1;
-            index > 0;
-            index--
-        ) {
-            if (
-                speed >=
-                LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[index].speedMph *
-                    METERS_PER_SECOND_PER_MPH
-            ) {
+        for (let index = levels.length - 1; index > 0; index--) {
+            if (speed >= levels[index].speedMph * METERS_PER_SECOND_PER_MPH) {
                 return index;
             }
         }
@@ -36,14 +22,15 @@ function getFollowSpeedZoomBracket(speed) {
     return 0;
 }
 
-export function getFollowSpeedZoomLevel(speed, clampZoomLevel) {
+export function getFollowSpeedZoomLevel(speed, clampZoomLevel, options) {
+    const levels = getSpeedZoomStops(resolveNavigationTuning(options));
     return clampZoomLevel(
-        LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[getFollowSpeedZoomBracket(speed)]
-            .zoomLevel,
+        levels[getFollowSpeedZoomBracket(speed, levels)].zoomLevel,
     );
 }
 
-export function createFollowSpeedZoomController() {
+export function createFollowSpeedZoomController(options) {
+    const levels = getSpeedZoomStops(resolveNavigationTuning(options));
     let currentBracket = null;
     let previousBracket = null;
     let returnStartedAt = null;
@@ -57,12 +44,12 @@ export function createFollowSpeedZoomController() {
     }
 
     function update({ speed, now = Date.now(), force = false }) {
-        const nextBracket = getFollowSpeedZoomBracket(speed);
+        const nextBracket = getFollowSpeedZoomBracket(speed, levels);
         if (force || currentBracket === null) {
             reset();
             currentBracket = nextBracket;
         } else if (Number.isFinite(lastRecordedAt) && now < lastRecordedAt) {
-            return LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[currentBracket].zoomLevel;
+            return levels[currentBracket].zoomLevel;
         } else if (nextBracket === currentBracket) {
             returnStartedAt = null;
         } else {
@@ -82,7 +69,7 @@ export function createFollowSpeedZoomController() {
             }
         }
         lastRecordedAt = now;
-        return LOCATION_FOLLOW_SPEED_ZOOM_LEVELS[currentBracket].zoomLevel;
+        return levels[currentBracket].zoomLevel;
     }
 
     return { update, reset };
