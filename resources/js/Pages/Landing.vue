@@ -855,7 +855,7 @@ const faqItems = [
     },
     {
         question: 'A camera is missing or in the wrong spot — how do I fix it?',
-        answer: 'Because the data lives in OpenStreetMap, anyone can correct it: add, move, or remove a reader directly in OSM and the change flows back to us on the next sync. We’re also building an in-app way to flag cameras you spot, so reporting gets even easier soon.',
+        answer: 'You can add, correct, or remove a camera from the mobile app. On the map, tap “Edit the map,” sign in with OpenStreetMap, and choose “Start editing.” Add a missing camera or tap an existing one to move it, update its details, or remove it. Review and publish your changes to OpenStreetMap. You can also edit the map directly on OpenStreetMap.',
     },
 ];
 
