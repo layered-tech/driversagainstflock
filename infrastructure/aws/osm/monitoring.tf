@@ -235,11 +235,39 @@ resource "aws_cloudwatch_metric_alarm" "postgresql_health" {
   }
 
   alarm_name          = "daf-infrastructure-postgresql-unavailable"
-  alarm_description   = "PostgreSQL has not reported healthy for three consecutive minutes"
+  alarm_description   = "PostgreSQL health checks failed in three one-minute periods"
   namespace           = "DAF/OSM"
   metric_name         = "PostgreSQLUp"
   statistic           = "Minimum"
   period              = 60
+  evaluation_periods  = 3
+  datapoints_to_alarm = 3
+  threshold           = 1
+  comparison_operator = "LessThanThreshold"
+  treat_missing_data  = "notBreaching"
+  alarm_actions       = [aws_sns_topic.alerts.arn]
+  ok_actions          = [aws_sns_topic.alerts.arn]
+
+  dimensions = {
+    InstanceId = aws_instance.database.id
+  }
+
+  tags = merge(local.common_tags, {
+    Name = "daf-infrastructure-postgresql-unavailable"
+  })
+}
+
+resource "aws_cloudwatch_metric_alarm" "metrics_missing" {
+  lifecycle {
+    create_before_destroy = true
+  }
+
+  alarm_name          = "daf-infrastructure-osm-metrics-missing"
+  alarm_description   = "The OSM metrics publisher reported no PostgreSQL health samples across three five-minute periods"
+  namespace           = "DAF/OSM"
+  metric_name         = "PostgreSQLUp"
+  statistic           = "SampleCount"
+  period              = 300
   evaluation_periods  = 3
   datapoints_to_alarm = 3
   threshold           = 1
@@ -253,7 +281,7 @@ resource "aws_cloudwatch_metric_alarm" "postgresql_health" {
   }
 
   tags = merge(local.common_tags, {
-    Name = "daf-infrastructure-postgresql-unavailable"
+    Name = "daf-infrastructure-osm-metrics-missing"
   })
 }
 
@@ -436,16 +464,16 @@ resource "aws_cloudwatch_metric_alarm" "retained_spool" {
   }
 
   alarm_name          = "daf-infrastructure-osm-shared-feed-spool-retained"
-  alarm_description   = "The oldest shared global replication batch has remained uncommitted for more than 10 minutes"
+  alarm_description   = "The oldest shared global replication batch was more than 10 minutes old in two of three five-minute periods"
   namespace           = "DAF/OSM"
   metric_name         = "SharedFeedOldestRetainedBatchAgeSeconds"
   statistic           = "Maximum"
-  period              = 60
-  evaluation_periods  = 1
-  datapoints_to_alarm = 1
+  period              = 300
+  evaluation_periods  = 3
+  datapoints_to_alarm = 2
   threshold           = 600
   comparison_operator = "GreaterThanThreshold"
-  treat_missing_data  = "breaching"
+  treat_missing_data  = "notBreaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]
   ok_actions          = [aws_sns_topic.alerts.arn]
 
@@ -520,14 +548,14 @@ resource "aws_cloudwatch_metric_alarm" "backup_freshness" {
   }
 
   alarm_name          = "daf-infrastructure-postgresql-backup-stale"
-  alarm_description   = "No successful PostgreSQL backup has completed in the last 25 hours"
+  alarm_description   = "No successful PostgreSQL backup has completed in the last 30 hours"
   namespace           = "DAF/OSM"
   metric_name         = "BackupAgeSeconds"
   statistic           = "Maximum"
   period              = 3600
   evaluation_periods  = 1
   datapoints_to_alarm = 1
-  threshold           = 90000
+  threshold           = 108000
   comparison_operator = "GreaterThanThreshold"
   treat_missing_data  = "breaching"
   alarm_actions       = [aws_sns_topic.alerts.arn]

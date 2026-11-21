@@ -29,6 +29,7 @@ resource "aws_cloudwatch_dashboard" "unified" {
             aws_cloudwatch_metric_alarm.data_volume_usage.arn,
             aws_cloudwatch_metric_alarm.memory_usage.arn,
             aws_cloudwatch_metric_alarm.postgresql_health.arn,
+            "arn:aws:cloudwatch:${var.aws_region}:${var.aws_account_id}:alarm:${aws_cloudwatch_metric_alarm.metrics_missing.alarm_name}",
             aws_cloudwatch_metric_alarm.shared_feed_freshness.arn,
             aws_cloudwatch_metric_alarm.shared_feed_failure.arn,
             aws_cloudwatch_metric_alarm.current_consumer_freshness.arn,

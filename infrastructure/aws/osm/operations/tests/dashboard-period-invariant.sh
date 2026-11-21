@@ -111,16 +111,46 @@ for title in ("Minute replication", "History, backups, and parity"):
     ):
         raise SystemExit(f"Dashboard metric widget {title!r} must keep its right-side legend")
 
-retained_spool_alarm = alarm_resource("retained_spool")
-for contract in (
-    'metric_name         = "SharedFeedOldestRetainedBatchAgeSeconds"',
-    "period              = 60",
-    "evaluation_periods  = 1",
-    "datapoints_to_alarm = 1",
-    "threshold           = 600",
+for name, expected_settings in (
+    ("postgresql_health", {
+        "metric_name": '"PostgreSQLUp"',
+        "statistic": '"Minimum"',
+        "period": "60",
+        "evaluation_periods": "3",
+        "datapoints_to_alarm": "3",
+        "threshold": "1",
+        "comparison_operator": '"LessThanThreshold"',
+        "treat_missing_data": '"notBreaching"',
+    }),
+    ("metrics_missing", {
+        "metric_name": '"PostgreSQLUp"',
+        "statistic": '"SampleCount"',
+        "period": "300",
+        "evaluation_periods": "3",
+        "datapoints_to_alarm": "3",
+        "threshold": "1",
+        "comparison_operator": '"LessThanThreshold"',
+        "treat_missing_data": '"breaching"',
+        "alarm_actions": "[aws_sns_topic.alerts.arn]",
+        "ok_actions": "[aws_sns_topic.alerts.arn]",
+    }),
+    ("retained_spool", {
+        "metric_name": '"SharedFeedOldestRetainedBatchAgeSeconds"',
+        "period": "300",
+        "evaluation_periods": "3",
+        "datapoints_to_alarm": "2",
+        "threshold": "600",
+        "treat_missing_data": '"notBreaching"',
+    }),
+    ("backup_freshness", {"threshold": "108000"}),
 ):
-    if contract not in retained_spool_alarm:
-        raise SystemExit(f"Retained spool age alarm is missing: {contract}")
+    alarm = alarm_resource(name)
+    for setting, expected in expected_settings.items():
+        if not re.search(rf"^\s*{setting}\s*=\s*{re.escape(expected)}$", alarm, re.MULTILINE):
+            raise SystemExit(f"Alarm {name} must use {setting}={expected}")
+
+if "aws_cloudwatch_metric_alarm.metrics_missing.alarm_name" not in monitoring:
+    raise SystemExit("Unified dashboard must display the missing metrics alarm")
 
 history_widget = metric_widget("History, backups, and parity")
 for metric_name in (
@@ -154,8 +184,8 @@ if rg --quiet 'alarm_name\s*=\s*"daf-(osm|routing)-' \
     exit 1
 fi
 
-[[ "$(rg --count 'alarm_name\s*=\s*"daf-infrastructure-' "${OSM_ALARMS_TERRAFORM}" "${ROUTING_SCHEDULER_TERRAFORM}" | awk -F: '{ total += $2 } END { print total }')" == 22 ]]
-[[ "$(rg --count 'create_before_destroy\s*=\s*true' "${OSM_ALARMS_TERRAFORM}" "${ROUTING_SCHEDULER_TERRAFORM}" | awk -F: '{ total += $2 } END { print total }')" == 22 ]]
+[[ "$(rg --count 'alarm_name\s*=\s*"daf-infrastructure-' "${OSM_ALARMS_TERRAFORM}" "${ROUTING_SCHEDULER_TERRAFORM}" | awk -F: '{ total += $2 } END { print total }')" == 23 ]]
+[[ "$(rg --count 'create_before_destroy\s*=\s*true' "${OSM_ALARMS_TERRAFORM}" "${ROUTING_SCHEDULER_TERRAFORM}" | awk -F: '{ total += $2 } END { print total }')" == 23 ]]
 
 for metric in \
     ChangesetConsumerLagSeconds \
