@@ -10,11 +10,13 @@ import './components/map/road-matching-session';
 import { loadSearchSavedLocations } from './components/map/saved-locations';
 import { initializeScorecardRuntime } from './components/scorecard/scorecard-runtime-instance';
 import { initializeWatchRuntime } from './components/watch/watch-runtime';
+import { initializeAnalytics } from './lib/analytics';
 
 LogBox.ignoreLogs([
     'InteractionManager has been deprecated and will be removed in a future release.',
 ]);
 
+void initializeAnalytics();
 void initializeScorecardRuntime();
 initializeWatchRuntime();
 void loadSearchSavedLocations().catch(() => {});

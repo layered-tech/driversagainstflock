@@ -29,6 +29,7 @@ async function loadMonitoring({
     unavailable = false,
     hermes = false,
     collectionEnabled = true,
+    clearUserIdFails = false,
 } = {}) {
     const errors = [];
     const fatalErrors = [];
@@ -37,6 +38,7 @@ async function loadMonitoring({
     const attributes = [];
     const userIds = [];
     const collection = [];
+    const identityCalls = [];
     const monitors = [];
     let deletedReports = 0;
     let crashes = 0;
@@ -74,12 +76,15 @@ async function loadMonitoring({
             },
             async setCrashlyticsCollectionEnabled(_sdk, value) {
                 collection.push(value);
+                identityCalls.push(['collection', value]);
             },
             async setAttributes(_sdk, value) {
                 attributes.push(value);
             },
             async setUserId(_sdk, value) {
                 userIds.push(value);
+                identityCalls.push(['user_id', value]);
+                if (clearUserIdFails) throw new Error('ID clear failed');
             },
             recordError(_sdk, error) {
                 errors.push(error);
@@ -149,6 +154,7 @@ async function loadMonitoring({
         attributes,
         userIds,
         collection,
+        identityCalls,
         monitors,
         get deletedReports() {
             return deletedReports;
@@ -242,20 +248,30 @@ describe('Crashlytics monitoring', () => {
         assert.doesNotMatch(harness.errors[0].message, /user@example/);
     });
 
-    test('associates only the opaque account identity and clears it at logout', async () => {
+    test('clears a legacy account ID before collection and only records the auth category', async () => {
         const harness = await loadMonitoring();
-        await harness.exports.setCrashlyticsUser({
-            id: 12,
-            provider: 'osm',
-            email: 'private@example.com',
-            name: 'Private Name',
+        assert.deepEqual(harness.identityCalls, [
+            ['user_id', ''],
+            ['collection', true],
+        ]);
+        await harness.exports.setCrashlyticsAuthProvider(true);
+        assert.deepEqual(harness.attributes.at(-1), {
+            'auth.provider': 'openstreetmap',
         });
-        await harness.exports.setCrashlyticsUser(null);
-        assert.deepEqual(harness.userIds, ['osm:12', '']);
-        assert.doesNotMatch(
-            JSON.stringify(harness.attributes),
-            /Private Name|private@example/,
-        );
+        await harness.exports.setCrashlyticsAuthProvider(false);
+        assert.deepEqual(harness.attributes.at(-1), {
+            'auth.provider': 'anonymous',
+        });
+        assert.deepEqual(harness.userIds, ['']);
+    });
+
+    test('does not enable app-managed reporting if clearing the legacy account ID fails', async () => {
+        const harness = await loadMonitoring({ clearUserIdFails: true });
+        assert.deepEqual(harness.identityCalls, [['user_id', '']]);
+        assert.deepEqual(harness.collection, []);
+        assert.equal(harness.monitors.length, 0);
+        assert.equal(await harness.exports.emitCrashlyticsTestError(), false);
+        assert.equal(harness.errors.length, 0);
     });
 
     test('provides a working native crash test action', async () => {
@@ -382,24 +398,30 @@ describe('diagnostic data sanitization', () => {
     });
 });
 
-test('analytics covers each Scorecard screen with sanitized event metadata', async () => {
+const analyticsCode = transformSync(
+    readFileSync(new URL('../../../lib/analytics.js', import.meta.url), 'utf8'),
+    {
+        babelrc: false,
+        configFile: false,
+        plugins: [require('@babel/plugin-transform-modules-commonjs')],
+    },
+).code;
+
+function loadAnalytics({ enabled, clearUserId } = {}) {
     const calls = [];
-    const analyticsCode = transformSync(
-        readFileSync(
-            new URL('../../../lib/analytics.js', import.meta.url),
-            'utf8',
-        ),
-        {
-            babelrc: false,
-            configFile: false,
-            plugins: [require('@babel/plugin-transform-modules-commonjs')],
-        },
-    ).code;
+    const userProperties = [];
+    const userIds = [];
     const modules = {
         '@react-native-firebase/analytics': {
             getAnalytics: () => ({}),
             logEvent: async (_instance, name, params) =>
                 calls.push({ name, params }),
+            setUserId: async (_instance, id) => {
+                userIds.push(id);
+                await clearUserId?.();
+            },
+            setUserProperties: async (_instance, properties) =>
+                userProperties.push(properties),
         },
         './firebase': { getFirebaseApp: async () => ({}) },
         './privacy-routes': { getPrivacySafeMonitoringPathname },
@@ -413,14 +435,77 @@ test('analytics covers each Scorecard screen with sanitized event metadata', asy
         '__DEV__',
         'process',
         analyticsCode,
-    )((name) => modules[name], module, module.exports, false, { env: {} });
+    )((name) => modules[name], module, module.exports, false, {
+        env: { EXPO_PUBLIC_FIREBASE_ANALYTICS_ENABLED: enabled },
+    });
+    return { exports: module.exports, calls, userIds, userProperties };
+}
+
+test('analytics waits for the legacy ID clear before forwarding events or auth category', async () => {
+    let finishClear;
+    const clear = new Promise((resolve) => {
+        finishClear = resolve;
+    });
+    const harness = loadAnalytics({ clearUserId: () => clear });
+    const startup = harness.exports.initializeAnalytics();
+    const screen = harness.exports.logAnalyticsScreenView('/');
+    const event = harness.exports.logAnalyticsEvent('ready');
+    const auth = harness.exports.setAnalyticsAuthProvider(true);
+
+    await flush();
+    assert.deepEqual(harness.userIds, [null]);
+    assert.deepEqual(harness.calls, []);
+    assert.deepEqual(harness.userProperties, []);
+
+    finishClear();
+    await Promise.all([startup, screen, event, auth]);
+    assert.deepEqual(
+        harness.calls.map(({ name }) => name),
+        ['screen_view', 'ready'],
+    );
+    assert.deepEqual(harness.userProperties, [
+        { auth_provider: 'openstreetmap' },
+    ]);
+    await harness.exports.setAnalyticsAuthProvider(false);
+    assert.deepEqual(harness.userProperties.at(-1), { auth_provider: null });
+    assert.deepEqual(harness.userIds, [null]);
+});
+
+test('analytics skips events on a failed ID clear and retries on the next call', async () => {
+    let failures = 1;
+    const harness = loadAnalytics({
+        clearUserId() {
+            if (failures-- > 0) throw new Error('ID clear failed');
+        },
+    });
+
+    await harness.exports.logAnalyticsEvent('first');
+    assert.deepEqual(harness.calls, []);
+    await harness.exports.logAnalyticsEvent('second');
+    assert.deepEqual(harness.userIds, [null, null]);
+    assert.deepEqual(
+        harness.calls.map(({ name }) => name),
+        ['second'],
+    );
+});
+
+test('disabled analytics does not initialize telemetry', async () => {
+    const harness = loadAnalytics({ enabled: '0' });
+    await harness.exports.initializeAnalytics();
+    await harness.exports.logAnalyticsEvent('disabled');
+    assert.deepEqual(harness.userIds, []);
+    assert.deepEqual(harness.calls, []);
+});
+
+test('analytics covers each Scorecard screen with sanitized event metadata', async () => {
+    const { exports: analytics, calls } = loadAnalytics();
     for (const pathname of [
         '/scorecard',
         '/scorecard/timeline',
         '/scorecard/trail',
         '/scorecard/event/private-id',
     ]) {
-        await module.exports.logAnalyticsScreenView(pathname);
+        await analytics.logAnalyticsScreenView(pathname);
     }
     assert.equal(calls.length, 4);
     assert.deepEqual(
@@ -432,7 +517,7 @@ test('analytics covers each Scorecard screen with sanitized event metadata', asy
             'Scorecard / Event / Id',
         ],
     );
-    await module.exports.logAnalyticsEvent('search', {
+    await analytics.logAnalyticsEvent('search', {
         search_term: 'home address',
         item_id: 'private-place',
         result_count: 5,

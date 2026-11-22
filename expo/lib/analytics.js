@@ -58,9 +58,17 @@ async function getAnalyticsInstance() {
 
     if (!analyticsInstancePromise) {
         analyticsInstancePromise = getFirebaseApp()
-            .then((firebaseApp) =>
-                firebaseApp ? getAnalytics(firebaseApp) : null,
-            )
+            .then(async (firebaseApp) => {
+                if (!firebaseApp) {
+                    analyticsInstancePromise = null;
+                    return null;
+                }
+
+                const analytics = getAnalytics(firebaseApp);
+                // Clear legacy account IDs before any app-managed event can run.
+                await firebaseSetUserId(analytics, null);
+                return analytics;
+            })
             .catch((error) => {
                 analyticsInstancePromise = null;
                 warnAnalyticsError(error);
@@ -70,6 +78,10 @@ async function getAnalyticsInstance() {
     }
 
     return analyticsInstancePromise;
+}
+
+export async function initializeAnalytics() {
+    await getAnalyticsInstance();
 }
 
 export function getAnalyticsScreenName(pathname) {
@@ -144,7 +156,7 @@ export async function setAnalyticsCollectionEnabled(enabled) {
     }
 }
 
-export async function setAnalyticsUser(user) {
+export async function setAnalyticsAuthProvider(isSignedInToOpenStreetMap) {
     try {
         const analytics = await getAnalyticsInstance();
 
@@ -152,10 +164,9 @@ export async function setAnalyticsUser(user) {
             return;
         }
 
-        await firebaseSetUserId(analytics, user?.id ? String(user.id) : null);
-
         await firebaseSetUserProperties(analytics, {
-            auth_provider: user?.provider ? String(user.provider) : null,
+            auth_provider:
+                isSignedInToOpenStreetMap === true ? 'openstreetmap' : null,
         });
     } catch (error) {
         warnAnalyticsError(error);

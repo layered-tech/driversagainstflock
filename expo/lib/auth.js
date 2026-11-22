@@ -8,7 +8,7 @@ import {
     useRef,
     useState,
 } from 'react';
-import { setAnalyticsUser } from './analytics';
+import { setAnalyticsAuthProvider } from './analytics';
 import { APP_ENVIRONMENT, AUTH_CALLBACK_URL } from './auth/constants';
 import {
     createOAuthState,
@@ -35,7 +35,7 @@ import {
 } from './auth/storage';
 import { fetchOSMPermissions } from './osm/client';
 import { OSM_ERROR_CODES } from './osm/errors';
-import { addCrashlyticsLog, setCrashlyticsUser } from './crashlytics';
+import { addCrashlyticsLog, setCrashlyticsAuthProvider } from './crashlytics';
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -303,8 +303,9 @@ export function AuthProvider({ children }) {
     }, []);
 
     useEffect(() => {
-        setCrashlyticsUser(user);
-        setAnalyticsUser(user);
+        const isSignedInToOpenStreetMap = user?.provider === 'openstreetmap';
+        void setCrashlyticsAuthProvider(isSignedInToOpenStreetMap);
+        void setAnalyticsAuthProvider(isSignedInToOpenStreetMap);
     }, [user]);
 
     const signInWithOpenStreetMap = useCallback(async () => {
