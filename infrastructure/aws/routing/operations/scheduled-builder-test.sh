@@ -8,6 +8,8 @@ readonly IAM_DIR="${ROUTING_DIR}/../iam"
 readonly WORKFLOW="${OPERATIONS_DIR}/scheduled-builder/v1.4.0/run-build.sh"
 readonly BUILD="${OPERATIONS_DIR}/build/v1.3.0/build-initial-graph.sh"
 readonly SCHEDULED_USER_DATA="${OPERATIONS_DIR}/scheduled-builder-national-user-data.sh"
+readonly ROUTING_ONLY_USER_DATA="${OPERATIONS_DIR}/scheduled-builder-user-data.sh"
+readonly BOOTSTRAP_LOGGING="${OPERATIONS_DIR}/scheduled-builder-bootstrap-logging.sh"
 readonly MANUAL_USER_DATA="${OPERATIONS_DIR}/builder-user-data.sh"
 readonly LOGGING="${OPERATIONS_DIR}/logging/v1.0.0/install-cloudwatch-logs.sh"
 readonly DEPLOY="${OPERATIONS_DIR}/serving/v1.1.0/deploy-graph.sh"
@@ -33,7 +35,6 @@ grep -qF "readonly DEPLOY_SCRIPT_SHA256=\"${DEPLOY_SHA256}\"" "${WORKFLOW}"
 grep -qF "readonly BOOTSTRAP_SHA256=\"${WORKFLOW_SHA256}\"" "${SCHEDULED_USER_DATA}"
 grep -qF "readonly LOGGING_SHA256=\"${LOGGING_SHA256}\"" "${SCHEDULED_USER_DATA}"
 grep -qF "readonly LOGGING_SHA256=\"${LOGGING_SHA256}\"" "${MANUAL_USER_DATA}"
-grep -qF 'bash "${LOGGING_PATH}" builder' "${SCHEDULED_USER_DATA}"
 grep -qF 'bash "${LOGGING_PATH}" builder' "${MANUAL_USER_DATA}"
 
 scheduled_dry_run="$(${WORKFLOW} \
@@ -106,13 +107,129 @@ fi
 grep -qF 'trap finish EXIT' "${SCHEDULED_USER_DATA}"
 grep -qF 'aws sns publish' "${SCHEDULED_USER_DATA}"
 grep -qF 'OnBootSec=13h' "${SCHEDULED_USER_DATA}"
-grep -qF 'bash "${LOGGING_PATH}" builder' "${SCHEDULED_USER_DATA}"
-grep -qF 'bash "${BOOTSTRAP_PATH}" --mode scheduled' "${SCHEDULED_USER_DATA}"
+grep -qF 'run_bootstrap_script "${LOGGING_PATH}" builder' "${SCHEDULED_USER_DATA}"
+grep -qF 'run_bootstrap_script "${BOOTSTRAP_PATH}" --mode scheduled' "${SCHEDULED_USER_DATA}"
 
 if grep -Eq 'dnf install.*[[:space:]]curl([[:space:]]|$)' "${SCHEDULED_USER_DATA}"; then
     echo "Scheduled bootstrap must keep the Amazon Linux curl-minimal package" >&2
     exit 1
 fi
+
+test_bootstrap_logging() (
+    local user_data="$1"
+    local expected_exit="$2"
+    local bootstrap_test_root actual_exit=0
+    bootstrap_test_root="$(mktemp -d)"
+    trap 'rm -rf "${bootstrap_test_root}"' EXIT
+    export bootstrap_test_root bootstrap_case="$3"
+    mkdir -p "${bootstrap_test_root}/systemd" "${bootstrap_test_root}/log/daf-routing" "${bootstrap_test_root}/bin"
+    cat > "${bootstrap_test_root}/bin/dnf" <<'SCRIPT'
+#!/bin/sh
+echo 'dnf: package metadata unavailable' >&2
+exit 72
+SCRIPT
+    cat > "${bootstrap_test_root}/bin/curl" <<'SCRIPT'
+#!/usr/bin/env bash
+case "${!#}" in
+    */latest/api/token) echo mock-imds-token ;;
+    */latest/meta-data/instance-id) echo i-0123456789abcdef0 ;;
+    *) echo 'curl: snapshot checksum timed out' >&2; exit 28 ;;
+esac
+SCRIPT
+    chmod +x "${bootstrap_test_root}/bin/dnf" "${bootstrap_test_root}/bin/curl"
+    export PATH="${bootstrap_test_root}/bin:${PATH}"
+
+    awk -v logging="${BOOTSTRAP_LOGGING}" '
+        $0 == "# Scheduled bootstrap logging" {
+            while ((getline line < logging) > 0) print line
+            next
+        }
+        { print }
+    ' "${user_data}" | sed \
+        -e "s|/etc/systemd/system|${bootstrap_test_root}/systemd|g" \
+        -e "s|/var/lib/daf-routing-build|${bootstrap_test_root}/build|g" \
+        -e "s|/var/log/|${bootstrap_test_root}/log/|g" > "${bootstrap_test_root}/user-data.sh"
+
+    systemctl() { :; }
+    sha256sum() { cat >/dev/null; }
+    shutdown() { touch "${bootstrap_test_root}/shutdown"; }
+    aws() {
+        case "$1 $2" in
+            's3api head-object')
+                if [[ "${bootstrap_case}" == "download" ]]; then
+                    echo 'S3: service unavailable' >&2
+                    return 71
+                fi
+                if [[ "$*" == *"/logging/"* ]]; then
+                    sed -n 's/^readonly LOGGING_SHA256="\([^"]*\)"$/\1/p' "${bootstrap_test_root}/user-data.sh"
+                else
+                    sed -n 's/^readonly BOOTSTRAP_SHA256="\([^"]*\)"$/\1/p' "${bootstrap_test_root}/user-data.sh"
+                fi ;;
+            's3 cp')
+                if [[ "$*" == *"/logging/"* ]]; then
+                    cat > "${!#}" <<'SCRIPT'
+set -euo pipefail
+if [[ "${bootstrap_case}" == "install" ]]; then
+    dnf install -y amazon-cloudwatch-agent > "${bootstrap_test_root}/log/daf-routing/builder-logging-packages.log" 2>&1
+fi
+SCRIPT
+                else
+                    cat > "${!#}" <<'SCRIPT'
+set -euo pipefail
+if [[ "${bootstrap_case}" == "after-start" ]]; then
+    echo '{"event":"workflow_state","state":"starting"}' > "${bootstrap_test_root}/log/daf-routing/builder-events.log"
+    echo 'later workflow error' >&2
+    exit 73
+fi
+checksum="$(curl https://example.test/checksum)"
+SCRIPT
+                fi ;;
+            'logs create-log-stream')
+                [[ "$*" == *'--log-stream-name i-0123456789abcdef0/bootstrap'* ]] ;;
+            'logs put-log-events')
+                while [[ "$1" != "--log-events" ]]; do shift; done
+                printf '%s\n' "$2" > "${bootstrap_test_root}/cloudwatch.json" ;;
+            'sns publish') touch "${bootstrap_test_root}/alert" ;;
+            *) return 90 ;;
+        esac
+    }
+    export -f aws sha256sum shutdown systemctl
+
+    # Run as an independent Bash process so the test does not suppress errexit.
+    set +e
+    bash "${bootstrap_test_root}/user-data.sh" > "${bootstrap_test_root}/console" 2>&1
+    actual_exit=$?
+    set -e
+
+    [[ "${actual_exit}" == "${expected_exit}" ]]
+    [[ -f "${bootstrap_test_root}/shutdown" && -f "${bootstrap_test_root}/alert" ]]
+    if [[ "${bootstrap_case}" == "after-start" ]]; then
+        [[ ! -e "${bootstrap_test_root}/cloudwatch.json" ]]
+        return
+    fi
+    jq -e --arg scenario "${bootstrap_case}" --argjson exit_code "${expected_exit}" '
+        .[0].message | fromjson |
+        .event == "bootstrap_failed" and .exit_code == $exit_code and .line > 0 and
+        (if $scenario == "download" then
+            .phase == "download-logging" and (.command | contains("aws s3api head-object")) and
+            (.output | contains("S3: service unavailable"))
+        elif $scenario == "install" then
+            .phase == "install-logging" and (.output | contains("command=dnf install")) and
+            (.package_output | contains("dnf: package metadata unavailable"))
+        else
+            .phase == "workflow" and (.output | contains("command=curl https://example.test/checksum")) and
+            (.output | contains("curl: snapshot checksum timed out"))
+        end)
+    ' "${bootstrap_test_root}/cloudwatch.json" >/dev/null || {
+        jq -r '.[0].message' "${bootstrap_test_root}/cloudwatch.json" >&2
+        return 1
+    }
+)
+
+test_bootstrap_logging "${ROUTING_ONLY_USER_DATA}" 71 download
+test_bootstrap_logging "${SCHEDULED_USER_DATA}" 72 install
+test_bootstrap_logging "${SCHEDULED_USER_DATA}" 28 workflow
+test_bootstrap_logging "${SCHEDULED_USER_DATA}" 73 after-start
 
 
 grep -qF 'service=already-current' "${DEPLOY}"

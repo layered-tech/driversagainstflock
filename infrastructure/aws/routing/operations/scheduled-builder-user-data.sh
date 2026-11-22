@@ -14,12 +14,19 @@ readonly LOGGING_KEY="operations/logging/${LOGGING_VERSION}/install-cloudwatch-l
 readonly LOGGING_PATH="/var/lib/daf-routing-build/install-cloudwatch-logs.sh"
 readonly LOGGING_SHA256="253cac7e858b77c2a8f612ef3dd001ae841199376668b9a9934a566a5b48dfc3"
 
+# Scheduled bootstrap logging
+
 finish() {
     local exit_code=$?
 
-    trap - EXIT
+    trap - EXIT ERR
+
+    if [[ -n "${BOOTSTRAP_OUTPUT}" ]]; then
+        exec >&3 2>&4 3>&- 4>&-
+    fi
 
     if (( exit_code != 0 )); then
+        publish_bootstrap_failure "${exit_code}" || echo "ERROR could not publish bootstrap diagnostics" >&2
         aws sns publish \
             --region "${AWS_REGION}" \
             --topic-arn "${ALERTS_TOPIC_ARN}" \
@@ -33,6 +40,8 @@ finish() {
 }
 
 trap finish EXIT
+trap 'BOOTSTRAP_COMMAND=${BASH_COMMAND} BOOTSTRAP_LINE=${LINENO}' ERR
+start_bootstrap_logging
 
 cat > /etc/systemd/system/daf-routing-builder-expiry.service <<'UNIT'
 [Unit]
@@ -58,6 +67,7 @@ UNIT
 systemctl daemon-reload
 systemctl enable --now daf-routing-builder-expiry.timer
 install -d -m 0700 "$(dirname "${LOGGING_PATH}")"
+BOOTSTRAP_PHASE="download-logging"
 logging_object_sha="$(aws s3api head-object \
     --region "${AWS_REGION}" \
     --bucket "${ARTIFACT_BUCKET}" \
@@ -71,9 +81,11 @@ aws s3 cp \
     "s3://${ARTIFACT_BUCKET}/${LOGGING_KEY}" "${LOGGING_PATH}"
 printf '%s  %s\n' "${LOGGING_SHA256}" "${LOGGING_PATH}" | sha256sum --check --status
 chmod 0700 "${LOGGING_PATH}"
-bash "${LOGGING_PATH}" builder
+BOOTSTRAP_PHASE="install-logging"
+run_bootstrap_script "${LOGGING_PATH}" builder
 install -d -m 0700 "$(dirname "${BOOTSTRAP_PATH}")"
 
+BOOTSTRAP_PHASE="download-workflow"
 object_sha="$(aws s3api head-object \
     --region "${AWS_REGION}" \
     --bucket "${ARTIFACT_BUCKET}" \
@@ -87,4 +99,5 @@ aws s3 cp \
     "s3://${ARTIFACT_BUCKET}/${BOOTSTRAP_KEY}" "${BOOTSTRAP_PATH}"
 printf '%s  %s\n' "${BOOTSTRAP_SHA256}" "${BOOTSTRAP_PATH}" | sha256sum --check --status
 chmod 0700 "${BOOTSTRAP_PATH}"
-bash "${BOOTSTRAP_PATH}" --mode scheduled
+BOOTSTRAP_PHASE="workflow"
+run_bootstrap_script "${BOOTSTRAP_PATH}" --mode scheduled
