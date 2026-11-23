@@ -97,6 +97,9 @@ async function initializeCrashlytics() {
             return;
         }
 
+        // Clear legacy account IDs before allowing app-managed crash reports.
+        await setUserId(crashlytics, '');
+
         // Discard cached reports collected while diagnostics were disabled.
         if (!crashlytics.isCrashlyticsCollectionEnabled) {
             await deleteUnsentReports(crashlytics);
@@ -173,7 +176,7 @@ export function addCrashlyticsLog({
     }
 }
 
-export async function setCrashlyticsUser(user) {
+export async function setCrashlyticsAuthProvider(isSignedInToOpenStreetMap) {
     await initializationPromise;
 
     if (!canReport()) {
@@ -181,9 +184,12 @@ export async function setCrashlyticsUser(user) {
     }
 
     try {
-        const provider = user?.id ? user.provider || 'user' : 'anonymous';
-        await setUserId(crashlytics, user?.id ? `${provider}:${user.id}` : '');
-        await setAttributes(crashlytics, { 'auth.provider': provider });
+        await setAttributes(crashlytics, {
+            'auth.provider':
+                isSignedInToOpenStreetMap === true
+                    ? 'openstreetmap'
+                    : 'anonymous',
+        });
     } catch (error) {
         warnCrashlyticsError(error);
     }
