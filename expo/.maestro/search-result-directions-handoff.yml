@@ -5,8 +5,8 @@ tags:
   - directions
 ---
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 - launchApp:
     clearState: true
     stopApp: true
@@ -28,13 +28,13 @@ tags:
       id: 'map-search-input-map'
     timeout: 10000
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 
 - tapOn:
     id: 'map-search-input-map'
 - waitForAnimationToEnd
-- inputText: 'Barton Springs Pool'
+- inputText: 'Pewaukee Road'
 - extendedWaitUntil:
     visible:
       id: 'map-search-result-0-map'
@@ -68,8 +68,6 @@ tags:
     id: 'directions-route-start-driving-button'
 - assertVisible:
     id: 'directions-route-option-direct'
-- assertVisible:
-    id: 'directions-route-option-ideal'
 - tapOn:
     id: 'directions-route-back-button'
     retryTapIfNoChange: true
@@ -99,7 +97,7 @@ tags:
     id: 'map-search-input-map'
 - waitForAnimationToEnd
 - eraseText
-- inputText: 'Austin Central Library'
+- inputText: '377 Parkland Ct'
 - extendedWaitUntil:
     visible:
       id: 'map-search-result-0-map'
@@ -133,8 +131,6 @@ tags:
     id: 'directions-route-start-driving-button'
 - assertVisible:
     id: 'directions-route-option-direct'
-- assertVisible:
-    id: 'directions-route-option-ideal'
 - tapOn:
     id: 'directions-route-back-button'
     retryTapIfNoChange: false

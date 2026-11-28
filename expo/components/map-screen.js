@@ -32,6 +32,7 @@ import {
 } from './map/constants';
 import {
     DEBUG_OVERLAY_CAMERA,
+    DEBUG_OVERLAY_CAMERA_FOCUS,
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
 } from './map/debug-overlays';
@@ -232,6 +233,10 @@ export default function LocationMapScreen({
     const cameraDebugStateUpdatesEnabled =
         SHOW_MAP_DEBUG_CONTROLS &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA] === true;
+    const cameraFocusDebugOverlayIsVisible =
+        SHOW_MAP_DEBUG_CONTROLS &&
+        mapPreferencesAreLoaded &&
+        debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA_FOCUS] === true;
     const mapLightPreset = useMapboxStandardLightPreset(
         mapLightPresetPreference,
         userLocation,
@@ -869,6 +874,13 @@ export default function LocationMapScreen({
                         ) : null}
                         {isDrivingMode ? (
                             <DrivingGuidanceOverlay
+                                currentRoadPillIsDarkMode={
+                                    presentation.isDarkMapLayer ||
+                                    presentation.isSystemDarkMode
+                                }
+                                debugRoadPillOutlineIsVisible={
+                                    cameraFocusDebugOverlayIsVisible
+                                }
                                 cameraIsFollowingUser={
                                     locationController.nativeCameraFollowProps
                                         .enabled
@@ -876,7 +888,6 @@ export default function LocationMapScreen({
                                 drivingStatusIsVisible={shouldShowDrivingMapStatus(
                                     drivingMapViewMode,
                                 )}
-                                navigationPuckSize={navigationPuckSize}
                                 onLocationAnchorLayout={
                                     setDrivingLocationAnchorY
                                 }
@@ -1030,7 +1041,9 @@ export default function LocationMapScreen({
                             </View>
                         )}
                         <MapFullScreenSearch />
-                        {mapChromeIsVisible ? <MapDebugControls /> : null}
+                        <MapDebugControls
+                            mapChromeIsVisible={mapChromeIsVisible}
+                        />
                     </>
                 ) : null}
                 <SearchResultsSheet />

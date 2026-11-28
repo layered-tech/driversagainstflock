@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { test } from 'node:test';
-import * as presentation from '../location-puck-presentation.js';
 import { createLocationPuckProviderLifecycle } from '../location-puck-provider-lifecycle.js';
 
 const require = createRequire(import.meta.url);
@@ -77,7 +76,6 @@ function createProviderHarness(nativeSupported) {
         },
         'react/jsx-runtime': { jsx: (type, props) => ({ type, props }) },
         '@rnmapbox/maps': { CustomLocationProvider: customProvider },
-        './api-mocks': { mapApiMocksAreEnabled: () => false },
         './geo': {
             normalizeDirectionDegrees: (value) => ((value % 360) + 360) % 360,
             normalizeLongitude: (value) =>
@@ -94,7 +92,6 @@ function createProviderHarness(nativeSupported) {
                 return true;
             },
         },
-        './location-puck-presentation': presentation,
         './location-puck-provider-lifecycle': {
             createLocationPuckProviderLifecycle,
         },
@@ -133,7 +130,7 @@ function createProviderHarness(nativeSupported) {
 }
 
 for (const nativeSupported of [true, false]) {
-    test(`advances the ${nativeSupported ? 'native' : 'fallback'} provider between fixes and stops on disable`, async (context) => {
+    test(`uses each location fix directly in the ${nativeSupported ? 'native' : 'fallback'} provider`, async (context) => {
         context.mock.timers.enable({
             apis: ['Date', 'setTimeout'],
             now: 10_000,
@@ -144,7 +141,7 @@ for (const nativeSupported of [true, false]) {
             courseHeading: 90,
             isMoving: true,
             latitude: 41.8781,
-            longitude: -87.6298,
+            longitude: -87.6298828125,
             recordedAt: 10_000,
             roadMatch: { isOffRoad: false },
             speed: 20,
@@ -156,44 +153,53 @@ for (const nativeSupported of [true, false]) {
             userLocation: location,
         };
         let output = await harness.render(props);
-        const getCoordinate = () =>
-            nativeSupported
-                ? harness.nativeLocations.at(-1).coordinate
-                : output.props.coordinate;
-        let previous = getCoordinate();
-
-        for (let frame = 0; frame < 9; frame++) {
-            context.mock.timers.tick(100);
-            output = await harness.render(props);
-            const coordinate = getCoordinate();
-            assert.ok(
-                coordinate[0] > previous[0],
-                'Puck must advance without a new GPS fix',
-            );
-            previous = coordinate;
+        const getProviderLocation = () =>
+            nativeSupported ? harness.nativeLocations.at(-1) : output.props;
+        const assertProviderLocation = (fix) => {
+            const providerLocation = getProviderLocation();
+            assert.deepEqual(providerLocation.coordinate, [
+                fix.longitude,
+                fix.latitude,
+            ]);
+            assert.equal(providerLocation.heading, fix.courseHeading);
             if (nativeSupported) {
-                assert.equal(
-                    harness.nativeLocations.at(-1).recordedAt,
-                    location.recordedAt,
-                );
+                assert.equal(providerLocation.recordedAt, fix.recordedAt);
             }
-        }
+        };
+
+        assertProviderLocation(location);
+        const initialNativeUpdateCount = harness.nativeLocations.length;
+        context.mock.timers.tick(900);
+        output = await harness.render(props);
+        assertProviderLocation(location);
+        assert.equal(harness.nativeLocations.length, initialNativeUpdateCount);
         assert.equal(harness.clearedMaps.length, 0);
+
+        const nextLocation = {
+            ...location,
+            courseHeading: 95,
+            longitude: -87.629638671875,
+            recordedAt: 10_900,
+        };
+        props = { ...props, userLocation: nextLocation };
+        output = await harness.render(props);
+        assertProviderLocation(nextLocation);
+
+        context.mock.timers.tick(3000);
+        output = await harness.render(props);
+        assertProviderLocation(nextLocation);
 
         props = {
             ...props,
             userLocation: {
-                ...location,
+                ...nextLocation,
                 isMoving: false,
                 speed: 0,
-                recordedAt: 10_900,
+                recordedAt: 13_900,
             },
         };
         output = await harness.render(props);
-        const stoppedCoordinate = getCoordinate();
-        context.mock.timers.tick(500);
-        output = await harness.render(props);
-        assert.deepEqual(getCoordinate(), stoppedCoordinate);
+        assertProviderLocation(props.userLocation);
 
         props = { ...props, enabled: false };
         output = await harness.render(props);

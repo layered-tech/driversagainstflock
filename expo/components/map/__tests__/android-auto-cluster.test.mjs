@@ -261,19 +261,20 @@ test('a cluster-only session follows host day and night changes and releases its
 
 test('the cluster keeps only the selected route line and hides waypoint pins', () => {
     const selected = { properties: { selected: true } };
+    const traveled = { properties: { selected: true, traveled: true } };
     const alternate = { properties: { selected: false } };
     const resolve = (isClusterMapSurface) =>
         evaluateDeclaration('directionsRouteFeatureCollection', {
             useMemo: (fn) => fn(),
             makeDirectionsRouteFeatureCollection: () => ({
                 type: 'FeatureCollection',
-                features: [selected, alternate],
+                features: [traveled, selected, alternate],
             }),
             displayedDirectionsRoute: {},
             isClusterMapSurface,
         });
-    assert.deepEqual(resolve(true).features, [selected]);
-    assert.deepEqual(resolve(false).features, [selected, alternate]);
+    assert.deepEqual(resolve(true).features, [traveled, selected]);
+    assert.deepEqual(resolve(false).features, [traveled, selected, alternate]);
     assert.deepEqual(
         evaluateDeclaration('directionsWaypointMarkers', {
             useMemo: (fn) => fn(),
@@ -292,6 +293,7 @@ test('the cluster uses the shared speed zoom hook with 60 degree pitch', () => {
         useFollowLocationMode: (options) => options,
         cameraUpdatesAreAllowed() {},
         cameraRef: {},
+        centersPuckInSafeArea: false,
         viewportMetrics: { cameraPadding: {}, height: 400 },
         clampZoomLevel: (zoom) => zoom,
         currentZoomRef: {},
@@ -334,7 +336,7 @@ test('the cluster uses the shared speed zoom hook with 60 degree pitch', () => {
     );
     assert.match(
         surfaceSource,
-        /<MapCanvas weatherEffectsEnabled=\{!isClusterMapSurface\}/,
+        /<MapCanvas\s+weatherEffectsEnabled=\{!isClusterMapSurface\}/,
     );
     assert.match(
         sourceAt('../map-canvas.js'),
@@ -342,87 +344,91 @@ test('the cluster uses the shared speed zoom hook with 60 degree pitch', () => {
     );
 });
 
-test('automotive north-up follows at zero pitch using the configured zoom offset', () => {
-    for (const zoomOffset of [undefined]) {
-        for (const { windowInfo, safeAreaInsets } of [
-            { windowInfo: { width: 600, height: 400 }, safeAreaInsets: {} },
+test('automotive north-up centers in the safe area until guidance starts', () => {
+    for (const { windowInfo, safeAreaInsets, activeDirectionsRoute = null } of [
+        { windowInfo: { width: 600, height: 400 }, safeAreaInsets: {} },
+        {
+            windowInfo: { width: 600, height: 400 },
+            safeAreaInsets: { top: 40.75, bottom: 80.5, left: 100, right: 20 },
+        },
+        {
+            windowInfo: { width: 600, height: 400 },
+            safeAreaInsets: { top: 16, bottom: 160, left: 240, right: 0 },
+        },
+        {
+            windowInfo: { width: 400, height: 600 },
+            safeAreaInsets: { top: 80, bottom: 40, left: 20, right: 100 },
+            activeDirectionsRoute: {},
+        },
+    ]) {
+        const viewportMetrics = getAutoPlayViewportMetrics({
+            windowInfo,
+            safeAreaInsets,
+        });
+        const followViewportAnchorY = viewportMetrics.visibleRect.bottom - 60;
+        const centersPuckInSafeArea = evaluateDeclaration(
+            'centersPuckInSafeArea',
             {
-                windowInfo: { width: 600, height: 400 },
-                safeAreaInsets: { top: 40, bottom: 80, left: 100, right: 20 },
-            },
-            {
-                windowInfo: { width: 600, height: 400 },
-                safeAreaInsets: { top: 16, bottom: 160, left: 240, right: 0 },
-            },
-            {
-                windowInfo: { width: 400, height: 600 },
-                safeAreaInsets: { top: 80, bottom: 40, left: 20, right: 100 },
-            },
-        ]) {
-            const viewportMetrics = getAutoPlayViewportMetrics({
-                windowInfo,
-                safeAreaInsets,
-            });
-            const options = evaluateDeclaration('followLocationMode', {
-                useFollowLocationMode: (options) => options,
-                cameraUpdatesAreAllowed() {},
-                cameraRef: {},
-                viewportMetrics,
-                clampZoomLevel: (zoom) => zoom,
-                currentZoomRef: {},
-                drivingMapViewFollowConfiguration:
-                    getDrivingMapViewFollowConfiguration(
-                        DRIVING_MAP_VIEW_NORTH_UP,
-                    ),
+                activeDirectionsRoute,
                 drivingMapViewMode: DRIVING_MAP_VIEW_NORTH_UP,
                 DRIVING_MAP_VIEW_NORTH_UP,
-                DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
-                followPitch: 60,
-                navigationSurface: zoomOffset === -1 ? 'cluster' : 'automotive',
-                presenceCameraIsLocked: false,
-                navigationRoute: null,
-                followViewportAnchorY: 280,
-                isDrivingMode: true,
-                locationTrackingMode: 'follow',
-                locationTrackingModeRef: {},
-                markerLoadsEnabledRef: {},
-                setTrackingMode() {},
-                userLocationRef: {},
-            });
-            assert.equal(options.followPitch, 0);
-            assert.equal(options.followHeading, 0);
-            assert.equal(
-                resolveNavigationTuning({
-                    surface: options.navigationSurface,
-                    mode: options.navigationViewMode,
-                }).zoomOffset,
-                resolveNavigationTuning({ mode: DRIVING_MAP_VIEW_NORTH_UP })
-                    .zoomOffset,
-            );
-            assert.equal(options.followIsEnabled, true);
-            assert.equal(options.followSpeedZoomEnabled, true);
-            assert.equal(options.followViewportAnchorY, undefined);
-            const padding = getFollowCameraPadding({
-                followViewportAnchorY: options.followViewportAnchorY,
+            },
+        );
+        assert.equal(centersPuckInSafeArea, !activeDirectionsRoute);
+        const options = evaluateDeclaration('followLocationMode', {
+            useFollowLocationMode: (options) => options,
+            cameraUpdatesAreAllowed() {},
+            cameraRef: {},
+            centersPuckInSafeArea,
+            viewportMetrics,
+            clampZoomLevel: (zoom) => zoom,
+            currentZoomRef: {},
+            drivingMapViewFollowConfiguration:
+                getDrivingMapViewFollowConfiguration(DRIVING_MAP_VIEW_NORTH_UP),
+            drivingMapViewMode: DRIVING_MAP_VIEW_NORTH_UP,
+            DRIVING_MAP_VIEW_NORTH_UP,
+            DRIVING_MAP_VIEW_ROUTE_OVERVIEW: 'route-overview',
+            followPitch: 60,
+            navigationSurface: 'automotive',
+            presenceCameraIsLocked: false,
+            navigationRoute: null,
+            followViewportAnchorY,
+            isDrivingMode: true,
+            locationTrackingMode: 'follow',
+            locationTrackingModeRef: {},
+            markerLoadsEnabledRef: {},
+            setTrackingMode() {},
+            userLocationRef: {},
+        });
+        assert.equal(options.followPitch, 0);
+        assert.equal(options.followHeading, 0);
+        assert.equal(options.followIsEnabled, true);
+        assert.equal(options.followSpeedZoomEnabled, true);
+        assert.equal(
+            options.followViewportAnchorY,
+            centersPuckInSafeArea ? undefined : followViewportAnchorY,
+        );
+        const padding = getFollowCameraPadding({
+            followViewportAnchorY: options.followViewportAnchorY,
+            viewportHeight: options.viewportHeight,
+            viewportInsets: options.cameraViewportInsets,
+        });
+        assert.equal(
+            getFollowCameraAnchorY({
                 viewportHeight: options.viewportHeight,
-                viewportInsets: options.cameraViewportInsets,
-            });
-            assert.deepEqual(padding, viewportMetrics.cameraPadding);
-            assert.equal(
-                getFollowCameraAnchorY({
-                    viewportHeight: options.viewportHeight,
-                    viewportInsets: padding,
-                }),
-                viewportMetrics.center.y,
-            );
-            assert.equal(
-                (viewportMetrics.width +
-                    padding.paddingLeft -
-                    padding.paddingRight) /
-                    2,
-                viewportMetrics.center.x,
-            );
-        }
+                viewportInsets: padding,
+            }),
+            centersPuckInSafeArea
+                ? viewportMetrics.center.y
+                : followViewportAnchorY,
+        );
+        assert.equal(
+            (viewportMetrics.width +
+                padding.paddingLeft -
+                padding.paddingRight) /
+                2,
+            viewportMetrics.center.x,
+        );
     }
 });
 

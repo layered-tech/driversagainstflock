@@ -44,24 +44,27 @@ export function getFollowCameraPadding({
     const viewportBottomPadding = getNonNegativeNumber(
         cameraViewportPadding.paddingBottom,
     );
+    if (!Number.isFinite(followViewportAnchorY)) {
+        return {
+            ...cameraViewportPadding,
+            paddingTop: viewportTopPadding,
+            paddingBottom: viewportBottomPadding,
+        };
+    }
     const resolvedViewportHeight = getNonNegativeNumber(viewportHeight);
     const maximumAnchorY = Math.max(
         viewportTopPadding,
         resolvedViewportHeight - viewportBottomPadding,
     );
-    const requestedAnchorY = Number.isFinite(followViewportAnchorY)
-        ? followViewportAnchorY
-        : getFollowCameraAnchorY({
-              viewportHeight: resolvedViewportHeight,
-              viewportInsets: cameraViewportPadding,
-          });
     const resolvedAnchorY = Math.min(
-        Math.max(requestedAnchorY, viewportTopPadding),
+        Math.max(followViewportAnchorY, viewportTopPadding),
         maximumAnchorY,
     );
     const requestedTopPadding = Math.round(
         resolvedAnchorY * 2 - resolvedViewportHeight + viewportBottomPadding,
     );
+    const requestedBottomPadding =
+        resolvedViewportHeight + viewportTopPadding - resolvedAnchorY * 2;
     const maximumTopPadding = Math.min(
         Math.round(resolvedViewportHeight * maxTopPaddingRatio),
         Math.max(0, resolvedViewportHeight - viewportBottomPadding),
@@ -69,7 +72,7 @@ export function getFollowCameraPadding({
 
     return {
         ...cameraViewportPadding,
-        paddingBottom: viewportBottomPadding,
+        paddingBottom: Math.max(viewportBottomPadding, requestedBottomPadding),
         // Mapbox centers the followed coordinate inside the padded viewport.
         paddingTop: Math.max(
             viewportTopPadding,

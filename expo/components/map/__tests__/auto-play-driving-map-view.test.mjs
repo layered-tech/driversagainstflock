@@ -71,7 +71,7 @@ test('automotive map buttons remain pan, zoom, and recenter controls', () => {
     );
 });
 
-test('automotive route mode releases follow and fits the remaining active route', () => {
+test('automotive route mode releases follow and fits the full active trip', () => {
     assert.match(
         autoPlayStateSource,
         /drivingMapViewMode: DRIVING_MAP_VIEW_PERSPECTIVE/,

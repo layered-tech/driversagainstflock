@@ -1,7 +1,7 @@
 const MILES_PER_HOUR_TO_METERS_PER_SECOND = 0.44704;
 
-export const MOCK_CURRENT_SPEED_MPH = 41;
-export const MOCK_SPEED_LIMIT_MPH = 35;
+export const MOCK_CURRENT_SPEED_MPH = 51;
+export const MOCK_SPEED_LIMIT_MPH = 45;
 
 export function getMockCurrentSpeedMps() {
     return MOCK_CURRENT_SPEED_MPH * MILES_PER_HOUR_TO_METERS_PER_SECOND;

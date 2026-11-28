@@ -302,9 +302,15 @@ export function useMapDebugControlsContextValue({
     setDebugOverlayVisibility,
     sideSheetLayoutIsActive,
 }) {
+    const nativeCameraFollowProps = locationController.nativeCameraFollowProps;
     const cameraFocusDebugState = useMemo(() => {
         if (isDrivingMode) {
-            return null;
+            return {
+                padding: nativeCameraFollowProps?.enabled
+                    ? nativeCameraFollowProps.padding
+                    : null,
+                safeAreaInsets: presentation.insets,
+            };
         }
 
         const layoutLabel = sideSheetLayoutIsActive ? 'right pane' : 'top band';
@@ -335,6 +341,9 @@ export function useMapDebugControlsContextValue({
         directionsRoute,
         directionsRouteCameraPadding,
         isDrivingMode,
+        nativeCameraFollowProps?.enabled,
+        nativeCameraFollowProps?.padding,
+        presentation.insets,
         searchController.selectedPlaceDetails,
         searchController.submittedSearchResults.length,
         searchResultsCameraPadding,

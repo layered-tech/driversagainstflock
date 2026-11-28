@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { createRequire } from 'node:module';
 import { describe, test } from 'node:test';
+import * as roadPillLayout from '../current-road-pill-layout.js';
 import { getNavigationPuckAnchorY } from '../navigation-puck-layout.js';
 import { createHookHarness } from './tour-test-helpers.mjs';
 import { loadSpeedDisplayModules } from './speed-display-test-helpers.mjs';
@@ -172,6 +173,7 @@ function loadOverlay(overrides = {}) {
             useSharedNavigationRerouting: () => false,
         },
         './driving-alerts-overlay': { DrivingAlertsOverlay: 'Alerts' },
+        './current-road-pill-layout': roadPillLayout,
         './driving-guidance-cards': {},
         './driving-steps-sheet': {},
         './driving-location-road-stack': {
@@ -283,6 +285,17 @@ test('open Duo maneuver banner shares the steps pane top inset without native to
         const tree = nodes(DrivingGuidanceOverlay({}));
         const banner = tree.find((node) => node.type === 'SafeArea');
         const steps = tree.find((node) => node.type === 'StepsSheet');
+        const roadStack = tree.find((node) => node.type === 'RoadStack');
+        const roadDock = tree.find((node) =>
+            node.props.children?.includes?.(roadStack),
+        );
+        assert.equal(roadStack.props.bottomEdgeIsDirectionsSheet, !open);
+        assert.equal(
+            roadStack.props.bottomInset,
+            open ? 34 : steps.props.collapsedHeight,
+        );
+        assert.equal(roadDock.props.style.bottom, roadStack.props.bottomInset);
+        assert.equal(roadDock.props.children[0].type, 'Alerts');
         if (open) {
             assert.equal(banner.props.style.top, steps.props.paneTop);
             assert.equal(banner.props.style.top, 46 + 14);
@@ -580,9 +593,7 @@ test('hiding the road pill preserves its contents and location anchor layout', (
                 CurrentRoadPill: 'RoadPill',
                 useStableCurrentRoadText: () => 'Main Street',
             },
-            './current-road-pill-layout': {
-                shouldShowCurrentRoadPill: () => true,
-            },
+            './current-road-pill-layout': roadPillLayout,
             './navigation-puck-layout': {
                 getNavigationPuckAnchorY,
                 NAVIGATION_PUCK_SIZE: 75,
@@ -590,16 +601,52 @@ test('hiding the road pill preserves its contents and location anchor layout', (
         },
     );
     const anchors = [];
-    const props = { onLocationAnchorLayout: (anchor) => anchors.push(anchor) };
+    const props = {
+        bottomInset: 34,
+        viewportHeight: 800,
+        onLocationAnchorLayout: (anchor) => anchors.push(anchor),
+        puckTargetGap: 38,
+    };
     const shown = DrivingLocationRoadStack(props);
     const hidden = DrivingLocationRoadStack({ ...props, isHidden: true });
     assert.deepEqual(shown.props.children, hidden.props.children);
     assert.match(hidden.props.className, /opacity-0/);
     assert.equal(hidden.props.importantForAccessibility, 'no-hide-descendants');
-    shown.props.onLayout({ nativeEvent: { layout: { y: 500 } } });
-    hidden.props.onLayout({ nativeEvent: { layout: { y: 500 } } });
+    shown.props.onLayout({ nativeEvent: { layout: { height: 116 } } });
+    hidden.props.onLayout({ nativeEvent: { layout: { height: 116 } } });
     assert.equal(anchors.length, 2);
+    assert.equal(anchors[0], 800 - 34 - 116 + 38);
     assert.equal(anchors[0], anchors[1]);
+});
+
+test('phone driving passes the Camera Focus outline to its road pill', () => {
+    const { DrivingGuidanceOverlay } = loadOverlay();
+    const roadStack = nodes(
+        DrivingGuidanceOverlay({ debugRoadPillOutlineIsVisible: true }),
+    ).find((node) => node.type === 'RoadStack');
+
+    assert.equal(roadStack.props.debugRoadPillOutlineIsVisible, true);
+    assert.equal(roadStack.props.bottomEdgeIsDirectionsSheet, false);
+    assert.equal(roadStack.props.bottomInset, 34);
+    assert.equal(roadStack.props.puckTargetGap, 38);
+});
+
+test('phone driving applies the dark road pill on dark maps and dark handsets', () => {
+    const { DrivingGuidanceOverlay } = loadOverlay();
+
+    for (const currentRoadPillIsDarkMode of [true, false]) {
+        const roadStack = nodes(
+            DrivingGuidanceOverlay({ currentRoadPillIsDarkMode }),
+        ).find((node) => node.type === 'RoadStack');
+        assert.equal(
+            roadStack.props.currentRoadPillIsDarkMode,
+            currentRoadPillIsDarkMode,
+        );
+    }
+    assert.match(
+        mapScreenSource,
+        /<DrivingGuidanceOverlay\b[^>]*currentRoadPillIsDarkMode=\{\s*presentation\.isDarkMapLayer\s*\|\|\s*presentation\.isSystemDarkMode\s*\}/,
+    );
 });
 
 for (const { duo, paneVisible, label } of [

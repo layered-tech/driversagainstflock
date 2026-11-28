@@ -102,14 +102,17 @@ test('typing requests autocomplete and clearing text restores saved places', () 
     const queries = [];
     let initialResultsRefreshed = 0;
     const handler = vm.runInNewContext(`(${callback})`, {
+        autoPlayPlatform: {},
         cancelAutoPlaySearchWork() {},
         emptyResults: initialResults,
         initialVoiceSearchIsPending: false,
         refreshInitialResults() {
             initialResultsRefreshed += 1;
         },
+        ownsSearchField: () => true,
+        preservesResults: false,
+        displayedSavedLocations: undefined,
         savedLocationWasSelected: false,
-        searchIsActive: true,
         searchWasSubmitted: false,
         searchCallbackState: createAutoPlaySearchCallbackState(),
         searchTextValue: '',

@@ -1,4 +1,5 @@
 import { useSyncExternalStore } from 'react';
+import { getLatestAcceptedDeviceLocation } from './accepted-device-location';
 import { getDirections } from './api';
 import { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY } from './debug-overlays';
 import {
@@ -16,6 +17,7 @@ let rerouting = false;
 const statusListeners = new Set();
 const controller = createSharedNavigationReroutingController({
     getDirections,
+    getDeviceFix: getLatestAcceptedDeviceLocation,
     getRoutingState: getSharedRoutingState,
     publishRoute: (directionsRoute) =>
         setSharedRoutingState({ directionsRoute }),
@@ -29,8 +31,8 @@ const controller = createSharedNavigationReroutingController({
     },
 });
 
-export function updateSharedNavigationLocation(location) {
-    controller.update(location);
+export function updateSharedNavigationLocation(location, deviceFix) {
+    controller.update(location, deviceFix);
 }
 
 export function cancelSharedNavigationRerouting() {

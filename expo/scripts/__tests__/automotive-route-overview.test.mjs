@@ -196,6 +196,6 @@ test('standalone route-choice groups reuse every preview case and preserve full-
         if (start >= 0) assert.ok(start > lastOverview);
     }
     assert.equal(buildAndroidAutoNavigationSuite().length, 13);
-    assert.equal(selectAndroidAutoSuite(suite).tests.length, 43);
+    assert.equal(selectAndroidAutoSuite(suite).tests.length, 55);
     assert.equal(new CarPlayRunner({}).suite.length, 18);
 });

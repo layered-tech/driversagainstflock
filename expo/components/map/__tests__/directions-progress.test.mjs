@@ -178,6 +178,19 @@ describe('driving maneuver sequences', () => {
         }
     });
 
+    test('automotive fixes carry the current heading into navigation, including north', () => {
+        for (const [orientation, expected] of [
+            [{ heading: 0 }, 0],
+            [{ course: 217 }, 217],
+            [{}, undefined],
+        ]) {
+            const location = getAutoPlayLocationFromPosition({
+                coords: { latitude: 30, longitude: -97, ...orientation },
+                timestamp: 1000,
+            });
+            assert.equal(location.heading, expected);
+        }
+    });
     test('automotive locations preserve fix time and road-match context without inventing an exit', () => {
         for (const roadMatch of [
             undefined,
@@ -578,15 +591,14 @@ describe('active automotive navigation overview bounds', () => {
         [0.01, 0.01],
         [0.02, 0.01],
     ]);
-    test('shrinks with progress while retaining upcoming bends and the destination', () => {
+    test('keeps the traveled route in view while approaching the destination', () => {
         const track = directions.createNavigationOverviewBoundsTracker();
         const first = track(route, {
             longitude: 0.005,
             latitude: 0,
             recordedAt: 1000,
         });
-        assert.ok(first.sw[0] > 0);
-        assert.ok(first.sw[0] < 0.005);
+        assert.ok(first.sw[0] < 0);
         assert.ok(first.ne[0] > 0.02);
         assert.ok(first.ne[1] > 0.01);
         const later = track(route, {
@@ -594,9 +606,7 @@ describe('active automotive navigation overview bounds', () => {
             latitude: 0.01,
             recordedAt: 2000,
         });
-        assert.ok(later.sw[0] > 0.01);
-        assert.ok(later.sw[1] > 0);
-        assert.ok(later.ne[0] > 0.02);
+        assert.deepEqual(later, first);
     });
     test('keeps geographic buffer at arrival and includes an off-route user', () => {
         const track = directions.createNavigationOverviewBoundsTracker();
@@ -624,7 +634,7 @@ describe('active automotive navigation overview bounds', () => {
             latitude: 1,
             recordedAt: 3000,
         });
-        assert.ok(bounds.sw[0] > 1);
+        assert.ok(bounds.sw[0] < 1 && bounds.sw[0] > 0.99);
         assert.ok(bounds.ne[0] > 1.02);
         assert.equal(track(null, null), null);
     });

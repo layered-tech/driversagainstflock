@@ -34,13 +34,13 @@ const preview = (name, destination) => [
     ...checkText(name, ['Start', destination]),
     { type: 'assertRouteOverview', name },
 ];
-const search = (name, query) => [
+const search = (name, query, resultLabel = 'Walmart') => [
     { type: 'recognizedSearch', query },
     ...checkText(
         name,
         [
             'Search results',
-            'Walmart',
+            resultLabel,
             ...(query.includes('Delafield') ? ['Delafield'] : []),
         ],
         ['Searching for'],
@@ -59,18 +59,18 @@ const search = (name, query) => [
         [
             'Search results',
             '1.',
-            'Walmart',
+            resultLabel,
             ...(query.includes('Delafield') ? ['Delafield'] : []),
         ],
         ['Searching for'],
     ),
     state({ submittedSearchPinCount: { minimum: 1, maximum: 6 } }),
-    tap(name, 'Walmart', {
+    tap(name, resultLabel, {
         match: 'result',
         exact: false,
         waitForMetro: '[Android Auto] search-result-selected',
     }),
-    ...preview(`${name}-preview`, 'Walmart'),
+    ...preview(`${name}-preview`, resultLabel),
 ];
 const option = (name, title, label, expected) => [
     control('options'),
@@ -309,8 +309,13 @@ export function buildAndroidAutoNavigationSuite() {
         },
         {
             name: 'starts the searched route and shows navigation controls and guidance',
+            startAtRouteOrigin: true,
             steps: [
-                ...search('start-results', 'Walmart Delafield'),
+                ...search(
+                    'start-results',
+                    '377 Parkland Ct, Pewaukee',
+                    '377 Parkland',
+                ),
                 tap('start-results-preview', 'Start'),
                 state({
                     isNavigating: true,
@@ -354,20 +359,162 @@ export function buildAndroidAutoNavigationSuite() {
     }));
 }
 
+export function buildAndroidAutoVoiceSearchSuite({
+    restartDuringSearch = false,
+    betweenDrives = false,
+} = {}) {
+    const idle = state({
+        isNavigating: false,
+        previewVisible: false,
+        routeChoiceCount: 0,
+        submittedSearchPinCount: 0,
+    });
+    const openSearch = [
+        control(
+            'search',
+            betweenDrives ? { expectText: null, useParkedControls: true } : {},
+        ),
+        ...checkText('voice-empty', ['Where to?', 'Recents', 'Favorites']),
+    ];
+    const dictate = (query, previousQuery) => [
+        { type: 'dictateSearch', query },
+        { type: 'assertVoiceSearchRow', query, previousQuery },
+        ...(betweenDrives ? [] : [idle]),
+    ];
+    const selectResult = (query) => [
+        tap('voice-results', query, {
+            match: 'result',
+            exact: false,
+            ...(betweenDrives
+                ? {}
+                : { waitForMetro: '[Android Auto] search-result-selected' }),
+        }),
+        ...(betweenDrives
+            ? []
+            : [
+                  state({
+                      isNavigating: false,
+                      previewVisible: true,
+                      routeChoiceCount: { minimum: 1 },
+                  }),
+              ]),
+        ...checkText('voice-preview', ['Start', query], ['Where to?']),
+        back,
+    ];
+    const single = 'Walmart';
+    const multiple = 'Taco Bell';
+    if (betweenDrives) {
+        return [
+            {
+                name: 'Voice search across drives: Walmart, disconnect, then Taco Bell',
+                stationary: true,
+                group: 'between-drives',
+                steps: [
+                    { type: 'recordFirstDriveProcesses' },
+                    ...openSearch,
+                    ...dictate(single),
+                    ...selectResult(single),
+                    { type: 'reconnectAfterAppExit' },
+                    ...openSearch,
+                    ...dictate(multiple, single),
+                    ...selectResult(multiple),
+                    { type: 'verifyDriveProcesses' },
+                ],
+            },
+        ];
+    }
+    return [
+        ...[single, multiple].map((query) => ({
+            name: `Voice search: dictate ${query} and choose a destination`,
+            steps: [
+                ...openSearch,
+                ...(restartDuringSearch
+                    ? [{ type: 'restartAppWhileSearching' }, ...openSearch]
+                    : []),
+                ...dictate(query),
+                ...selectResult(query),
+            ],
+        })),
+        ...['silence', 'cancel'].map((outcome) => ({
+            name:
+                outcome === 'silence'
+                    ? 'Voice search: no words returns to empty search'
+                    : 'Voice search: cancel while listening returns to empty search',
+            steps: [
+                ...openSearch,
+                { type: 'dictateSearch', outcome },
+                ...checkText(
+                    'voice-returned',
+                    ['Where to?', 'Recents', 'Favorites'],
+                    ['Search results', 'Searching for'],
+                ),
+                idle,
+                { type: 'assertNoVoiceSearchResults' },
+                back,
+            ],
+        })),
+        ...[
+            [single, multiple],
+            [multiple, single],
+        ].map(([first, second]) => ({
+            name: `Voice search: dictate ${first}, cancel, then dictate ${second}`,
+            steps: [
+                ...openSearch,
+                ...dictate(first),
+                back,
+                ...checkText(
+                    'voice-dismissed',
+                    ['SPEED', 'LIMIT'],
+                    [first, 'Searching'],
+                ),
+                ...openSearch,
+                ...dictate(second, first),
+                ...selectResult(second),
+            ],
+        })),
+    ].map((scenario) => ({
+        ...scenario,
+        stationary: true,
+        group: 'voice-search',
+    }));
+}
+
 export function selectAndroidAutoSuite(suite, environment = {}) {
     const group = environment.ANDROID_AUTO_E2E_SUITE || 'all';
-    if (!['all', 'alpr', 'navigation', 'route-choices'].includes(group))
+    if (
+        ![
+            'all',
+            'alpr',
+            'navigation',
+            'route-choices',
+            'voice-search',
+            'between-drives',
+        ].includes(group)
+    )
         throw new Error(
-            'ANDROID_AUTO_E2E_SUITE must be all, alpr, navigation or route-choices',
+            'ANDROID_AUTO_E2E_SUITE must be all, alpr, navigation, route-choices, voice-search or between-drives',
         );
     const legacy = suite.tests || [];
-    let tests = ['navigation', 'route-choices'].includes(group)
-        ? []
-        : legacy.filter(({ name }) => name !== 'disconnect');
+    let tests = ['all', 'alpr'].includes(group)
+        ? legacy.filter(({ name }) => name !== 'disconnect')
+        : [];
     if (suite.navigation && group !== 'alpr') {
+        const focusedVoice = ['voice-search', 'between-drives'].includes(group);
+        const scenarios = focusedVoice ? [] : buildAndroidAutoNavigationSuite();
+        if (group === 'all' || focusedVoice) {
+            scenarios.push(
+                ...buildAndroidAutoVoiceSearchSuite({
+                    betweenDrives: group === 'between-drives',
+                    restartDuringSearch:
+                        group === 'voice-search' &&
+                        environment.ANDROID_AUTO_E2E_RESTART_DURING_SEARCH ===
+                            '1',
+                }),
+            );
+        }
         for (const layout of ['dashboard', 'fullscreen']) {
             tests.push(
-                ...buildAndroidAutoNavigationSuite().map((test) => ({
+                ...scenarios.map((test) => ({
                     ...test,
                     layout,
                     name: `${layout === 'dashboard' ? 'Dashboard' : 'Fullscreen'}: ${test.name}`,
@@ -426,7 +573,8 @@ export function findAndroidAutoText(screenshot, step) {
             const value = normalize(text);
             return step.match === 'result'
                 ? y > (step.minimumY ?? 120) &&
-                      value.replace(/^\d+ /, '').startsWith(label)
+                      (value.startsWith(label) ||
+                          value.replace(/^\d+ /, '').startsWith(label))
                 : step.exact
                   ? value === label
                   : value.includes(label);
@@ -466,15 +614,11 @@ export function getAndroidAutoControlPoint(bounds, name, state) {
     if (name === 'overview' || name === 'recenter')
         return {
             x: bounds.x + bounds.width - size / 2,
+            // Android stacks Recenter, Zoom In, Zoom Out, and the map-view toggle.
             y:
                 bounds.y +
                 bounds.height -
-                size *
-                    (name === 'recenter'
-                        ? 0.5
-                        : state.recenterControlVisible
-                          ? 1.5
-                          : 0.5),
+                size * (name === 'recenter' ? 3.5 : 0.5),
         };
     throw new Error(`Unavailable Android Auto control: ${name}`);
 }

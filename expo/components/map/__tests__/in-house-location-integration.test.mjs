@@ -33,9 +33,6 @@ const locationPuck3DSource = readSource('../location-puck-3d.js');
 const locationPuckProviderLifecycleSource = readSource(
     '../location-puck-provider-lifecycle.js',
 );
-const locationPuckPresentationSource = readSource(
-    '../location-puck-presentation.js',
-);
 const mapCanvasSource = readSource('../map-canvas.js');
 const mapScreenSource = readSource('../../map-screen.js');
 const mapLocationControllerSource = readSource(
@@ -206,11 +203,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             drivingLocationProviderSource,
-            /predictionEnabled = !mapApiMocksAreEnabled\(\)[\s\S]*?startLocationPuckPresentationUpdates\(userLocation,[\s\S]*?userLocation: presentationLocation/,
-        );
-        assert.match(
-            locationPuckPresentationSource,
-            /roadMatch\?\.isOffRoad !== false[\s\S]*?LOCATION_PUCK_PREDICTION_MAXIMUM_DISTANCE_METERS/,
+            /const providerLocation = useDrivingProviderLocation\(\{\s*enabled,\s*userLocation,?\s*\}\)/,
         );
         assert.match(
             drivingLocationProviderSource,
@@ -689,7 +682,7 @@ describe('in-house road-matched location integration', () => {
         );
         assert.match(
             roadMatchingSessionSource,
-            /if \(Platform\.OS !== 'ios' \|\| automotiveLocationOwnerIsActive\(\)\) \{\s*return true;\s*\}/,
+            /Platform\.OS !== 'ios' \|\|\s*\(getAutoPlaySessionState\(\)\.isConnected &&\s*getOperationalAppState\(\) === 'active'\)/,
         );
         assert.match(roadMatchingSessionSource, /Platform\.OS === 'android'/);
         assert.match(roadMatchingSessionSource, /foregroundService:/);

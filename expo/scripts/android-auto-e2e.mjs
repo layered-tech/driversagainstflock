@@ -51,6 +51,8 @@ const DEFAULT_ARTIFACTS =
     '/Volumes/PfeiferDev/DevCaches/chris/expo-builds/android-auto-e2e';
 const ANDROID_AUTO_SETTINGS =
     'com.google.android.projection.gearhead/.companion.settings.DefaultSettingsActivity';
+const ANDROID_AUTO_PROJECTION =
+    'com.google.android.projection.gearhead:projection';
 const UI_DUMP_PATH = '/sdcard/android-auto-e2e-ui.xml';
 const HEAD_UNIT_PORT = 5277;
 const DEVELOPMENT_CLIENT_LAUNCH_TIMEOUTS = [45000, 120000];
@@ -62,6 +64,51 @@ export function loadSuite(suitePath) {
         readFileSync(resolve(dirname(suitePath), suite.extends), 'utf8'),
     );
     return { ...base, ...suite };
+}
+
+export function loadVoiceSearchMatrix(environment) {
+    if (
+        environment.ANDROID_AUTO_E2E_SUITE !== 'voice-search' ||
+        environment.ANDROID_AUTO_E2E_RESTART_DURING_SEARCH === '1'
+    ) {
+        throw new Error(
+            'The continuous matrix requires the voice-search suite with app restarts disabled.',
+        );
+    }
+    const select = (file) =>
+        selectAndroidAutoSuite(
+            loadSuite(join(dirname(DEFAULT_SUITE), file)),
+            environment,
+        );
+    const named = (suite, orientation) =>
+        suite.tests.map((test) => ({
+            ...test,
+            name: `${orientation} ${test.name}`,
+        }));
+    const portrait = select('suite-portrait.json');
+    return {
+        ...portrait,
+        name: 'Continuous Android Auto voice search',
+        tests: [
+            ...named(portrait, 'Portrait'),
+            {
+                name: 'Connect landscape DHU',
+                steps: [{ type: 'connectLandscape' }],
+            },
+            ...named(select('suite.json'), 'Landscape'),
+        ],
+    };
+}
+
+function voiceSearchEvents(output) {
+    const events = [];
+    for (const line of stripVTControlCharacters(output).split('\n')) {
+        const match = line.match(
+            /\[Android Auto\] (search-autocomplete-updated|search-results-presented|search-result-selected|voice-request-received) (\{.+\})\s*$/,
+        );
+        if (match) events.push({ ...JSON.parse(match[2]), action: match[1] });
+    }
+    return events;
 }
 export const DEFAULT_MAP_CROP = Object.freeze({
     height: 220,
@@ -375,13 +422,17 @@ function detectDevice(environment) {
 }
 
 export class Runner {
-    constructor(suitePath, environment = process.env) {
+    constructor(
+        suitePath,
+        environment = process.env,
+        bothOrientations = false,
+    ) {
         this.environment = environment;
         this.suitePath = resolve(suitePath);
-        this.suite = selectAndroidAutoSuite(
-            loadSuite(this.suitePath),
-            environment,
-        );
+        this.bothOrientations = bothOrientations;
+        this.suite = bothOrientations
+            ? loadVoiceSearchMatrix(environment)
+            : selectAndroidAutoSuite(loadSuite(this.suitePath), environment);
         this.serial = detectDevice(environment);
         this.androidSdkRoot = detectAndroidSdkRoot(environment);
         this.dhuBinary = resolve(
@@ -697,10 +748,24 @@ export class Runner {
         );
     }
 
+    get preservesAppData() {
+        return ['voice-search', 'between-drives'].includes(
+            this.environment?.ANDROID_AUTO_E2E_SUITE,
+        );
+    }
+
     prepareDevice() {
         this.preparedDevice = true;
-        this.adb(['logcat', '-c']);
-        this.adb(['shell', 'pm', 'clear', this.suite.appId]);
+        if (this.preservesAppData) {
+            this.logcatStart = this.adb([
+                'shell',
+                'date',
+                '+%s.%N',
+            ]).stdout.trim();
+        } else {
+            this.adb(['logcat', '-c']);
+            this.adb(['shell', 'pm', 'clear', this.suite.appId]);
+        }
 
         for (const permission of [
             'android.permission.ACCESS_COARSE_LOCATION',
@@ -720,7 +785,8 @@ export class Runner {
             String(this.suite.location.longitude),
             String(this.suite.location.latitude),
         ]);
-        this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
+        if (!this.preservesAppData)
+            this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
     }
 
     serverIsListening() {
@@ -985,13 +1051,13 @@ export class Runner {
         );
     }
 
-    restartAppWithDevelopmentClient(attempt) {
+    openDevelopmentClient(attempt, restart = !this.preservesAppData) {
         const { host, port } = this.suite.metro;
         const url = `exp+driversagainstflock://expo-development-client/?url=http%3A%2F%2F${host}%3A${port}`;
         this.report(
             `Launching development client (attempt ${attempt}/${DEVELOPMENT_CLIENT_LAUNCH_TIMEOUTS.length})`,
         );
-        this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
+        if (restart) this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
         const outputStart = this.metroOutput.length;
         this.adb([
             'shell',
@@ -1053,7 +1119,7 @@ export class Runner {
         }
     }
 
-    async launchApp() {
+    async launchApp({ restart } = {}) {
         const errors = [];
 
         for (
@@ -1062,7 +1128,7 @@ export class Runner {
             index += 1
         ) {
             const attempt = index + 1;
-            const outputStart = this.restartAppWithDevelopmentClient(attempt);
+            const outputStart = this.openDevelopmentClient(attempt, restart);
 
             try {
                 await this.waitForDevelopmentClient(
@@ -1291,47 +1357,6 @@ export class Runner {
                 10000,
             );
         }
-    }
-
-    async dispatchScorecardDriveScenario(scenario) {
-        const outputStart = this.metroOutput.length;
-        const url =
-            'driversagainstflock://e2e-mocks?scorecardDrive=' +
-            encodeURIComponent(scenario);
-
-        this.adb([
-            'shell',
-            'am',
-            'start',
-            '-W',
-            '-a',
-            'android.intent.action.VIEW',
-            '-d',
-            url,
-            this.suite.appId,
-        ]);
-        this.scorecardScenarioOutputStart = outputStart;
-        await this.waitForMetroMarker(
-            '[E2E] scorecard-drive-scenario-ready',
-            outputStart,
-            30000,
-        );
-    }
-
-    async waitForScorecardCameraInventory() {
-        await this.waitForMetroMarker(
-            '[E2E] scorecard-camera-inventory-ready',
-            this.scorecardScenarioOutputStart ?? 0,
-            60000,
-        );
-    }
-
-    async waitForScorecardExposure() {
-        await this.waitForMetroMarker(
-            '[E2E] scorecard-exposure-recorded',
-            this.scorecardScenarioOutputStart ?? 0,
-            30000,
-        );
     }
 
     setEmulatorLocation({ latitude, longitude, velocityKnots }) {
@@ -1872,6 +1897,190 @@ export class Runner {
         return actual;
     }
 
+    async dictateSearch({ query, outcome }) {
+        const recordings = { Walmart: 'walmart', 'Taco Bell': 'taco-bell' };
+        const recording = outcome === 'silence' ? 'silence' : recordings[query];
+        if (query && !recording)
+            throw new Error(`Missing voice recording for ${query}`);
+        const since = this.adb(['shell', 'date', '+%s.%N']).stdout.trim();
+        const recognitionLog = () =>
+            this.adb(
+                [
+                    'logcat',
+                    '-d',
+                    '-T',
+                    since,
+                    '-e',
+                    'RecognitionService#on|Sent microphone (open|close) request|makeBackground.*VoicePlateCarService|Session Cancel Trigger:|no speech - erroring|Remote call ON_SEARCH_.* failed|ANR API: ON_SEARCH_',
+                    'adbd:S',
+                    '*:I',
+                ],
+                { logOutput: false },
+            ).stdout;
+        this.voiceSearchOffset = this.metroOutput.length;
+        const bounds = this.currentAppBounds();
+        this.tapDhu(
+            bounds.controls?.searchMicrophone ?? {
+                x: bounds.x + bounds.width - 130,
+                y: bounds.y + 40,
+            },
+        );
+        const microphoneIsOpen = () => {
+            const log = recognitionLog();
+            return (
+                log.lastIndexOf('RecognitionService#onMicrophoneOpened') >
+                    log.lastIndexOf(
+                        'RecognitionService#onMicrophoneCloseRequested',
+                    ) &&
+                log.lastIndexOf('Sent microphone open request') >
+                    log.lastIndexOf('Sent microphone close request')
+            );
+        };
+        await this.waitFor(
+            microphoneIsOpen,
+            'Android Auto search-field microphone to begin listening',
+            12000,
+        );
+        // Both signals originate on the phone. The DHU still has to receive
+        // the open request before mic play can feed this recording session.
+        if (outcome === 'cancel') {
+            await this.waitFor(
+                async () => {
+                    const { layoutProof } = await this.captureScreenshot(
+                        'voice-listening',
+                        {
+                            verifyLayout: false,
+                            recognizeText: false,
+                        },
+                    );
+                    return (
+                        layoutProof.gridDots === 0 &&
+                        layoutProof.dashboardButtons === 0
+                    );
+                },
+                'the listening overlay to cover the Android Auto launcher control',
+                5000,
+            );
+            if (!microphoneIsOpen())
+                throw new Error(
+                    'The recognizer closed before the DHU could deliver the voice input.',
+                );
+            this.tapDhu({ x: bounds.x + 24, y: bounds.y + bounds.height / 2 });
+        } else if (recording) {
+            await delay(500);
+            if (!microphoneIsOpen())
+                throw new Error(
+                    'The car microphone closed before fixture playback.',
+                );
+            this.sendDhu(`mic play .android-auto/voice/${recording}.wav`);
+        }
+        await this.waitFor(
+            () => {
+                const log = recognitionLog();
+                return (
+                    log.includes(
+                        'RecognitionService#onMicrophoneCloseRequested',
+                    ) && /makeBackground.*VoicePlateCarService/.test(log)
+                );
+            },
+            'Android Auto to close its microphone and dismiss voice input',
+            30000,
+        );
+        const log = recognitionLog();
+        if (log.includes('Session Cancel Trigger: HARDWARE_BUTTON_CLICKED')) {
+            throw new Error(
+                'The DHU microphone playback command canceled the transcription session.',
+            );
+        }
+        const noSpeech = log.includes('no speech - erroring');
+        const dismissedByTap = log.includes(
+            'Session Cancel Trigger: SCRIM_CLICKED',
+        );
+        if (outcome === 'cancel' && !dismissedByTap) {
+            throw new Error(
+                'Android Auto did not acknowledge the tap as a voice cancellation.',
+            );
+        }
+        if (outcome === 'silence' && (!noSpeech || dismissedByTap)) {
+            throw new Error(
+                'Recognition ended without confirming the no-speech outcome.',
+            );
+        }
+        const betweenDrives =
+            this.environment?.ANDROID_AUTO_E2E_SUITE === 'between-drives';
+        // The two-drive test audits host errors after checking both visible previews.
+        if (!betweenDrives) {
+            this.assertSearchCallbacksHealthy(log);
+        }
+        if (!query) {
+            // The fading scrim can still show saved places from before dictation.
+            await this.waitFor(
+                async () => {
+                    const { layoutProof } = await this.captureScreenshot(
+                        'voice-overlay-dismissed',
+                        { verifyLayout: false, recognizeText: false },
+                    );
+                    return layoutProof.layout === this.carLayout;
+                },
+                `the ${this.carLayout} layout to return after dictation`,
+                10000,
+            );
+        } else if (betweenDrives) {
+            const appPid = this.processId(this.suite.appId);
+            await this.waitFor(() => {
+                const output = this.adb(
+                    [
+                        'logcat',
+                        '-d',
+                        '-T',
+                        since,
+                        '--pid',
+                        appPid,
+                        '-v',
+                        'raw',
+                        'ReactNativeJS:I',
+                        '*:S',
+                    ],
+                    { logOutput: false },
+                ).stdout;
+                const submissions = [
+                    ...output.matchAll(
+                        /\[Android Auto\] search-results-presented['"]?,?\s+\{\s*['"]?query['"]?:\s*['"]([^'"]+)['"],\s*['"]?resultCount['"]?:\s*(\d+)/g,
+                    ),
+                ];
+                const last = submissions.at(-1);
+                return (
+                    last?.[1].toLowerCase() === query.toLowerCase() &&
+                    Number(last[2]) > 0
+                );
+            }, `submitted matches for "${query}" from app process ${appPid}`);
+        } else {
+            await this.waitFor(
+                () => {
+                    const events = voiceSearchEvents(
+                        this.metroOutput.slice(this.voiceSearchOffset),
+                    );
+                    const final = events.findLast(
+                        ({ action }) => action === 'search-results-presented',
+                    );
+                    if (
+                        final?.query?.toLowerCase() === query.toLowerCase() &&
+                        final.resultCount > 0
+                    )
+                        return true;
+                    const last = events.at(-1);
+                    if (last)
+                        throw new Error(
+                            `Last app callback was ${last.action} for "${last.query}" (${last.resultCount} results)`,
+                        );
+                    return false;
+                },
+                `fresh submitted results for the spoken query "${query}"`,
+                30000,
+            );
+        }
+    }
+
     currentAppBounds() {
         const bounds = this.suite.layouts?.[this.carLayout]?.appBounds;
         if (!bounds)
@@ -1879,6 +2088,46 @@ export class Runner {
                 `Missing Android Auto app bounds for ${this.carLayout}`,
             );
         return bounds;
+    }
+
+    async parkedSearchPoint(bounds) {
+        const icon = join(
+            EXPO_DIRECTORY,
+            '.android-auto/voice/search-control.png',
+        );
+        let selected;
+        await this.waitFor(
+            async () => {
+                const header = await this.captureScreenshot(
+                    'parked-search-header',
+                    { verifyLayout: false },
+                );
+                selected = JSON.parse(
+                    this.run(
+                        this.ocrBinary,
+                        [
+                            '--find-icon',
+                            header.imagePath,
+                            icon,
+                            ...[bounds.x, bounds.y, bounds.width, 96].map(
+                                String,
+                            ),
+                        ],
+                        { logOutput: false },
+                    ).stdout,
+                );
+                if (selected) return true;
+                const dismiss = header.textBounds.find(
+                    (item) => item.text.trim().toLowerCase() === 'ok',
+                );
+                if (dismiss) this.tapDhu(dismiss);
+                await this.runStep({ type: 'tapMap' });
+                return false;
+            },
+            'the visible magnifier on the parked map',
+            20000,
+        );
+        return selected;
     }
 
     async dragDisplay(from, to) {
@@ -1960,6 +2209,27 @@ export class Runner {
             );
         }
         switch (step.type) {
+            case 'connectLandscape':
+                this.suitePath = DEFAULT_SUITE;
+                this.suite = {
+                    ...loadSuite(DEFAULT_SUITE),
+                    name: this.suite.name,
+                    tests: this.suite.tests,
+                };
+                this.dhuConfig = join(
+                    EXPO_DIRECTORY,
+                    'config',
+                    'android-auto-dhu.ini',
+                );
+                await this.startDhu();
+                await this.focusCarMap();
+                await this.waitFor(
+                    () => this.serviceRunning(),
+                    'landscape car service',
+                    45000,
+                );
+                await this.assertAutoPlayState({ isNavigating: false });
+                break;
             case 'dhu': {
                 const outputStart = this.metroOutput.length;
                 this.sendDhu(step.command);
@@ -2020,6 +2290,106 @@ export class Runner {
             case 'recognizedSearch':
                 await this.autoPlayCommand('search', { query: step.query });
                 break;
+            case 'dictateSearch':
+                await this.dictateSearch(step);
+                break;
+            case 'reconnectAfterAppExit':
+                await this.reconnectAfterAppExit();
+                break;
+            case 'recordFirstDriveProcesses': {
+                const host = this.processId(ANDROID_AUTO_PROJECTION);
+                const firstApp = this.processId(this.suite.appId);
+                if (!host || !firstApp)
+                    throw new Error(
+                        'Both Android Auto and the navigation app must be running on the first drive',
+                    );
+                this.driveProcesses = {
+                    host,
+                    firstApp,
+                    since: this.adb(['shell', 'date', '+%s.%N']).stdout.trim(),
+                };
+                break;
+            }
+            case 'verifyDriveProcesses':
+                this.verifyDriveProcesses();
+                this.assertSearchCallbacksHealthy(
+                    this.adb(
+                        [
+                            'logcat',
+                            '-d',
+                            '-T',
+                            this.driveProcesses.since,
+                            'CarApp.H.Tem:E',
+                            '*:S',
+                        ],
+                        { logOutput: false },
+                    ).stdout,
+                );
+                break;
+            case 'restartAppWhileSearching': {
+                const pid = (name) =>
+                    this.adb(['shell', 'pidof', name], {
+                        logOutput: false,
+                    }).stdout.trim();
+                const projection =
+                    'com.google.android.projection.gearhead:projection';
+                const hostPid = pid(projection);
+                const appPid = pid(this.suite.appId);
+                const outputStart = await this.launchApp({ restart: true });
+                // Open the restarted app as a driver would from the launcher. Keep
+                // the DHU connection alive across the entire restart and dictation.
+                this.sendDhu('keycode navigation');
+                await this.waitForCarAppReady(outputStart);
+                if (
+                    !appPid ||
+                    pid(this.suite.appId) === appPid ||
+                    !hostPid ||
+                    pid(projection) !== hostPid
+                ) {
+                    throw new Error(
+                        'Expected only the phone app process to restart',
+                    );
+                }
+                await this.setCarLayout(this.carLayout);
+                break;
+            }
+            case 'assertVoiceSearchRow':
+                await this.waitFor(
+                    async () => {
+                        const shot = await this.captureScreenshot(
+                            'voice-results',
+                            { verifyLayout: false },
+                        );
+                        if (
+                            getOCRAssertionFailure(shot.ocr, {
+                                notContains: [
+                                    'Searching',
+                                    ...(step.previousQuery
+                                        ? [step.previousQuery]
+                                        : []),
+                                ],
+                            })
+                        )
+                            return false;
+                        return findAndroidAutoText(shot, {
+                            match: 'result',
+                            text: step.query,
+                        });
+                    },
+                    `a selectable result row for "${step.query}"`,
+                    20000,
+                );
+                break;
+            case 'assertNoVoiceSearchResults': {
+                const events = voiceSearchEvents(
+                    this.metroOutput.slice(this.voiceSearchOffset),
+                );
+                if (events.length)
+                    throw new Error(
+                        `Unexpected search after empty voice input: ${JSON.stringify(events)}`,
+                    );
+                break;
+            }
             case 'waitForMetro':
                 await this.waitForMetroMarker(
                     step.marker,
@@ -2051,7 +2421,15 @@ export class Runner {
                                 return true;
                             if (attempts >= 3) return false;
                             attempts++;
-                            await this.runStep({ ...step, expectText: null });
+                            await this.runStep({
+                                ...step,
+                                expectText: null,
+                                rootMapVisible:
+                                    attempts === 1 &&
+                                    !getOCRAssertionFailure(shot.ocr, {
+                                        contains: ['SPEED', 'LIMIT'],
+                                    }),
+                            });
                             return false;
                         },
                         `native ${step.name} panel (alerts can intercept a tap)`,
@@ -2059,8 +2437,14 @@ export class Runner {
                     );
                     return;
                 }
-                const actual = await this.autoPlayCommand('state');
-                if (step.name === 'search' && actual.statusLabel === 'Search') {
+                const actual = step.useParkedControls
+                    ? this.autoPlayState
+                    : await this.autoPlayCommand('state');
+                if (
+                    step.name === 'search' &&
+                    actual.statusLabel === 'Search' &&
+                    !step.rootMapVisible
+                ) {
                     return;
                 }
                 if (step.name !== 'searchMap')
@@ -2093,10 +2477,16 @@ export class Runner {
                 }
                 const bounds = this.currentAppBounds();
                 const offset = this.metroOutput.length;
-                this.tapDhu(
+                const point =
                     bounds.controls?.[step.name] ??
-                        getAndroidAutoControlPoint(bounds, step.name, actual),
-                );
+                    (step.useParkedControls
+                        ? await this.parkedSearchPoint(bounds)
+                        : getAndroidAutoControlPoint(
+                              bounds,
+                              step.name,
+                              actual,
+                          ));
+                this.tapDhu(point);
                 if (step.waitForMetro)
                     await this.waitForMetroMarker(
                         step.waitForMetro,
@@ -2242,9 +2632,6 @@ export class Runner {
                     step.waitForMetro,
                 );
                 break;
-            case 'scorecardDriveScenario':
-                await this.dispatchScorecardDriveScenario(step.scenario);
-                break;
             case 'geoFix':
                 this.setEmulatorLocation(step);
                 break;
@@ -2268,12 +2655,6 @@ export class Runner {
                 break;
             case 'assertPresenceReports':
                 this.assertPresenceReports(step);
-                break;
-            case 'waitForScorecardCameraInventory':
-                await this.waitForScorecardCameraInventory();
-                break;
-            case 'waitForScorecardExposure':
-                await this.waitForScorecardExposure();
                 break;
             case 'assertPhoneScorecardCrossings':
                 await this.assertPhoneScorecardCrossings(step.count);
@@ -2346,43 +2727,152 @@ export class Runner {
         this.tapDhu({ x: app.x, y: app.y });
     }
 
+    processId(name) {
+        const result = this.adb(['shell', 'pidof', name], {
+            allowFailure: true,
+            logOutput: false,
+        });
+        if (
+            result.status === 1 &&
+            !result.stdout.trim() &&
+            !result.stderr.trim()
+        )
+            return '';
+        if (result.status !== 0 || !/^\d+$/.test(result.stdout.trim()))
+            throw new Error(
+                `Cannot identify ${name}: ${result.stderr || result.stdout}`,
+            );
+        return result.stdout.trim();
+    }
+
+    verifyDriveProcesses() {
+        const { host, firstApp, secondApp } = this.driveProcesses;
+        const currentHost = this.processId(ANDROID_AUTO_PROJECTION);
+        const currentApp = this.processId(this.suite.appId);
+        if (
+            currentHost !== host ||
+            !currentApp ||
+            currentApp === firstApp ||
+            (secondApp && currentApp !== secondApp)
+        )
+            throw new Error(
+                `Unexpected process after reconnect: Android Auto ${host} → ${currentHost}, app ${firstApp} → ${currentApp}`,
+            );
+        this.driveProcesses.secondApp = currentApp;
+        this.report(
+            `Between drives: Android Auto ${host}, app ${firstApp} → ${currentApp}`,
+        );
+    }
+
+    async reconnectAfterAppExit() {
+        const { host, firstApp } = this.driveProcesses;
+        if (
+            this.processId(ANDROID_AUTO_PROJECTION) !== host ||
+            this.processId(this.suite.appId) !== firstApp
+        )
+            throw new Error('A process changed during the first drive');
+        this.report(
+            `First drive: Android Auto ${host}, app ${firstApp}. Disconnecting DHU.`,
+        );
+        await this.stopDhu();
+        await this.waitFor(
+            () => !this.serviceRunning(),
+            'car service to unbind after disconnect',
+        );
+        this.adb(['shell', 'input', 'keyevent', 'KEYCODE_HOME']);
+        this.adb([
+            'shell',
+            'am',
+            'kill',
+            '--user',
+            'current',
+            this.suite.appId,
+        ]);
+        // A location service can keep the disconnected development app above
+        // am kill's cached-process threshold. Simulate reclamation under its UID.
+        if (this.processId(this.suite.appId) === firstApp) {
+            const killed = this.adb(
+                ['shell', 'run-as', this.suite.appId, 'kill', '-9', firstApp],
+                { allowFailure: true },
+            );
+            if (
+                killed.status !== 0 &&
+                this.processId(this.suite.appId) === firstApp
+            )
+                throw new Error(
+                    `Could not end the disconnected app: ${killed.stderr || killed.stdout}`,
+                );
+        }
+        await this.waitFor(
+            () => !this.processId(this.suite.appId),
+            'the disconnected navigation app process to exit',
+        );
+        if (this.processId(ANDROID_AUTO_PROJECTION) !== host)
+            throw new Error('Android Auto exited between drives');
+        this.report(
+            'Confirmed the app process ended while Android Auto stayed alive',
+        );
+        await this.startDhu();
+        await this.focusCarMap();
+        await this.waitFor(
+            () => this.serviceRunning(),
+            'navigation service to start from the car',
+        );
+        this.verifyDriveProcesses();
+        await this.setCarLayout(this.carLayout);
+    }
+
+    async connectCarApp() {
+        const outputStart = await this.launchApp();
+        await this.startDhu();
+        await this.focusCarMap();
+        await this.waitForCarAppReady(outputStart);
+    }
+
+    async prepareStationaryScenario(test) {
+        this.setEmulatorLocation({
+            ...(test.startAtRouteOrigin
+                ? this.suite.location
+                : this.suite.stationaryLocation || this.suite.location),
+            velocityKnots: 0,
+        });
+        this.sendDhu('restrict none');
+        await this.autoPlayCommand('reset');
+        this.screenshots.clear();
+        if (!this.preservesAppData) await this.autoPlayCommand('seed');
+        const initialState = await this.assertAutoPlayState({
+            ...(this.preservesAppData ? {} : { home: true, work: true }),
+            isNavigating: false,
+        });
+        await this.setCarLayout(test.layout);
+        if (
+            initialState?.trackingState &&
+            initialState.trackingState !== 'active'
+        ) {
+            await this.runStep({
+                type: 'tapControl',
+                name: 'recenter',
+            });
+            await this.assertAutoPlayState({
+                trackingState: 'active',
+            });
+        }
+    }
+
     async runSuite() {
+        const voiceFailures = [];
         for (const [index, test] of this.suite.tests.entries()) {
             this.report(
                 `[${index + 1}/${this.suite.tests.length}] ${test.name}`,
             );
             try {
+                if (this.bothOrientations) this.verifyAppProcess(test.name);
                 if (test.stationary) {
-                    this.setEmulatorLocation({
-                        ...(this.suite.stationaryLocation ||
-                            this.suite.location),
-                        velocityKnots: 0,
-                    });
-                    this.sendDhu('restrict none');
-                    await this.autoPlayCommand('reset');
-                    this.screenshots.clear();
-                    await this.autoPlayCommand('seed');
-                    const initialState = await this.assertAutoPlayState({
-                        home: true,
-                        work: true,
-                        isNavigating: false,
-                    });
-                    await this.setCarLayout(test.layout);
-                    if (
-                        initialState?.trackingState &&
-                        initialState.trackingState !== 'active'
-                    ) {
-                        await this.runStep({
-                            type: 'tapControl',
-                            name: 'recenter',
-                        });
-                        await this.assertAutoPlayState({
-                            trackingState: 'active',
-                        });
-                    }
+                    await this.prepareStationaryScenario(test);
                 }
                 this.scenarioOffset = this.metroOutput.length;
                 for (const step of test.steps) await this.runStep(step);
+                if (this.bothOrientations) this.verifyAppProcess(test.name);
                 this.results.push({ name: test.name, passed: true });
                 this.report(`PASS ${test.name}`);
             } catch (error) {
@@ -2397,7 +2887,14 @@ export class Runner {
                         verifyLayout: false,
                     });
                 } catch {}
-                throw error;
+                // Finish the focused microphone matrix so a flaky first attempt
+                // cannot prevent either retry order from being exercised.
+                if (
+                    test.group !== 'voice-search' ||
+                    this.environment?.ANDROID_AUTO_E2E_SUITE !== 'voice-search'
+                )
+                    throw error;
+                voiceFailures.push(test.name);
             } finally {
                 writeFileSync(
                     join(this.runDirectory, 'results.json'),
@@ -2405,12 +2902,40 @@ export class Runner {
                 );
             }
         }
+        if (voiceFailures.length)
+            throw new Error(
+                `Voice-search scenarios failed: ${voiceFailures.join(', ')}`,
+            );
+    }
+
+    verifyAppProcess(testName) {
+        const result = this.adb(['shell', 'pidof', this.suite.appId], {
+            allowFailure: true,
+            logOutput: false,
+        });
+        const pid = result.stdout.trim();
+        if (!pid || (this.matrixPid && pid !== this.matrixPid)) {
+            throw new Error(
+                `App process changed during ${testName}: expected ${this.matrixPid}, found ${pid || 'no process'}`,
+            );
+        }
+        this.matrixPid = pid;
+        this.report(`App process ${pid} for ${testName}`);
     }
 
     captureLogcat({ allowFailure = false } = {}) {
-        const result = this.adb(['logcat', '-d', '-v', 'threadtime'], {
-            allowFailure,
-        });
+        const result = this.adb(
+            [
+                'logcat',
+                '-d',
+                '-v',
+                'threadtime',
+                ...(this.logcatStart ? ['-T', this.logcatStart] : []),
+            ],
+            {
+                allowFailure,
+            },
+        );
         const logcat = result.stdout ?? '';
         const failure =
             result.error || result.status !== 0
@@ -2424,11 +2949,24 @@ export class Runner {
         return logcat;
     }
 
+    assertSearchCallbacksHealthy(logcat) {
+        const failure = logcat
+            .split('\n')
+            .find((line) =>
+                /CarApp\.H\.Tem.*(?:Remote call ON_SEARCH_\w+ failed|ANR API: ON_SEARCH_\w+)/.test(
+                    line,
+                ),
+            );
+        if (failure)
+            throw new Error(`Android Auto host callback: ${failure.trim()}`);
+    }
+
     assertNoFatalCrash() {
         const runtimeError = this.metroOutput.match(/^\s*ERROR\s+(.+)$/m)?.[1];
         if (runtimeError)
             throw new Error(`React Native runtime error: ${runtimeError}`);
         const logcat = this.captureLogcat();
+        if (this.preservesAppData) this.assertSearchCallbacksHealthy(logcat);
         const escaped = this.suite.appId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const appOrService = `(?:${escaped}|AndroidAutoService)`;
         const crashPatterns = [
@@ -2626,12 +3164,20 @@ export class Runner {
             );
 
             if (this.preparedDevice || this.startedApp) {
-                await attempt('force-stop app', () => {
-                    this.adb(['shell', 'am', 'force-stop', this.suite.appId]);
-                    this.startedApp = false;
-                });
+                if (!this.preservesAppData) {
+                    await attempt('force-stop app', () => {
+                        this.adb([
+                            'shell',
+                            'am',
+                            'force-stop',
+                            this.suite.appId,
+                        ]);
+                        this.startedApp = false;
+                    });
+                }
                 if (
                     this.preparedDevice &&
+                    !this.preservesAppData &&
                     this.metroOutput.includes('[E2E] presence-report-queued ')
                 ) {
                     await attempt('clear isolated test reports', () => {
@@ -2693,10 +3239,7 @@ export class Runner {
             await this.wakePhone();
             await this.prepareMapMode();
             await this.startServer();
-            const outputStart = await this.launchApp();
-            await this.startDhu();
-            await this.focusCarMap();
-            await this.waitForCarAppReady(outputStart);
+            await this.connectCarApp();
             await this.runSuite();
             this.assertNoFatalCrash();
         } catch (error) {
@@ -2714,24 +3257,24 @@ export class Runner {
 }
 
 async function main() {
+    const bothOrientations = process.argv.includes('--both-orientations');
     const suitePath =
         process.argv.slice(2).find((arg) => !arg.startsWith('--')) ||
         DEFAULT_SUITE;
     if (process.argv.includes('--help')) {
         console.log(
-            'Android Auto E2E: [suite.json] [--list]. ANDROID_AUTO_E2E_SUITE=all|alpr|navigation|route-choices; ANDROID_AUTO_E2E_SCENARIO filters by name. Navigation runs stationary native controls and keyboard input; voice cases inject recognized queries. Requires an installed development app and DHU; gestures use Android display input without desktop cursor control.',
+            'Android Auto E2E: [suite.json] [--list] [--both-orientations]. ANDROID_AUTO_E2E_SUITE=all|alpr|navigation|route-choices|voice-search|between-drives; ANDROID_AUTO_E2E_SCENARIO filters by name. The voice-search suite drives the search-field microphone with DHU audio. Requires an installed development app and DHU; gestures use Android display input without desktop cursor control.',
         );
         return;
     }
     if (process.argv.includes('--list')) {
-        for (const test of selectAndroidAutoSuite(
-            loadSuite(suitePath),
-            process.env,
-        ).tests)
-            console.log(test.name);
+        const suite = bothOrientations
+            ? loadVoiceSearchMatrix(process.env)
+            : selectAndroidAutoSuite(loadSuite(suitePath), process.env);
+        for (const test of suite.tests) console.log(test.name);
         return;
     }
-    const runner = new Runner(suitePath);
+    const runner = new Runner(suitePath, process.env, bothOrientations);
 
     for (const [signal, code] of [
         ['SIGINT', 130],

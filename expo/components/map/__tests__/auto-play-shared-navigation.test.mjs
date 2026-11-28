@@ -182,7 +182,7 @@ describe('shared phone and car navigation contract', () => {
         );
         assert.match(
             autoPlaySource,
-            /async function handleAutoPlayConnect\(\)[\s\S]*?setAutoPlaySessionConnected\(true\)[\s\S]*?retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)/,
+            /async function handleAutoPlayConnect\(sessionId\)[\s\S]*?setAutoPlaySessionConnected\(true\)[\s\S]*?retainAutoPlayConnectionRoadMatchingSession\(connectionGeneration\)/,
         );
         assert.match(
             autoPlaySource,

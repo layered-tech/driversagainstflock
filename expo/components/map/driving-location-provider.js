@@ -1,16 +1,11 @@
 import Mapbox from '@rnmapbox/maps';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { mapApiMocksAreEnabled } from './api-mocks';
 import { normalizeDirectionDegrees, normalizeLongitude } from './geo';
 import {
     clearLocationPuckLocationProviderAsync,
     isLocationPuckLocationProviderSupported,
     setLocationPuckLocationAsync,
 } from './location-puck-3d';
-import {
-    getLocationPuckPresentationLocation,
-    startLocationPuckPresentationUpdates,
-} from './location-puck-presentation';
 import { createLocationPuckProviderLifecycle } from './location-puck-provider-lifecycle';
 
 function getFiniteNumber(value) {
@@ -91,41 +86,9 @@ export function DrivingLocationProvider({
     onNativeProviderStatusChange,
     userLocation,
 }) {
-    const predictionEnabled = !mapApiMocksAreEnabled();
-    const [presentationUpdate, setPresentationUpdate] = useState(null);
-    const initialPresentationLocation = useMemo(
-        () =>
-            getLocationPuckPresentationLocation(userLocation, Date.now(), {
-                predictionEnabled,
-            }),
-        [predictionEnabled, userLocation],
-    );
-    const presentationLocation =
-        presentationUpdate?.sourceLocation === userLocation &&
-        presentationUpdate?.predictionEnabled === predictionEnabled
-            ? presentationUpdate.location
-            : initialPresentationLocation;
-
-    useEffect(() => {
-        if (!enabled) {
-            setPresentationUpdate(null);
-            return;
-        }
-
-        return startLocationPuckPresentationUpdates(userLocation, {
-            onLocation: (location) =>
-                setPresentationUpdate({
-                    location,
-                    predictionEnabled,
-                    sourceLocation: userLocation,
-                }),
-            predictionEnabled,
-        });
-    }, [enabled, predictionEnabled, userLocation]);
-
     const providerLocation = useDrivingProviderLocation({
         enabled,
-        userLocation: presentationLocation,
+        userLocation,
     });
     const nativeProviderIsSupported = isLocationPuckLocationProviderSupported();
     const [nativeProviderStatus, setNativeProviderStatus] =

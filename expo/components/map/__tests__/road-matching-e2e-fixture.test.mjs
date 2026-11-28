@@ -11,7 +11,7 @@ import {
     E2E_ROAD_MATCHING_LOCATIONS,
     getE2ERoadCoordinate,
     getE2ERoadCorridorWays,
-} from '../road-matching-e2e-fixture.js';
+} from './fixtures/parallel-road-graph.js';
 import { createRoadMatcher } from '../road-matching.js';
 
 function getFixtureMatch(graph, matcher, location, timestamp = 1) {
@@ -43,7 +43,7 @@ function matchFixtureLocation(location) {
     return getFixtureMatch(graph, createRoadMatcher(graph), location);
 }
 
-describe('road matching Maestro fixture', () => {
+describe('parallel-road graph and speed-zone matching', () => {
     test('has deterministic free-drive speed-zone matches', () => {
         assert.deepEqual(
             matchFixtureLocation(E2E_ROAD_MATCHING_LOCATIONS.main35),

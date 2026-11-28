@@ -6,6 +6,10 @@ import {
     getAutoPlayBoundsFitPadding,
     getAutoPlayViewportMetrics,
 } from '../../auto-play-map-viewport.js';
+import {
+    AUTO_PLAY_CURRENT_ROAD_PILL_PUCK_TARGET_GAP,
+    CURRENT_ROAD_PILL_BOTTOM_GAP,
+} from '../current-road-pill-layout.js';
 import { getFollowCameraPadding } from '../follow-camera-padding.js';
 import { getNavigationPuckAnchorY } from '../navigation-puck-layout.js';
 
@@ -40,23 +44,58 @@ function getFollowPadding(viewportMetrics, followViewportAnchorY) {
     });
 }
 
+function getSurfaceViewportMetrics(context) {
+    const metricsStart = mapSurfaceContentSource.indexOf(
+        'const viewportMetrics = useMemo(',
+    );
+    const callbackStart = mapSurfaceContentSource.indexOf(
+        '() =>',
+        metricsStart,
+    );
+    const callbackEnd = mapSurfaceContentSource.indexOf(
+        '        [',
+        callbackStart,
+    );
+    const callback = mapSurfaceContentSource
+        .slice(callbackStart, callbackEnd)
+        .trim()
+        .replace(/,$/, '');
+
+    return vm.runInNewContext(`(${callback})()`, {
+        getAutoPlayViewportMetrics,
+        isCarPlay: true,
+        isClusterMapSurface: false,
+        isDashboardMapSurface: false,
+        layoutSize: undefined,
+        ornamentSafeAreaLeftScale: 1,
+        ...context,
+    });
+}
+
 describe('Auto Play map viewport geometry', () => {
+    test('follow can place the puck above the visible midpoint on a compact cluster', () => {
+        const metrics = getAutoPlayViewportMetrics({
+            windowInfo: { height: 160, width: 320 },
+            safeAreaInsets: { top: 20, bottom: 20, left: 16, right: 8 },
+        });
+        const pillTop = metrics.visibleRect.bottom - 10 - 32;
+        const target = pillTop - 20;
+        const padding = getFollowPadding(metrics, target);
+
+        assert.ok(target < metrics.center.y);
+        assert.equal(padding.paddingTop, metrics.cameraPadding.paddingTop);
+        assert.ok(padding.paddingBottom > metrics.cameraPadding.paddingBottom);
+        assert.equal(
+            getCameraAnchor({
+                height: metrics.height,
+                width: metrics.width,
+                padding,
+            }).y,
+            target,
+        );
+    });
+
     test('dashboard camera uses the measured pane for its bottom puck slot', () => {
-        const metricsStart = mapSurfaceContentSource.indexOf(
-            'const viewportMetrics = useMemo(',
-        );
-        const callbackStart = mapSurfaceContentSource.indexOf(
-            '() =>',
-            metricsStart,
-        );
-        const callbackEnd = mapSurfaceContentSource.indexOf(
-            '        [',
-            callbackStart,
-        );
-        const callback = mapSurfaceContentSource
-            .slice(callbackStart, callbackEnd)
-            .trim()
-            .replace(/,$/, '');
         for (const layout of [
             { height: 240, width: 360, top: 0, bottom: 0, slotY: 176 },
             { height: 320, width: 480, top: 16, bottom: 24, slotY: 200 },
@@ -69,13 +108,11 @@ describe('Auto Play map viewport geometry', () => {
                     left: 8,
                     right: 0,
                 },
-                getAutoPlayViewportMetrics,
                 isDashboardMapSurface: true,
                 layoutSize: { height: layout.height, width: layout.width },
-                ornamentSafeAreaLeftScale: 1,
                 windowInfo: { height: 720, width: 1280 },
             };
-            const metrics = vm.runInNewContext(`(${callback})()`, context);
+            const metrics = getSurfaceViewportMetrics(context);
             assert.equal(metrics.height, layout.height);
             assert.equal(metrics.width, layout.width);
             // The measured slot already reflects safe areas and any road pill
@@ -92,13 +129,54 @@ describe('Auto Play map viewport geometry', () => {
             assertApproximatelyEqual(anchor.y, slotAnchorY);
             assert.ok(anchor.y > metrics.center.y);
             assert.ok(anchor.y + 22 < metrics.visibleRect.bottom);
-            const rootMetrics = vm.runInNewContext(`(${callback})()`, {
+            const rootMetrics = getSurfaceViewportMetrics({
                 ...context,
                 isDashboardMapSurface: false,
             });
             assert.equal(rootMetrics.height, 720);
             assert.equal(rootMetrics.width, 1280);
         }
+    });
+
+    test('CarPlay cluster anchors the puck in its measured canvas when the reported screen is taller', () => {
+        const layoutSize = { height: 340, width: 1000 };
+        const windowInfo = { height: 410, width: 1000 };
+        const autoPlaySafeAreaInsets = {
+            top: 88,
+            right: 312,
+            bottom: 1,
+            left: 312,
+        };
+        const context = {
+            autoPlaySafeAreaInsets,
+            isClusterMapSurface: true,
+            windowInfo,
+        };
+        const metrics = getSurfaceViewportMetrics({ ...context, layoutSize });
+        const puckClearance =
+            CURRENT_ROAD_PILL_BOTTOM_GAP +
+            AUTO_PLAY_CURRENT_ROAD_PILL_PUCK_TARGET_GAP;
+        const anchor = getCameraAnchor({
+            ...layoutSize,
+            padding: getFollowPadding(
+                metrics,
+                metrics.visibleRect.bottom - puckClearance,
+            ),
+        });
+
+        assert.equal(anchor.x, 500);
+        assert.equal(anchor.y, 339 - puckClearance);
+        assert.equal(metrics.height, layoutSize.height);
+        assert.equal(metrics.visibleWidth, 376);
+        assert.equal(getSurfaceViewportMetrics(context).height, 410);
+        assert.equal(
+            getSurfaceViewportMetrics({
+                ...context,
+                layoutSize,
+                isCarPlay: false,
+            }).height,
+            410,
+        );
     });
 
     test('centers the navigation puck on the measured CarPlay slot', () => {

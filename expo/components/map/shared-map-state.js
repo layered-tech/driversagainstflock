@@ -8,6 +8,7 @@ import {
 } from 'react';
 import { setMockWazePoliceAlertsEnabled } from './api-mocks';
 import { DEBUG_OVERLAY_WAZE } from './debug-overlays';
+import { publishPhoneMapLocation } from './shared-road-matched-location';
 import { startSharedNavigationController } from './shared-navigation-controller';
 import {
     addSharedRoutingStateListener,
@@ -245,10 +246,10 @@ export function SharedMapStateProvider({ children }) {
     );
     const locationValue = useMemo(
         () => ({
-            setUserLocation: mapPreferences.setUserLocation,
+            setUserLocation: publishPhoneMapLocation,
             userLocation: mapPreferences.userLocation,
         }),
-        [mapPreferences.setUserLocation, mapPreferences.userLocation],
+        [mapPreferences.userLocation],
     );
 
     if (!routingStateIsHydrated) {

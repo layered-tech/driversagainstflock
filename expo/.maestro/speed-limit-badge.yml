@@ -6,8 +6,8 @@ tags:
   - visual
 ---
 - setLocation:
-    latitude: 30.26698404060037
-    longitude: -97.74466013819383
+    latitude: 43.12152
+    longitude: -88.24447
 - launchApp:
     clearState: true
     stopApp: true
@@ -61,8 +61,8 @@ tags:
       id: 'map-search-directions-button-map'
     timeout: 10000
 - setLocation:
-    latitude: 30.26698404060037
-    longitude: -97.74466013819383
+    latitude: 43.12152
+    longitude: -88.24447
 
 - tapOn:
     id: 'map-search-directions-button-map'
@@ -81,7 +81,7 @@ tags:
     id: 'map-directions-current-location-map'
 - tapOn:
     id: 'map-directions-destination-input-map'
-- inputText: 'Austin Central Library'
+- inputText: '377 Parkland Ct'
 - extendedWaitUntil:
     visible:
       id: 'map-directions-search-result-0-map'
@@ -117,14 +117,14 @@ tags:
     timeout: 30000
 - travel:
     points:
-      - '30.26698404060037, -97.74466013819383'
-      - '30.26698404060037, -97.74414009212921'
+      - '43.12152, -88.24447'
+      - '43.12116, -88.244495'
     speed: 12
 - setLocation:
-    latitude: 30.26698404060037
-    longitude: -97.74414009212921
+    latitude: 43.12116
+    longitude: -88.244495
 - extendedWaitUntil:
-    visible: 'e2e-main-35:0:forward'
+    visible: 'e2e-pewaukee:0:forward'
     timeout: 60000
 
 - extendedWaitUntil:
@@ -133,10 +133,10 @@ tags:
     timeout: 30000
 - copyTextFrom:
     id: 'driving-speed-limit-value'
-- assertTrue: ${maestro.copiedText == '35'}
+- assertTrue: ${maestro.copiedText == '45'}
 - assertVisible:
     id: 'driving-speed-limit-sign-current-speed'
 - copyTextFrom:
     id: 'driving-speed-limit-sign-current-speed-value'
-- assertTrue: ${maestro.copiedText == '41'}
-- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-35-over-41'}
+- assertTrue: ${maestro.copiedText == '51'}
+- takeScreenshot: ${MAESTRO_ARTIFACTS_DIR + '/daf-speed-limit-badge-45-over-51'}

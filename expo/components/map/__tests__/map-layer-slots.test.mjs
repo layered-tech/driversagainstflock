@@ -19,6 +19,33 @@ const mapLocationPuckIOSSource = readFileSync(
     'utf8',
 );
 
+test('the selected route keeps its mode color for the whole drive', () => {
+    const color = mapCanvasSource.match(
+        /^function makeSelectedDirectionsRouteColorExpression\(palette\) \{[^]*?^\}/m,
+    )[0];
+    const expression = new Function(
+        'palette',
+        color + '\nreturn makeSelectedDirectionsRouteColorExpression(palette);',
+    )({
+        idealLine: 'private',
+        directLine: 'fastest',
+    });
+    assert.deepEqual(expression, [
+        'match',
+        ['get', 'routeKey'],
+        'ideal',
+        'private',
+        'direct',
+        'fastest',
+        'fastest',
+    ]);
+    const layer = mapCanvasSource.match(
+        /id="directions-route-line"[^]*?\/>/,
+    )[0];
+    assert.match(layer, /lineColor: selectedDirectionsRouteColorExpression/);
+    assert.doesNotMatch(layer, /lineTrim|lineGradient/);
+});
+
 test('camera overlays share the verified puck slot and render above its platform layer', () => {
     for (const platform of ['android', 'ios']) {
         for (const navigationPuckVariant of ['default', 'auto-play']) {

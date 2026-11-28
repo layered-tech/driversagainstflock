@@ -5,8 +5,8 @@ tags:
   - layers
 ---
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 - launchApp:
     clearState: true
     stopApp: true

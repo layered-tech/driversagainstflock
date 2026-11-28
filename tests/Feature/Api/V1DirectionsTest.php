@@ -1039,8 +1039,43 @@ it('passes the validated starting road hint to GraphHopper', function () {
     $this->postJson('/api/v1/directions', $payload)->assertOk();
 
     Http::assertSent(fn ($request): bool => str_contains($request->url(), 'graphhopper.test')
-        && $request['point_hints'] === ['Main Street', '']);
+        && $request['point_hints'] === ['Main Street', '']
+        && ! isset($request['headings']));
 });
+
+it('sends only the departure heading for both direct and private GraphHopper routes', function (float $heading) {
+    config(['directions.provider' => 'graphhopper']);
+    $coordinates = [[-122.676, 45.523], [-122.66, 45.52], [-122.658, 45.512]];
+    Http::fake([
+        'https://overpass.test/api/interpreter' => Http::response(['elements' => [[
+            'id' => 120, 'lat' => 45.52, 'lon' => -122.66, 'tags' => ['surveillance:type' => 'ALPR'],
+        ]]]),
+        'http://graphhopper.test:8080/route' => Http::response(graphHopperDirectionsResponse($coordinates)),
+    ]);
+    $payload = directionsRequestPayload([
+        'start' => ['heading' => $heading, 'road_hint' => 'Main Street'],
+        'waypoints' => [['longitude' => -122.67, 'latitude' => 45.522]],
+        'allow_alpr_near_start_destination' => false,
+    ]);
+    $this->postJson('/api/v1/directions', $payload)->assertOk();
+
+    $requests = Http::recorded(fn ($request): bool => str_contains($request->url(), 'graphhopper.test'));
+    expect($requests)->toHaveCount(2);
+    foreach ($requests as [$request]) {
+        expect($request['headings'])->toEqual([$heading])
+            ->and($request['points'])->toHaveCount(3)
+            ->and($request->data())->not->toHaveKey('point_hints');
+    }
+    expect($requests->first()[0]->data())->not->toHaveKey('custom_model');
+    expect($requests->last()[0]->data())->toHaveKey('custom_model');
+})->with([0.0, 269.75]);
+
+it('rejects invalid starting headings before routing', function (mixed $heading) {
+    Http::fake();
+    $payload = directionsRequestPayload(['start' => ['heading' => $heading]]);
+    $this->postJson('/api/v1/directions', $payload)->assertUnprocessable()->assertJsonValidationErrors('start.heading');
+    Http::assertNothingSent();
+})->with([-1, 360, 'north']);
 
 it('rejects oversized starting road hints', function () {
     $payload = directionsRequestPayload();

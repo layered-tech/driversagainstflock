@@ -4,7 +4,7 @@ import { createRequire } from 'node:module';
 import test from 'node:test';
 import { AUTO_PLAY_CLUSTER_PLATFORM_CONFIG } from '../../auto-play-cluster-state.js';
 import * as roadState from '../current-road-state.js';
-import { shouldShowCurrentRoadPill } from '../current-road-pill-layout.js';
+import * as roadPillLayout from '../current-road-pill-layout.js';
 
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
@@ -59,7 +59,7 @@ const roadContext = loadComponent('../current-road-context.js', {
 });
 const roadStack = loadComponent('../driving-location-road-stack.js', {
     './current-road-context': roadContext,
-    './current-road-pill-layout': { shouldShowCurrentRoadPill },
+    './current-road-pill-layout': roadPillLayout,
     './navigation-puck-layout': {
         NAVIGATION_PUCK_SIZE: 62.5,
         getNavigationPuckAnchorY: () => null,
@@ -75,6 +75,7 @@ const { AutoPlayMapStatusOverlay } = loadComponent(
             getAutoPlayTopRightStatusOverlayLayout: () => ({}),
         },
         './design-system/tokens': { dafSemanticColors: {} },
+        './map/current-road-pill-layout': roadPillLayout,
         './map/driving-location-road-stack': roadStack,
         './map/marker-loading-indicator': {
             MarkerLoadingIndicator: 'MarkerLoadingIndicator',
@@ -114,7 +115,10 @@ function renderOverlay(overrides = {}) {
             markerLoader: { renderMarkerLoadingIndicator: true },
             mapPreferencesAreLoaded: true,
             presentation: { mapControlLayoutInsets: {} },
-            viewportMetrics: { cameraPadding: { paddingBottom: 24 } },
+            viewportMetrics: {
+                height: 320,
+                cameraPadding: { paddingBottom: 24 },
+            },
             ...overrides,
         }),
     );
@@ -129,7 +133,7 @@ test('the cluster renders a compact named-road pill below the measured puck slot
     assert.match(pill.props.className, /px-2\.5 py-1/);
     const text = nodes.find((node) => node.type === 'Text');
     assert.equal(text.props.children, 'Main Street');
-    assert.match(text.props.className, /text-\[14px\] leading-\[20px\]/);
+    assert.match(text.props.className, /text-\[13px\] leading-\[18px\]/);
     assert.ok(
         nodes.find(
             (node) => node.props.testID === 'driving-location-puck-layout-slot',
@@ -157,6 +161,64 @@ test('the cluster hides the road pill without a known road or during confirmatio
             false,
         );
     }
+});
+
+test('Camera Focus outlines the rendered road pill without changing its layout', () => {
+    function getPill(overrides) {
+        return renderOverlay(overrides).find(
+            ({ props }) => props.testID === 'android-auto-current-road-pill',
+        );
+    }
+
+    const regularPill = getPill({});
+    const outlinedPill = getPill({ debugRoadPillOutlineIsVisible: true });
+    assert.equal(outlinedPill.props.className, regularPill.props.className);
+    assert.equal(outlinedPill.props.style, regularPill.props.style);
+    assert.ok(
+        !flatten(regularPill).some(
+            ({ props }) => props.testID === 'current-road-pill-debug-outline',
+        ),
+    );
+    const outline = flatten(outlinedPill).find(
+        ({ props }) => props.testID === 'current-road-pill-debug-outline',
+    );
+    assert.match(outline.props.className, /absolute inset-0/);
+    assert.equal(outline.props.pointerEvents, 'none');
+});
+
+test('cluster places the road pill 10 points from the bottom inset and marks both gaps', () => {
+    const rendered = renderOverlay({ debugRoadPillOutlineIsVisible: true });
+    const slot = rendered.find(
+        ({ props }) => props.testID === 'driving-location-puck-layout-slot',
+    );
+    const dock = rendered.find(({ props }) => props.style?.bottom === 24);
+    assert.equal(dock.props.children.props.bottomInset, 24);
+    assert.equal(flatten(dock.props.children)[0].props.style.paddingBottom, 10);
+    assert.equal(slot.props.style.height / 2, 20);
+    const labels = rendered
+        .filter(({ type }) => type === 'Text')
+        .map(({ props }) => [props.children].flat().join(''));
+    assert.ok(labels.includes('20 pt to puck target'));
+    assert.ok(labels.includes('10 pt to safe edge'));
+});
+
+test('a centered puck keeps the road pill dock and hides the puck spacing guide', () => {
+    const rendered = renderOverlay({
+        debugPuckGapIsVisible: false,
+        debugRoadPillOutlineIsVisible: true,
+    });
+    const dock = rendered.find(({ props }) => props.style?.bottom === 24);
+    assert.equal(flatten(dock.props.children)[0].props.style.paddingBottom, 10);
+    assert.ok(
+        rendered.some(
+            ({ props }) => props.testID === 'android-auto-current-road-pill',
+        ),
+    );
+    const labels = rendered
+        .filter(({ type }) => type === 'Text')
+        .map(({ props }) => [props.children].flat().join(''));
+    assert.ok(labels.includes('10 pt to safe edge'));
+    assert.ok(!labels.includes('20 pt to puck target'));
 });
 
 test('the Dashboard shows its current road and speed badge while other status chrome is hidden', () => {

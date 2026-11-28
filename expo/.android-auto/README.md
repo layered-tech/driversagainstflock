@@ -23,6 +23,8 @@ npm run e2e:android-auto
 npm run e2e:android-auto:portrait
 npm run e2e:android-auto:ui
 npm run e2e:android-auto:ui:portrait
+npm run e2e:android-auto:voice-search
+npm run e2e:android-auto:voice-search:portrait
 npm run e2e:android-auto:route-choices
 npm run e2e:android-auto:route-choices:portrait
 npm run e2e:android-auto:alpr
@@ -36,6 +38,8 @@ npm run e2e:android-auto
 npm run e2e:android-auto:portrait
 npm run e2e:android-auto:ui
 npm run e2e:android-auto:ui:portrait
+npm run e2e:android-auto:voice-search
+npm run e2e:android-auto:voice-search:portrait
 npm run e2e:android-auto:route-choices
 npm run e2e:android-auto:route-choices:portrait
 npm run e2e:android-auto:alpr
@@ -54,7 +58,7 @@ The portrait command uses [`suite-portrait.json`](./suite-portrait.json) with th
 
 Both landscape and portrait suites replay the saved WI-164/Pewaukee Road route from [`route-pewaukee.json`](./route-pewaukee.json), using its detailed geometry and estimated duration. Map API mocks are disabled. GPS position, speed, and course are sent through the emulator's authenticated GPS API and checked against Android's GPS provider after each segment; internal `AUTO_DRIVE` and synthetic camera crossings are not used.
 
-Each orientation selects 43 scenarios: the original 16 driving checks, 26 stationary UI checks, and a final disconnect/service-stop check. The ALPR group retains the original 17 scenarios. Its eight flows run in both Dashboard and Fullscreen:
+The default suite runs 55 scenarios per orientation, including 16 driving checks, 26 stationary navigation UI checks, 12 microphone journeys, and a final disconnect/service-stop check. The ALPR group retains the original 17 scenarios. Its eight flows run in both Dashboard and Fullscreen:
 
 1. Render the Mapbox map and confirm the selected host layout and visible user puck.
 2. Switch between day and night presentation.
@@ -67,9 +71,9 @@ Each orientation selects 43 scenarios: the original 16 driving checks, 26 statio
 
 The saved-route checks use live camera inventory. Before day/night checks, the harness temporarily selects Android Auto’s **Automatic** map mode so DHU day/night commands take effect, then restores the previous mode during cleanup.
 
-The stationary UI group mirrors the CarPlay feature coverage with 13 scenarios in each Android Auto host layout: pan/recenter; available map and route settings; Standard/Satellite and all five time-of-day choices with state and rendered-map confirmation; absent Home/Work; native Home/Work route previews; live saved-place updates and Work fallback; Recents/Favorites; native keyboard autocomplete and selection; recognized Walmart and Walmart Delafield searches; results remaining visible until selection; and route startup, turn/arrival estimates, options, steps, overview, and native stop. Android Auto uses its Search screen and header shortcuts for saved places; CarPlay Dashboard shortcut precedence is specific to CarPlay.
+The stationary UI group mirrors the CarPlay feature coverage with 13 scenarios in each Android Auto host layout: pan/recenter; available map and route settings; Standard/Satellite and all five time-of-day choices with state and rendered-map confirmation; absent Home/Work; native Home/Work route previews; live saved-place updates and Work fallback; Recents/Favorites; native keyboard autocomplete and selection; recognized Walmart and Walmart Delafield searches; results remaining visible until selection; and a search for the saved Pewaukee destination followed by route startup, turn/arrival estimates, options, steps, overview, and native stop. Android Auto uses its Search screen and header shortcuts for saved places; CarPlay Dashboard shortcut precedence is specific to CarPlay.
 
-Each stationary case resets navigation/templates, seeds the same saved-place fixture used by CarPlay, uses a stationary GPS point between Home and Work with zero speed, and verifies the requested host layout. The recorded driving replay keeps its original start coordinate. Native lists can occupy a different area from the root map, so list OCR does not apply the map-layout assertion. Map icon positions use each layout's `appBounds` and current header state; `appBounds.controls` can override individual screenshot coordinates for another host version. Portrait taps account for the cropped DHU touch display; drags use coordinates local to the Android Auto virtual display. The input display is discovered for every gesture and must belong to Android Auto; there is no fallback to desktop mouse input.
+Each stationary case resets navigation/templates, seeds the same saved-place fixture used by CarPlay, sets GPS speed to zero, and verifies the requested host layout. The route-start case searches for 377 Parkland Ct from the saved route origin. Other stationary checks start between Home and Work. The recorded driving replay keeps its original start coordinate. Native lists can occupy a different area from the root map, so list OCR does not apply the map-layout assertion. Map icon positions use each layout's `appBounds` and current header state; `appBounds.controls` can override individual screenshot coordinates for another host version. Portrait taps account for the cropped DHU touch display; drags use coordinates local to the Android Auto virtual display. The input display is discovered for every gesture and must belong to Android Auto; there is no fallback to desktop mouse input.
 
 The CarPlay harness also keeps input in the background: it sends window-addressed events directly to CarPlay Simulator and presses its toolbar through Accessibility. It never activates the simulator or posts desktop mouse events. Its macOS helper requires `CGEventSetWindowLocation` to supply window-local coordinates and fails if that symbol is unavailable. The map-pan case opens CarPlay's native Pan interface before dragging and measures map movement after that interface opens.
 
@@ -100,15 +104,17 @@ With defaults, this is under `/Volumes/PfeiferDev/DevCaches/chris/expo-builds/an
 
 ## Lifecycle and cleanup
 
-The harness stops an existing instance of the selected DHU binary, starts a dedicated Metro server on port `8091`, clears the development app's data, grants test permissions, sets the suite's starting location, and starts the Android Auto head-unit server if needed. It waits for both bundle delivery and the mounted phone root before connecting DHU, preventing the headless car service from racing Expo's development loader; one bounded retry handles an interrupted Expo startup. DHU then connects and the runner separately requires the car service, session wake lock, `AutoPlayRoot`, and Mapbox-ready marker.
+The harness stops an existing instance of the selected DHU binary, starts a dedicated Metro server on port `8091`, clears the development app's data for suites that seed fixtures, grants test permissions, sets the suite's starting location, and starts the Android Auto head-unit server if needed. It waits for both bundle delivery and the mounted phone root before connecting DHU, preventing the headless car service from racing Expo's development loader; one bounded retry handles an interrupted Expo startup. DHU then connects and the runner separately requires the car service, session wake lock, `AutoPlayRoot`, and Mapbox-ready marker.
 
-Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone if necessary, stops the managed DHU, stops the head-unit server only when the harness started it, force-stops the launched app, clears isolated test app data when this run queued reports, stops its Metro process, and resets emulator location. It does not shut down the emulator. A head-unit server that was already running is left running.
+Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone if necessary, stops the managed DHU, stops the head-unit server only when the harness started it, force-stops the launched app for suites that seed fixtures, clears isolated test app data when those runs queued reports, stops its Metro process, and resets emulator location. It does not shut down the emulator. A head-unit server that was already running is left running.
+
+Run `npm run e2e:android-auto:between-drives` for the Walmart-to-Taco Bell reconnect regression. After the Walmart preview, the runner disconnects the DHU, waits for the car service to unbind, and simulates Android reclaiming the development app. The car opens the app on reconnect. The test checks that the app has a new process ID, Android Auto keeps its original process ID, and both spoken searches produce selectable rows and matching route previews. A dead search callback also fails the test.
 
 ## Overrides
 
 - `DAF_EAS_LOCAL_BUILD_ROOT`: mounted external build root; also supplies artifact and temporary storage.
 - `ANDROID_AUTO_E2E_DEVICE` or `ANDROID_SERIAL`: emulator serial.
-- `ANDROID_AUTO_E2E_SUITE`: `all` (default), `alpr`, `navigation`, or `route-choices`.
+- `ANDROID_AUTO_E2E_SUITE`: `all` (default), `alpr`, `navigation`, `route-choices`, `voice-search`, or `between-drives`. The default and microphone suites require working English speech recognition in Android Auto.
 - `ANDROID_AUTO_E2E_SCENARIO`: case-insensitive substring of scenario names.
 - `ANDROID_HOME`: Android SDK root when `adb` discovery is not sufficient.
 - `ANDROID_AUTO_E2E_DHU_BINARY`: DHU executable path.
@@ -117,7 +123,11 @@ Cleanup runs after success, failure, `SIGINT`, or `SIGTERM`. It wakes the phone 
 
 ## Input and fixture seams
 
-Stationary setup and state reads use E2E-only `e2e-android-auto` links. These do not enable API mocks. Seeded Home, Work, Recent and Favorite places include matching entries in the normal place-details cache so their synthetic IDs are never sent to the live place lookup API. Keyboard cases tap the native search field and OCR-identified QWERTY keys, then require the autocomplete callback and a native result selection. Voice cases supply a fixed recognized query through the same app request path used after host recognition; Google Assistant microphone/audio transcription is not exercised. Search and directions use live APIs in the standard suites, matching CarPlay, so results and network availability can vary.
+Stationary setup and state reads use E2E-only `e2e-android-auto` links. These do not enable API mocks. Seeded Home, Work, Recent and Favorite places include matching entries in the normal place-details cache so their synthetic IDs are never sent to the live place lookup API. Keyboard cases tap the native search field and OCR-identified QWERTY keys, then require the autocomplete callback and a native result selection. The default navigation cases inject a finished voice query. Search and directions use live APIs, so results and network availability can vary.
+
+The `voice-search` suite taps the microphone in the car’s **Where to?** field and waits for the Android recognizer to open. The focused suite retains the installed app’s data and saved places and leaves its process alive at teardown. Once connected, the six driver journeys use the running app and head unit throughout. To exercise app replacement separately, set `ANDROID_AUTO_E2E_RESTART_DURING_SEARCH=1` with the focused voice suite. That regression restarts the phone app while the field is open before the standalone Walmart and Taco Bell searches. The spoken cases play recordings of **Walmart** and **Taco Bell**. The no-words case plays digital silence and requires the recognizer to confirm it heard no speech. The cancel case taps the listening overlay and requires Android Auto to report `SCRIM_CLICKED`. Both empty outcomes must return to saved places without producing search results or a route. [DHU microphone commands](https://developer.android.com/training/cars/testing/dhu#microphone)
+
+Each retry dismisses the first result list with Back, verifies that the map returned, and searches for the other destination in the same session. A spoken query must produce a fresh final submission for the full phrase, a selectable row, and the matching route preview. Run `npm run e2e:android-auto:voice-search:portrait -- --both-orientations` for all 24 journeys in one app process. The harness checks the process ID around every journey and reconnects the DHU once to switch from portrait to landscape. A failed or timed-out host search callback fails the run, even if a later callback returns rows. It records each outcome in `results.json` and exits unsuccessfully if any journey failed. For an intermittent failure, compare the screenshot with the app callbacks in `metro.log` and the recognizer and car-host events in `android-logcat.txt`.
 
 The standalone route-choice commands run the seven preview/search/navigation scenarios in both layouts (14 checks plus disconnect). CarPlay exposes the same seven cases with `npm run e2e:carplay:route-choices`. These cases remain included in the default and UI suites. Every preview waits for native Mapbox zoom to decrease from a settled driving view, all route-choice bounds to fit inside the host-visible map, and the selected route line to appear in native rendered-feature queries and screenshot pixels along its projected path. The camera and visible line must remain stable for at least 1.5 seconds before Back or Start can run. Each preview saves `*-overview.json` with baseline, native camera, viewport, route and pixel evidence alongside its screenshots.
 

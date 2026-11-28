@@ -6,7 +6,10 @@ import test from 'node:test';
 const require = createRequire(import.meta.url);
 const { transformSync } = require('@babel/core');
 
-function createHarness({ simulationIsActive = false } = {}) {
+function createHarness({
+    simulationIsActive = false,
+    platformOS = 'ios',
+} = {}) {
     const modules = new Map();
     function load(url) {
         if (modules.has(url.href)) return modules.get(url.href).exports;
@@ -19,6 +22,8 @@ function createHarness({ simulationIsActive = false } = {}) {
         });
         new Function('require', 'module', 'exports', code)(
             (specifier) => {
+                if (specifier === 'react-native')
+                    return { Platform: { OS: platformOS } };
                 if (specifier === '../auto-play-drive-simulation') {
                     return {
                         getAutoDriveSimulationIsActive: () =>
@@ -44,6 +49,7 @@ function createHarness({ simulationIsActive = false } = {}) {
     return {
         ...load(new URL('../shared-road-matched-location.js', import.meta.url)),
         ...load(new URL('../shared-map-preferences-sync.js', import.meta.url)),
+        ...load(new URL('../../auto-play-session-state.js', import.meta.url)),
         ...load(new URL('../geo.js', import.meta.url)),
         ...load(new URL('../driving-motion-state.js', import.meta.url)),
     };
@@ -114,6 +120,56 @@ function position(timestamp, speed = 10, heading = 90) {
         },
     };
 }
+
+test('the top-down phone map cannot overwrite the shared CarPlay puck while following a different heading', () => {
+    const source = readFileSync(
+        new URL('../shared-map-state.js', import.meta.url),
+        'utf8',
+    );
+    const locationContext = source.match(
+        /const locationValue = useMemo\([\s\S]+?^    \);/m,
+    )[0];
+    for (const platformOS of ['ios', 'android']) {
+        const harness = createHarness({ platformOS });
+        const phone = new Function(
+            'useMemo',
+            'mapPreferences',
+            'publishPhoneMapLocation',
+            locationContext + '\nreturn locationValue;',
+        )(
+            (callback) => callback(),
+            { setUserLocation: harness.setSharedMapUserLocation },
+            harness.publishPhoneMapLocation,
+        );
+        const raw = {
+            latitude: 41.0001,
+            longitude: -87,
+            heading: 75,
+            recordedAt: 1000,
+        };
+        phone.setUserLocation(raw);
+        assert.equal(harness.getSharedMapUserLocation(), raw);
+        harness.setAutoPlaySessionConnected(true);
+        harness.publishSharedRoadMatchedLocation(position(1000));
+        const matched = harness.getSharedMapUserLocation();
+        assert.equal(matched.heading, 90);
+        phone.setUserLocation({ ...matched, heading: 82, courseHeading: 82 });
+        assert.equal(
+            harness.getSharedMapUserLocation().courseHeading,
+            platformOS === 'ios' ? 90 : 82,
+        );
+        phone.setUserLocation({ ...raw, recordedAt: 1100 });
+        if (platformOS === 'ios') {
+            assert.equal(harness.getSharedMapUserLocation(), matched);
+        } else {
+            assert.equal(harness.getSharedMapUserLocation().heading, 75);
+        }
+        harness.setAutoPlaySessionConnected(false);
+        const afterDisconnect = { ...raw, recordedAt: 1200 };
+        phone.setUserLocation(afterDisconnect);
+        assert.equal(harness.getSharedMapUserLocation(), afterDisconnect);
+    }
+});
 
 test('car-owned publication supplies a secondary display with position, motion, road and limit', () => {
     const harness = createHarness();

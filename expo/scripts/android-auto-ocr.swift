@@ -209,13 +209,17 @@ if CommandLine.arguments.count == 7, CommandLine.arguments[1] == "--puck-pixels"
             }
             // The default puck has a substantial blue body with a white outline.
             // Thin route lines and blue water touching the crop edge are not puck evidence.
-            let filledFraction = Double(queue.count) / Double((maxX - minX + 1) * (maxY - minY + 1))
+            let bodyWidth = maxX - minX + 1
+            let bodyHeight = maxY - minY + 1
+            let filledFraction = Double(queue.count) / Double(bodyWidth * bodyHeight)
+            // North-up can render a smaller arrow with fewer white outline pixels.
+            let minimumOutlinePixels = min(150, max(120, 2 * (bodyWidth + bodyHeight)))
             if queue.count >= 80 && maxX - minX >= 18 && maxY - minY >= 15 &&
-                maxX - minX <= 100 && maxY - minY <= 80 && outline.count >= 150 &&
+                maxX - minX <= 100 && maxY - minY <= 80 && outline.count >= minimumOutlinePixels &&
                 filledFraction < 0.65 &&
                 minX > 0 && minY > 0 && maxX < width - 1 && maxY < height - 1 {
                 proof = ["visible": true, "bluePixels": queue.count, "outlinePixels": outline.count,
-                         "bounds": [crop[0] + minX, crop[1] + minY, maxX - minX + 1, maxY - minY + 1]]
+                         "bounds": [crop[0] + minX, crop[1] + minY, bodyWidth, bodyHeight]]
                 break
             }
         }
@@ -250,6 +254,46 @@ if CommandLine.arguments.count == 7, CommandLine.arguments[1] == "--mean-luminan
 
     let meanLuminance = luminanceTotal / Double(width * height)
     print(String(format: "%.6f", meanLuminance))
+    exit(0)
+}
+
+// Match the search glyph in the actual header. A cold host can move the
+// shortcuts while restoring saved places or resizing the map pane.
+if CommandLine.arguments.count == 8, CommandLine.arguments[1] == "--find-icon" {
+    let image = loadImage(at: CommandLine.arguments[2])
+    let icon = loadImage(at: CommandLine.arguments[3])
+    let crop = parseCrop(CommandLine.arguments[4...7], image: image)
+    guard crop[2] >= icon.width, crop[3] >= icon.height else { fail("Icon exceeds search area") }
+    let (pixels, rowBytes) = decodePixels(image)
+    let (reference, iconRowBytes) = decodePixels(icon)
+    var bestScore = Double.infinity
+    var bestX = 0, bestY = 0
+    for y in stride(from: crop[1], through: crop[1] + crop[3] - icon.height, by: 2) {
+        for x in stride(from: crop[0], through: crop[0] + crop[2] - icon.width, by: 2) {
+            var difference = 0, samples = 0
+            for dy in stride(from: 0, to: icon.height, by: 3) {
+                for dx in stride(from: 0, to: icon.width, by: 3) {
+                    let offset = (y + dy) * rowBytes + (x + dx) * 4
+                    let target = dy * iconRowBytes + dx * 4
+                    for channel in 0..<3 {
+                        difference += abs(Int(pixels[offset + channel]) - Int(reference[target + channel]))
+                    }
+                    samples += 3
+                }
+            }
+            let score = Double(difference) / Double(255 * samples)
+            if score < bestScore {
+                bestScore = score
+                bestX = x + icon.width / 2
+                bestY = y + icon.height / 2
+            }
+        }
+    }
+    if bestScore < 0.085 {
+        print("{\"x\":\(bestX),\"y\":\(bestY)}")
+    } else {
+        print("null")
+    }
     exit(0)
 }
 

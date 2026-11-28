@@ -1,4 +1,3 @@
-import { useMemo } from 'react';
 import { View } from 'react-native';
 import { AlprPresenceDebugPane } from './map/alpr-presence-debug-pane';
 import { CameraDebugOverlay } from './map/camera-debug-overlay';
@@ -7,12 +6,9 @@ import {
     DEBUG_OVERLAY_ALPR_PRESENCE,
     DEBUG_OVERLAY_ANDROID_AUTO_LOCATION,
     DEBUG_OVERLAY_CAMERA,
-    DEBUG_OVERLAY_CAMERA_FOCUS,
-    DEBUG_OVERLAY_SAFE_AREA,
     DEBUG_OVERLAY_UPCOMING_ALERTS,
 } from './map/debug-overlays';
 import { LocationDebugOverlay } from './map/location-debug-overlay';
-import { SafeAreaDebugOverlay } from './map/safe-area-debug-overlay';
 import { UpcomingAlertDebugPane } from './map/upcoming-alert-debug-pane';
 
 export function autoPlayCameraDebugStateUpdatesAreEnabled({
@@ -26,20 +22,20 @@ export function autoPlayCameraDebugStateUpdatesAreEnabled({
 }
 
 export function AutoPlayDebugOverlays({
+    cameraFocusDebugOverlayIsVisible,
     controller,
     debugOverlayVisibility,
     debugOverlaysAreVisible,
     isDrivingMode,
     presentation,
+    safeAreaInsets,
     userLocation,
     viewportMetrics,
 }) {
-    const safeAreaDebugOverlayIsVisible =
-        debugOverlaysAreVisible &&
-        debugOverlayVisibility?.[DEBUG_OVERLAY_SAFE_AREA] === true;
-    const cameraFocusDebugOverlayIsVisible =
-        debugOverlaysAreVisible &&
-        debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA_FOCUS] === true;
+    if (!cameraFocusDebugOverlayIsVisible && !debugOverlaysAreVisible) {
+        return null;
+    }
+
     const cameraDebugOverlayIsVisible =
         debugOverlaysAreVisible &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA] === true;
@@ -52,43 +48,16 @@ export function AutoPlayDebugOverlays({
     const presenceDebugIsVisible =
         debugOverlaysAreVisible &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_ALPR_PRESENCE] === true;
-    const cameraFocusDebugState = useMemo(() => {
-        const followPadding = controller.nativeCameraFollowProps?.padding;
-
-        return {
-            label:
-                isDrivingMode && followPadding
-                    ? 'Car screen location frame'
-                    : 'Car screen center frame',
-            padding:
-                isDrivingMode && followPadding
-                    ? followPadding
-                    : viewportMetrics.cameraPadding,
-        };
-    }, [
-        controller.nativeCameraFollowProps?.padding?.paddingBottom,
-        controller.nativeCameraFollowProps?.padding?.paddingLeft,
-        controller.nativeCameraFollowProps?.padding?.paddingRight,
-        controller.nativeCameraFollowProps?.padding?.paddingTop,
-        isDrivingMode,
-        viewportMetrics.cameraPadding.paddingBottom,
-        viewportMetrics.cameraPadding.paddingLeft,
-        viewportMetrics.cameraPadding.paddingRight,
-        viewportMetrics.cameraPadding.paddingTop,
-    ]);
-
-    if (!debugOverlaysAreVisible) {
-        return null;
-    }
+    const follow = controller.nativeCameraFollowProps;
+    const cameraFocusDebugState = isDrivingMode
+        ? { padding: follow?.enabled ? follow.padding : null, safeAreaInsets }
+        : {
+              label: 'Car screen center frame',
+              padding: viewportMetrics.cameraPadding,
+          };
 
     return (
         <>
-            {safeAreaDebugOverlayIsVisible ? (
-                <SafeAreaDebugOverlay
-                    controlInsets={presentation.mapControlLayoutInsets}
-                    insets={presentation.insets}
-                />
-            ) : null}
             {cameraFocusDebugOverlayIsVisible ? (
                 <CameraFocusDebugOverlay
                     focusState={cameraFocusDebugState}

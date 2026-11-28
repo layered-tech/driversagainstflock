@@ -5,7 +5,7 @@ import {
     E2E_ROAD_MATCHING_LOCATIONS,
     getE2ERoadCoordinate,
     getE2ERoadCorridorWays,
-} from '../road-matching-e2e-fixture.js';
+} from './fixtures/parallel-road-graph.js';
 import {
     appendRoadMatchingObservation,
     createRoadMatcherWithHistory,

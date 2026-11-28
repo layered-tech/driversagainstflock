@@ -31,6 +31,30 @@ const WINDOW_SCENE_TAG = 'daf-expo-window-scene';
 // path uses superView(...) so dev-client React delegate handlers (dev
 // launcher) never intercept car screen root views.
 const GET_ROOT_VIEW_FOR_AUTOPLAY = `
+  override init() {
+    super.init()
+    NotificationCenter.default.addObserver(self, selector: #selector(carSceneWillConnect(_:)),
+      name: UIScene.willConnectNotification, object: nil)
+  }
+
+  @objc private func carSceneWillConnect(_ notification: Notification) {
+    guard let scene = notification.object as? UIScene,
+      scene is CPTemplateApplicationScene || scene is CPTemplateApplicationDashboardScene ||
+        scene is CPTemplateApplicationInstrumentClusterScene,
+      let factory = reactNativeFactory else { return }
+
+#if DEBUG
+    // A development client may still be waiting for the phone to select a bundle.
+    guard reactNativeDelegate?.bundleURL() != nil else { return }
+#endif
+
+    // On a car-only launch there is no phone window to load the JS entry point.
+    // The scene delegates request their own surfaces once JS registers them.
+    factory.rootViewFactory.initializeReactHost(launchOptions: nil,
+      bundleConfiguration: factory.bundleConfiguration,
+      devMenuConfiguration: factory.devMenuConfiguration ?? RCTDevMenuConfiguration.default())
+  }
+
   @objc func getRootViewForAutoplay(
     moduleName: String,
     initialProperties: [String: Any]?
@@ -52,14 +76,11 @@ const GET_ROOT_VIEW_FOR_AUTOPLAY = `
   }
 `;
 
-// Scene manifest from the react-native-auto-play iOS setup docs. The delegate
-// class names are provided by the library; the window application scene keeps
-// the phone app working once multiple scenes are enabled.
-// The package's phone scene keeps React Native scene state, while Expo's
-// development client needs its launch URL delivered to the app delegate.
+// Expo owns the phone window, RN startup and links. Auto Play also consumes
+// the phone's visibility callbacks while car scenes are connected.
 const EXPO_WINDOW_SCENE_DELEGATE = `
 @objc(DAFWindowApplicationSceneDelegate)
-class DAFWindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
+class DAFWindowApplicationSceneDelegate: SceneDelegate {
   private let autoPlayDelegate: UIWindowSceneDelegate = {
     guard let delegateClass = NSClassFromString("WindowApplicationSceneDelegate") as? NSObject.Type,
       let delegate = delegateClass.init() as? UIWindowSceneDelegate else {
@@ -68,55 +89,24 @@ class DAFWindowApplicationSceneDelegate: UIResponder, UIWindowSceneDelegate {
     return delegate
   }()
 
-  var window: UIWindow?
-
-  func scene(_ scene: UIScene, willConnectTo session: UISceneSession,
-             options connectionOptions: UIScene.ConnectionOptions) {
-    autoPlayDelegate.scene?(scene, willConnectTo: session, options: connectionOptions)
-    window = autoPlayDelegate.window ?? nil
-    for context in connectionOptions.urlContexts where context.url.host == "expo-development-client" {
-      _ = openExpoDevelopmentClient(context.url)
-    }
-  }
-
-  func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
-    var remaining = Set<UIOpenURLContext>()
-    for context in URLContexts {
-      if context.url.host != "expo-development-client" || !openExpoDevelopmentClient(context.url) {
-        remaining.insert(context)
-      }
-    }
-    if !remaining.isEmpty {
-      autoPlayDelegate.scene?(scene, openURLContexts: remaining)
-    }
-  }
-
-  func scene(_ scene: UIScene, continue userActivity: NSUserActivity) {
-    autoPlayDelegate.scene?(scene, continue: userActivity)
-  }
-
-  func sceneDidBecomeActive(_ scene: UIScene) {
+  override func sceneDidBecomeActive(_ scene: UIScene) {
+    super.sceneDidBecomeActive(scene)
     autoPlayDelegate.sceneDidBecomeActive?(scene)
   }
 
-  func sceneWillResignActive(_ scene: UIScene) {
+  override func sceneWillResignActive(_ scene: UIScene) {
+    super.sceneWillResignActive(scene)
     autoPlayDelegate.sceneWillResignActive?(scene)
   }
 
-  func sceneWillEnterForeground(_ scene: UIScene) {
+  override func sceneWillEnterForeground(_ scene: UIScene) {
+    super.sceneWillEnterForeground(scene)
     autoPlayDelegate.sceneWillEnterForeground?(scene)
   }
 
-  func sceneDidEnterBackground(_ scene: UIScene) {
+  override func sceneDidEnterBackground(_ scene: UIScene) {
+    super.sceneDidEnterBackground(scene)
     autoPlayDelegate.sceneDidEnterBackground?(scene)
-  }
-
-  private func openExpoDevelopmentClient(_ url: URL) -> Bool {
-    UIApplication.shared.delegate?.application?(
-      UIApplication.shared,
-      open: url,
-      options: [:]
-    ) ?? false
   }
 }
 `;
@@ -214,6 +204,37 @@ function mergeSceneConfigurationEntries(existingEntries, requiredEntries) {
     return mergedEntries;
 }
 
+function mergePhoneSceneConfiguration(existingEntries, phone) {
+    const entries = Array.isArray(existingEntries) ? existingEntries : [];
+    const expoDelegateNames = [
+        '$(PRODUCT_MODULE_NAME).SceneDelegate',
+        'SceneDelegate',
+        phone.UISceneDelegateClassName,
+    ];
+    const expoDefault = entries.find(
+        (entry) =>
+            entry?.UISceneConfigurationName === 'Default Configuration' &&
+            expoDelegateNames.includes(entry.UISceneDelegateClassName),
+    );
+    if (!expoDefault) {
+        return mergeSceneConfigurationEntries(entries, [phone]);
+    }
+
+    // Earlier prebuilds appended WindowApplication beside Expo's phone scene.
+    const withoutLegacyPhone = entries.filter(
+        (entry) =>
+            entry?.UISceneConfigurationName !==
+                phone.UISceneConfigurationName ||
+            entry.UISceneDelegateClassName !== phone.UISceneDelegateClassName,
+    );
+    return mergeSceneConfigurationEntries(withoutLegacyPhone, [
+        {
+            ...phone,
+            UISceneConfigurationName: expoDefault.UISceneConfigurationName,
+        },
+    ]);
+}
+
 function mergeCarPlaySceneManifest(existingManifest) {
     const manifest = isPlainObject(existingManifest) ? existingManifest : {};
     const existingConfigurations = isPlainObject(manifest.UISceneConfigurations)
@@ -223,10 +244,16 @@ function mergeCarPlaySceneManifest(existingManifest) {
     const mergedConfigurations = { ...existingConfigurations };
 
     Object.entries(requiredConfigurations).forEach(([role, entries]) => {
-        mergedConfigurations[role] = mergeSceneConfigurationEntries(
-            existingConfigurations[role],
-            entries,
-        );
+        mergedConfigurations[role] =
+            role === 'UIWindowSceneSessionRoleApplication'
+                ? mergePhoneSceneConfiguration(
+                      existingConfigurations[role],
+                      entries[0],
+                  )
+                : mergeSceneConfigurationEntries(
+                      existingConfigurations[role],
+                      entries,
+                  );
     });
 
     if (!instrumentClusterEnabled) {
@@ -289,7 +316,9 @@ function addAutoPlayRootViewToAppDelegate(source) {
     )?.[0];
 
     return addGeneratedSwiftBlock(
-        source,
+        /^(?:internal )?import CarPlay$/m.test(source)
+            ? source
+            : `import CarPlay\n${source}`,
         APP_DELEGATE_TAG,
         GET_ROOT_VIEW_FOR_AUTOPLAY,
         declaration ?? 'class AppDelegate: ExpoAppDelegate {',

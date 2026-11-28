@@ -48,6 +48,7 @@ function applyDashboardButtons({
 // CarPlay extension of the platform-agnostic auto-play core.
 export const autoPlayPlatform = {
     MapSurface: CarPlayMapSurface,
+    serializesRootTemplatePresentation: true,
     usesHostButtonColors: true,
     prepareSearchMap(options) {
         return prepareCarPlaySearchMap(options);

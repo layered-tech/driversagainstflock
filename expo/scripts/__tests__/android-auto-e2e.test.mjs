@@ -535,11 +535,15 @@ describe('Android Auto E2E helpers', () => {
             /(?:instrumentcluster|navcluster|phonecluster)\s*=\s*true/,
         );
         assert.doesNotMatch(basic, /\[display:/);
-        assert.match(maps, /\[display:cluster\]\ndisplaytype = cluster/);
+        const cluster = maps.split('[display:cluster]')[1];
+        assert.ok(cluster);
         assert.match(
-            maps,
-            /resolution = 1280x720\ndpi = 160\nmarginheight = 220\ncropmargins = true/,
+            cluster,
+            /displaytype = cluster\nresolution = 1280x720\ndpi = 160/,
         );
+        assert.match(cluster, /^contentinsets = 0,0,240,240$/m);
+        assert.match(cluster, /^marginheight = 240$/m);
+        assert.match(cluster, /^cropmargins = true$/m);
         for (const path of ['../../package.json', '../../../package.json']) {
             const { scripts } = JSON.parse(
                 readFileSync(new URL(path, import.meta.url), 'utf8'),
@@ -894,10 +898,10 @@ describe('Android Auto E2E helpers', () => {
         );
         assert.ok(scenarioCommands.includes('former-eligibility'));
         assert.ok(scenarioCommands.includes('navigation'));
-        assert.ok(scenarioCommands.includes('navigation-near-maneuver'));
+        assert.ok(!scenarioCommands.includes('navigation-near-maneuver'));
         assert.equal(
             scenarioCommands.filter((command) => command === 'reset').length,
-            4,
+            3,
         );
 
         const presenceScenarioSource = readFileSync(
@@ -1175,7 +1179,7 @@ describe('Android Auto E2E helpers', () => {
             }
         };
 
-        const outputStart = runner.restartAppWithDevelopmentClient(1);
+        const outputStart = runner.openDevelopmentClient(1);
 
         assert.equal(outputStart, runner.metroOutput.length);
         assert.deepEqual(commands[0], [
@@ -1201,7 +1205,7 @@ describe('Android Auto E2E helpers', () => {
     test('does not retry a successful development-client launch', async () => {
         const attempts = [];
         const runner = Object.create(Runner.prototype);
-        runner.restartAppWithDevelopmentClient = (attempt) => {
+        runner.openDevelopmentClient = (attempt) => {
             attempts.push(attempt);
             return 100;
         };
@@ -1216,7 +1220,7 @@ describe('Android Auto E2E helpers', () => {
         const readinessChecks = [];
         const reports = [];
         const runner = Object.create(Runner.prototype);
-        runner.restartAppWithDevelopmentClient = (attempt) => {
+        runner.openDevelopmentClient = (attempt) => {
             attempts.push(attempt);
             return attempt * 100;
         };
@@ -1243,7 +1247,7 @@ describe('Android Auto E2E helpers', () => {
     test('stops after two failed development-client launches and preserves both errors', async () => {
         const attempts = [];
         const runner = Object.create(Runner.prototype);
-        runner.restartAppWithDevelopmentClient = (attempt) => {
+        runner.openDevelopmentClient = (attempt) => {
             attempts.push(attempt);
             return attempt;
         };
@@ -1266,7 +1270,7 @@ describe('Android Auto E2E helpers', () => {
     test('does not retry when managed Metro has stopped', async () => {
         const attempts = [];
         const runner = Object.create(Runner.prototype);
-        runner.restartAppWithDevelopmentClient = (attempt) => {
+        runner.openDevelopmentClient = (attempt) => {
             attempts.push(attempt);
             return attempt;
         };

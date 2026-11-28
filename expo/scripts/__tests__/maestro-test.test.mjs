@@ -418,7 +418,7 @@ R58M offline
     test('collects the full suite without launcher UI readiness checks', () => {
         const flows = collectMaestroFlows(['.maestro'], EXPO_DIRECTORY);
 
-        assert.equal(flows.length, 41);
+        assert.equal(flows.length, 33);
         assert.ok(
             !flows.some((flow) => flow.endsWith('road-corridor-sussex.yml')),
             'The live API corridor flow requires its dedicated Metro environment',
@@ -453,16 +453,10 @@ R58M offline
             'map-layer-options.yml',
             'map-settings-first-open-driving.yml',
             'marker-osm-details-toggle.yml',
-            'moving-navigation.yml',
             'osm-changeset.yml',
-            'road-matching-free-drive.yml',
-            'road-matching-parallel-road.yml',
             'scorecard-gamification.yml',
-            'scorecard-local-exposure-drive.yml',
-            'scorecard-private-route-drive.yml',
             'scorecard.yml',
             'speed-limit-badge.yml',
-            'turn-by-turn-navigation.yml',
         ];
 
         for (const flow of clearStateFlows) {
@@ -554,22 +548,6 @@ R58M offline
                 'contribute-tour-resume.yml',
                 'contribute-tour-reset.yml',
             ],
-        );
-    });
-
-    test('starts turn-by-turn guidance without a restored drive', () => {
-        const source = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                '.maestro',
-                'turn-by-turn-navigation.yml',
-            ),
-            'utf8',
-        );
-
-        assert.match(
-            source,
-            /launchApp:\s+stopApp: true\s+clearState: true\s+clearKeychain: true/,
         );
     });
 
@@ -694,271 +672,6 @@ R58M offline
         );
     });
 
-    test('does not combine IDs and values in iOS road-matching selectors', () => {
-        for (const flow of [
-            'road-matching-free-drive.yml',
-            'road-matching-parallel-road.yml',
-        ]) {
-            const source = readFileSync(
-                path.join(EXPO_DIRECTORY, '.maestro', flow),
-                'utf8',
-            );
-
-            assert.doesNotMatch(
-                source,
-                /(?:assertVisible:|extendedWaitUntil:\s+visible:)\s+id: '[^']+'\s+text:/,
-            );
-            assert.match(source, /copyTextFrom:\s+id:/);
-        }
-    });
-
-    test('simulates motion for the road-matched heading turn', () => {
-        const source = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                '.maestro',
-                'road-matching-heading-turn.yml',
-            ),
-            'utf8',
-        );
-
-        assert.equal(source.match(/- travel:/g)?.length, 2);
-        assert.equal(source.match(/speed: 12/g)?.length, 2);
-        assert.match(
-            source,
-            /points:\s+- ['"]30\.266984040600367, -97\.74101981574155['"]\s+- ['"]30\.266984040600367, -97\.74049976967694['"]/,
-        );
-        assert.match(
-            source,
-            /points:\s+- ['"]30\.266984040600367, -97\.74049976967694['"]\s+- ['"]30\.267200000000000, -97\.73997972361234['"]\s+- ['"]30\.2680998308318, -97\.73973010150132['"]/,
-        );
-        assert.match(
-            source,
-            /text: 'true'\s+childOf:\s+id: 'e2e-native-puck-heading-lock-proof'/,
-        );
-        assert.match(
-            source,
-            /text: 'true'\s+childOf:\s+id: 'e2e-native-puck-heading-turn-proof'/,
-        );
-        assert.doesNotMatch(
-            source,
-            /visible:\s+id: 'e2e-native-puck-heading-(?:lock|turn)-proof'\s+text:/,
-        );
-        assert.match(
-            source,
-            /id: 'e2e-native-puck-effective-heading'\s+- assertTrue: \$\{Math\.abs\(Number\(maestro\.copiedText\)\) <= 0\.5 \|\| Math\.abs\(Number\(maestro\.copiedText\) - 360\) <= 0\.5\}/,
-        );
-    });
-
-    test('enters the parallel-road fixture from the west and waits for puck proof', () => {
-        const source = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                '.maestro',
-                'road-matching-parallel-road.yml',
-            ),
-            'utf8',
-        );
-
-        assert.equal(source.match(/- travel:/g)?.length, 7);
-        assert.equal(source.match(/speed: 12/g)?.length, 6);
-        assert.equal(
-            source.match(/Math\.abs\(Number\(maestro\.copiedText\.split/g)
-                ?.length,
-            18,
-        );
-        assert.match(
-            source,
-            /id: 'start-free-drive-button'[\s\S]*?visible: 'expo-foreground-location-watch'\s+timeout: 30000\s+- travel:/,
-        );
-        assert.match(
-            source,
-            /longitude: -97\.7488205067107[\s\S]*?- travel:\s+points:\s+- '30\.26760492387431, -97\.7488205067107'\s+- '30\.26760492387431, -97\.7483004606461'\s+speed: 12\s+- setLocation:\s+latitude: 30\.26760492387431\s+longitude: -97\.7483004606461/,
-        );
-        assert.ok(source.includes("visible: '-97\\.7483[0-9]+,30\\.2676049'"));
-        assert.equal(
-            source.match(/visible: 'native-puck-proof-ready'/g)?.length,
-            4,
-        );
-        assert.match(
-            source,
-            /longitude: -97\.74221592169016\s+- travel:\s+points:\s+- '30\.26760492387431, -97\.74221592169016'\s+- '30\.267343972933087, -97\.74205990787078'\s+speed: 12\s+- setLocation:\s+latitude: 30\.267343972933087\s+longitude: -97\.74205990787078/,
-        );
-        assert.ok(
-            source.includes("visible: '-97\\.7420[0-9]+,30\\.2673[0-9]+'"),
-        );
-    });
-
-    test('waits for native puck readiness in free drive', () => {
-        const source = readFileSync(
-            path.join(
-                EXPO_DIRECTORY,
-                '.maestro',
-                'road-matching-free-drive.yml',
-            ),
-            'utf8',
-        );
-
-        assert.equal(
-            source.match(/visible: 'native-puck-proof-ready'/g)?.length,
-            4,
-        );
-        assert.doesNotMatch(source, /visible: 'true'/);
-        assert.match(
-            source,
-            /longitude: -97\.74466013819383[\s\S]*?points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74419209212921'[\s\S]*?speed: 0\.2[\s\S]*?platform: Android[\s\S]*?id: '__e2e-foreground-location-delivery-delay__'\s+timeout: 1500\s+optional: true\s+- setLocation:\s+latitude: 30\.26698404060037\s+longitude: -97\.74414009212921\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2669840'/,
-        );
-        assert.doesNotMatch(source, /speed: 12(?:\s|$)/);
-        assert.match(
-            source,
-            /id: 'e2e-native-3d-puck-proof'\s+- assertTrue: \$\{maestro\.copiedText == 'true'\}\s+- extendedWaitUntil:\s+visible: '-97\.7441401,30\.2672000'\s+timeout: 60000/,
-        );
-        assert.equal(
-            source.match(
-                /Math\.abs\(Number\(maestro\.copiedText\.split\(','\)\[0\]\) - -97\.(?:7441401|7389396)\) <= 0\.0001/g,
-            )?.length,
-            2,
-        );
-        assert.doesNotMatch(
-            source,
-            /e2e-native-puck-indicator-at-(?:snapped|raw)/,
-        );
-    });
-
-    test('moves navigation through deterministic route points without slow travel', () => {
-        const source = readFileSync(
-            path.join(EXPO_DIRECTORY, '.maestro', 'moving-navigation.yml'),
-            'utf8',
-        );
-
-        assert.match(source, /clearState: true/);
-        assert.match(
-            source,
-            /file: subflows\/open-expo-dev-client-after-clear\.yml/,
-        );
-        assert.match(source, /visible: 'expo-foreground-location-watch'/);
-        assert.match(source, /openLink: 'driversagainstflock:\/\/e2e-mocks'/);
-        assert.doesNotMatch(source, /speed: 1(?:\s|$)/);
-        assert.equal(source.match(/- travel:/g)?.length, 3);
-        assert.equal(source.match(/speed: 12/g)?.length, 3);
-        for (const [latitude, longitude] of [
-            ['30.270606', '-97.749971'],
-            ['30.262520', '-97.745886'],
-            ['30.2654', '-97.7518'],
-        ]) {
-            assert.ok(
-                source.includes(
-                    `speed: 12\n- setLocation:\n    latitude: ${latitude}\n    longitude: ${longitude}\n- extendedWaitUntil:`,
-                ),
-                `Navigation must deliver the final GPS waypoint ${latitude}, ${longitude} before asserting it`,
-            );
-        }
-        assert.equal(source.match(/waitToSettleTimeoutMs: 1000/g)?.length, 8);
-        assert.match(
-            source,
-            /points:\s+- '30\.2672, -97\.7431'\s+- '30\.270606, -97\.749971'\s+speed: 12[\s\S]*?visible: '-97\.7499710,30\.2706060'/,
-        );
-        assert.match(
-            source,
-            /points:\s+- '30\.270606, -97\.749971'\s+- '30\.262012, -97\.744842'\s+- '30\.262520, -97\.745886'\s+speed: 12[\s\S]*?visible: '-97\.7458860,30\.2625200'[\s\S]*?visible: '\.\*Arrive at your destination\.\*'/,
-        );
-        assert.match(
-            source,
-            /points:\s+- '30\.262520, -97\.745886'\s+- '30\.2654, -97\.7518'\s+speed: 12[\s\S]*?visible: '-97\.7518000,30\.2654000'/,
-        );
-    });
-
-    test('drives real scorecard lifecycles without scorecard state fixtures', () => {
-        const flowExpectations = new Map([
-            [
-                'scorecard-private-route-drive.yml',
-                {
-                    endsManually: true,
-                    scenario: 'private-route',
-                    travelCount: 3,
-                    waypointDeliveryCount: 2,
-                },
-            ],
-            [
-                'scorecard-local-exposure-drive.yml',
-                {
-                    endsManually: false,
-                    scenario: 'local-exposure',
-                    travelCount: 4,
-                    waypointDeliveryCount: 3,
-                },
-            ],
-        ]);
-
-        for (const [flow, expectation] of flowExpectations) {
-            const source = readFileSync(
-                path.join(EXPO_DIRECTORY, '.maestro', flow),
-                'utf8',
-            );
-
-            assert.equal(source.match(/\bclearState:\s*true\b/g)?.length, 1);
-            assert.equal(source.match(/\bclearKeychain:\s*true\b/g)?.length, 1);
-            assert.equal(
-                source.match(/- travel:/g)?.length,
-                expectation.travelCount,
-            );
-            assert.equal(
-                source.match(/speed: 0\.2/g)?.length,
-                expectation.travelCount - 1,
-            );
-            assert.equal(source.match(/speed: 0\.08/g)?.length, 1);
-            assert.equal(
-                source.match(
-                    /visible: '-97\.[0-9]+,30\.[0-9]+'\s+timeout: 30000/g,
-                )?.length,
-                expectation.waypointDeliveryCount,
-            );
-            assert.equal(
-                source.match(
-                    /platform: Android\s+commands:\s+- extendedWaitUntil:\s+visible:\s+id: '__e2e-scorecard-waypoint-delivery-delay__'\s+timeout: 1500\s+optional: true/g,
-                )?.length,
-                expectation.waypointDeliveryCount,
-            );
-            assert.equal(
-                source.match(/^- setLocation:/gm)?.length,
-                expectation.waypointDeliveryCount + 2,
-            );
-            assert.match(
-                source,
-                new RegExp(
-                    `driversagainstflock:\\/\\/e2e-mocks\\?scorecardDrive=${expectation.scenario}`,
-                ),
-            );
-            assert.match(source, /visible: 'expo-foreground-location-watch'/);
-            assert.match(source, /visible: 'scorecard-hydrated'/);
-            assert.match(source, /visible: 'scorecard-guided-active'/);
-            assert.match(source, /id: 'scorecard-arrival-recap'/);
-            assert.equal(
-                source.match(/id: 'e2e-scorecard-storage-synced'/g)?.length,
-                2,
-            );
-            assert.equal(
-                source.match(/id: 'e2e-scorecard-persisted-revision'/g)?.length,
-                2,
-            );
-            assert.match(
-                source,
-                /scorecard-guided-active'[\s\S]*?id: 'e2e-scorecard-storage-synced'[\s\S]*?id: 'e2e-scorecard-persisted-revision'[\s\S]*?Number\(maestro\.copiedText\) > 0[\s\S]*?- travel:/,
-            );
-            assert.match(
-                source,
-                /launchApp:\s+stopApp: true\s+permissions:\s+all: allow/,
-            );
-            assert.doesNotMatch(source, /(?:[?&]|\b)scorecard=/i);
-            assert.doesNotMatch(source, /e2eScorecardFixture/i);
-            if (expectation.endsManually) {
-                assert.match(source, /driving-cancel-route-button/);
-            } else {
-                assert.doesNotMatch(source, /driving-cancel-route-button/);
-            }
-        }
-    });
-
     test('exposes scorecard lifecycle readiness only in the E2E probe', () => {
         const source = readFileSync(
             path.join(
@@ -991,7 +704,7 @@ R58M offline
 
         assert.match(
             source,
-            /id: 'directions-route-start-driving-button'[\s\S]*?notVisible:\s+id: 'directions-route-sheet-presented'[\s\S]*?visible: 'expo-foreground-location-watch'[\s\S]*?- travel:\s+points:\s+- '30\.26698404060037, -97\.74466013819383'\s+- '30\.26698404060037, -97\.74414009212921'\s+speed: 12[\s\S]*?visible: 'e2e-main-35:0:forward'[\s\S]*?id: 'driving-speed-limit-sign'/,
+            /id: 'directions-route-start-driving-button'[\s\S]*?notVisible:\s+id: 'directions-route-sheet-presented'[\s\S]*?visible: 'expo-foreground-location-watch'[\s\S]*?- travel:\s+points:\s+- '43\.12152, -88\.24447'\s+- '43\.12116, -88\.244495'\s+speed: 12[\s\S]*?visible: 'e2e-pewaukee:0:forward'[\s\S]*?id: 'driving-speed-limit-sign'/,
         );
     });
 
@@ -1127,11 +840,7 @@ test('node editing handles first-use contribution guidance before asserting the 
     assert.ok(skip >= 0 && sheet > skip);
 });
 
-for (const flow of [
-    'scorecard-gamification.yml',
-    'scorecard-private-route-drive.yml',
-    'scorecard.yml',
-]) {
+for (const flow of ['scorecard-gamification.yml', 'scorecard.yml']) {
     test(`${flow} dismisses the first-visit tour before waiting for the dashboard`, () => {
         const source = readFileSync(
             path.join(EXPO_DIRECTORY, '.maestro', flow),

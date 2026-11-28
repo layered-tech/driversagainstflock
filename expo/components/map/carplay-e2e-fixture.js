@@ -124,7 +124,9 @@ export async function runCarPlayE2ECommand(
     } else if (
         command === 'search' &&
         platform === 'android-auto' &&
-        ['Walmart', 'Walmart Delafield'].includes(searchQuery)
+        ['Walmart', 'Walmart Delafield', '377 Parkland Ct, Pewaukee'].includes(
+            searchQuery,
+        )
     ) {
         await onSearch(searchQuery);
     } else if (command === 'route-render') {

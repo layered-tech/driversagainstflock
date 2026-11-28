@@ -265,7 +265,6 @@ test('the API client propagates verified coverage radius and preserves unknown o
             endMapPerformanceSignpost() {},
             recordMapPerformanceSignpost() {},
         },
-        './scorecard-drive-e2e-fixture': {},
     };
     const exports = {};
     new Function('require', 'exports', code)((name) => {

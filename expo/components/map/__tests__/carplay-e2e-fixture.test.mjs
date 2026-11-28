@@ -285,6 +285,33 @@ test('CarPlay state distinguishes the saved appearance from the preset Mapbox ac
     assert.equal(updated.appliedMapLightPreset, 'night');
 });
 
+test('resetting the car UI cancels the previous journey before returning to the map', async () => {
+    const source = readFileSync(
+        new URL('../../auto-play.js', import.meta.url),
+        'utf8',
+    );
+    const actions = [];
+    const dispatch = vm.runInNewContext(
+        `(${source.slice(source.indexOf('function dispatchAutoPlayE2ECommand('), source.indexOf('function replayPendingVoiceNavigation('))})`,
+        {
+            e2eMapApiMocksCanBeEnabled: () => true,
+            require: () => ({
+                runCarPlayE2ECommand: (_query, _state, reset) => reset(),
+            }),
+            activeNavigationRoute: null,
+            cancelAutoPlaySearchWork: () => actions.push('cancel'),
+            hideAutoPlayRoutePreview: () => actions.push('hide'),
+            clearAutoPlayRoutePreviewState: () => actions.push('clear'),
+            popToAutoPlayRootTemplate: () => actions.push('root'),
+        },
+    );
+    await dispatch({
+        requestType: 'android-auto',
+        query: '{"command":"reset"}',
+    });
+    assert.deepEqual(actions, ['cancel', 'hide', 'clear', 'root']);
+});
+
 test('Android Auto reuses saved fixtures with separate proof markers', async () => {
     const f = fixture();
     await f.runCarPlayE2ECommand(

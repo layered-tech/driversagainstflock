@@ -115,10 +115,21 @@ for (const isDarkMapLayer of [false, true]) {
             'getRootMapPanButtonImage',
             'getRootMapZoomInButtonImage',
             'getRootMapZoomOutButtonImage',
-            'getRootMapTrackingButtonImage',
             'getRootHeaderDrivingMapViewButtonImage',
         ]) {
             assert.equal(evaluate(`${factory}()`).color, 'default', factory);
+        }
+    });
+
+    test(`Android Auto tints the visible recenter button on a ${mode} map`, () => {
+        const evaluate = createHarness('android', isDarkMapLayer);
+        for (const trackingState of ['recenter', 'inactive']) {
+            evaluate(
+                `rootMapButtonAppearance.trackingState = '${trackingState}'`,
+            );
+            const image = evaluate('getRootMapTrackingButtonImage()');
+            assert.equal(image.color, 'default', trackingState);
+            assert.equal(image.backgroundColor, 'transparent', trackingState);
         }
     });
 
@@ -175,7 +186,7 @@ for (const isDarkMapLayer of [false, true]) {
         );
     });
 
-    test(`CarPlay sizes the tinted compass at 26 points and keeps the smaller pan glyph on a ${mode} map`, () => {
+    test(`CarPlay sizes the tinted compass at 26 points on a ${mode} map`, () => {
         const evaluate = createHarness('ios', isDarkMapLayer);
         evaluate('getRootHeaderDrivingMapViewButtonImage()');
         assert.deepEqual(evaluate('compassImageRequests.at(-1)'), {
@@ -183,9 +194,6 @@ for (const isDarkMapLayer of [false, true]) {
             dark: isDarkMapLayer,
             size: 26,
         });
-        assert.equal(evaluate('getRootMapPanButtonImage().fontScale'), 0.65);
-        const android = createHarness('android', isDarkMapLayer);
-        assert.equal(android('getRootMapPanButtonImage().fontScale'), 0.78);
     });
 
     for (const platform of ['android']) {
@@ -209,6 +217,37 @@ for (const isDarkMapLayer of [false, true]) {
         });
     }
 }
+
+test('Auto Play applies glyph-specific scales to the toolbar and map controls', () => {
+    for (const platform of ['android', 'ios']) {
+        const evaluate = createHarness(platform, false);
+        assert.deepEqual(
+            evaluate(`[
+                ROOT_HEADER_SEARCH_IMAGE,
+                ROOT_HEADER_ROUTE_STEPS_IMAGE,
+                ROOT_HEADER_MAP_OPTIONS_IMAGE,
+                ...Object.values(ROOT_HEADER_PRIMARY_LOCATION_IMAGES),
+            ].map(({ fontScale }) => fontScale)`),
+            [0.94, 0.87, 1, 0.98, 0.78],
+        );
+        assert.deepEqual(
+            evaluate(`[
+                getRootMapPanButtonImage(),
+                getRootMapZoomInButtonImage(),
+                getRootMapZoomOutButtonImage(),
+                getRootMapTrackingButtonImage(),
+                getRootHeaderExitNavigationButtonImage(),
+            ].map(({ fontScale }) => fontScale)`),
+            [0.78, 0.94, 0.94, 0.94, 0.87],
+        );
+        evaluate('activeNavigationRoute = {}');
+        evaluate("rootMapButtonAppearance.drivingMapViewMode = 'overview'");
+        assert.equal(
+            evaluate('getRootHeaderDrivingMapViewButtonImage().fontScale'),
+            0.7,
+        );
+    }
+});
 
 test('CarPlay keeps the header and map buttons visible', () => {
     const evaluate = createHarness('ios', false);

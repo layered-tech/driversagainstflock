@@ -28,6 +28,7 @@ import { DrivingAlertsOverlay } from './driving-alerts-overlay';
 import { ManeuverCard, ReroutingCard } from './driving-guidance-cards';
 import { DrivingStepsSheet } from './driving-steps-sheet';
 import { DrivingLocationRoadStack } from './driving-location-road-stack';
+import { MOBILE_CURRENT_ROAD_PILL_PUCK_TARGET_GAP } from './current-road-pill-layout';
 import { useE2EDrivingAlertsFixture } from './e2e-driving-alert-fixture';
 import { NativeWindSafeAreaView } from './native-components';
 import {
@@ -95,8 +96,9 @@ function createSearchResultRestoreFromRoute(route) {
 export function DrivingGuidanceOverlay({
     cameraIsFollowingUser = true,
     children,
+    currentRoadPillIsDarkMode,
+    debugRoadPillOutlineIsVisible,
     drivingStatusIsVisible = true,
-    navigationPuckSize,
     onLocationAnchorLayout,
     onRouteExport,
     onResumeGuidance,
@@ -221,6 +223,11 @@ export function DrivingGuidanceOverlay({
         }
     };
     const routeIsActive = Boolean(directionsRoute && routeOption);
+    const bottomEdgeIsDirectionsSheet =
+        routeIsActive && !pane && collapsedHeight > insets.bottom;
+    const drivingMapBottomInset = bottomEdgeIsDirectionsSheet
+        ? collapsedHeight
+        : insets.bottom;
     const headerCardIsVisible = Boolean(
         routeIsActive && (rerouteIsLoading || maneuver),
     );
@@ -349,32 +356,37 @@ export function DrivingGuidanceOverlay({
                     </View>
                 </View>
 
-                <View className="flex-1" pointerEvents="none" />
-
-                <DrivingLocationRoadStack
-                    isHidden={!statusChromeIsVisible}
-                    onLocationAnchorLayout={onLocationAnchorLayout}
-                    puckSize={navigationPuckSize}
-                    testID="driving-location-road-stack"
-                    userLocation={userLocation}
-                />
-
-                <DrivingAlertsOverlay
-                    alerts={e2eDrivingAlertsFixture ?? upcomingAlerts}
-                    bottomInset={insets.bottom}
-                    routeIsActive={routeIsActive}
-                    unrestrictedFixture={e2eDrivingAlertsFixture !== null}
-                />
-
                 <View
-                    pointerEvents="none"
+                    className="absolute"
+                    pointerEvents="box-none"
                     style={{
-                        height:
-                            routeIsActive && !pane
-                                ? collapsedHeight
-                                : insets.bottom,
+                        bottom: drivingMapBottomInset,
+                        left: pane ? 0 : insets.left,
+                        right: insets.right,
                     }}
-                />
+                >
+                    <DrivingAlertsOverlay
+                        alerts={e2eDrivingAlertsFixture ?? upcomingAlerts}
+                        routeIsActive={routeIsActive}
+                        unrestrictedFixture={e2eDrivingAlertsFixture !== null}
+                    />
+                    <DrivingLocationRoadStack
+                        isHidden={!statusChromeIsVisible}
+                        bottomEdgeIsDirectionsSheet={
+                            bottomEdgeIsDirectionsSheet
+                        }
+                        bottomInset={drivingMapBottomInset}
+                        currentRoadPillIsDarkMode={currentRoadPillIsDarkMode}
+                        debugRoadPillOutlineIsVisible={
+                            debugRoadPillOutlineIsVisible
+                        }
+                        onLocationAnchorLayout={onLocationAnchorLayout}
+                        puckTargetGap={MOBILE_CURRENT_ROAD_PILL_PUCK_TARGET_GAP}
+                        testID="driving-location-road-stack"
+                        userLocation={userLocation}
+                        viewportHeight={containerHeight}
+                    />
+                </View>
             </NativeWindSafeAreaView>
             {routeIsActive ? (
                 <DrivingStepsSheet

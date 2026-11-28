@@ -1,6 +1,10 @@
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, rm } from 'node:fs/promises';
 import { createRequire } from 'node:module';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
 import { describe, test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const require = createRequire(import.meta.url);
 const androidAutoPlugin = require('../../../plugins/withAndroidAuto.js');
@@ -9,6 +13,46 @@ const { applyAndroidAutoManifest } = androidAutoPlugin.__testables;
 const ANDROID_NAME = 'android:name';
 const NAVIGATE_ACTION = 'androidx.car.app.action.NAVIGATE';
 const VIEW_ACTION = 'android.intent.action.VIEW';
+
+test('the installed Expo task loader releases its record while a bound car keeps its React runtime', async (t) => {
+    const temporary = await mkdtemp(
+        path.join(tmpdir(), 'android-auto-loader-'),
+    );
+    t.after(() => rm(temporary, { recursive: true, force: true }));
+    const project = fileURLToPath(new URL('../../../', import.meta.url));
+    const manifest = makeManifest();
+    const normalMetadata = {
+        $: { 'android:name': 'other', 'android:value': 'untouched' },
+    };
+    manifest.manifest.application[0]['meta-data'] = [normalMetadata];
+    applyAndroidAutoManifest(applyAndroidAutoManifest(manifest));
+    const [other, loader] = manifest.manifest.application[0]['meta-data'];
+    assert.equal(other, normalMetadata);
+    assert.equal(
+        loader.$['android:name'],
+        'org.unimodules.core.AppLoader#react-native-headless',
+    );
+    assert.equal(loader.$['tools:replace'], 'android:value');
+    assert.equal(manifest.manifest.application[0]['meta-data'].length, 2);
+    await androidAutoPlugin.__testables.writeCarHeadlessAppLoader(
+        project,
+        temporary,
+    );
+    const className = loader.$['android:value'];
+    const source = await readFile(
+        path.join(
+            temporary,
+            'app/src/main/java',
+            className.replaceAll('.', '/') + '.kt',
+        ),
+        'utf8',
+    );
+    assert.match(source, /class CarHeadlessAppLoader/);
+    assert.match(
+        source,
+        /if \(reactHost.lifecycleState == LifecycleState.BEFORE_CREATE && AndroidAutoService.instance == null\) \{\s*reactHost.destroy\([^\n]+\)\s*\}\s*appRecords.remove\(appScopeKey\)/,
+    );
+});
 
 function makeIntentFilter(actionName, scheme) {
     return {

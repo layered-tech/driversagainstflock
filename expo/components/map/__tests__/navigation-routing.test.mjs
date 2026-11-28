@@ -22,6 +22,7 @@ function loadMapModule(url) {
     }
     if (url.pathname.endsWith('/constants.js')) {
         return {
+            MAX_WEB_MERCATOR_LATITUDE: 85.05112878,
             EMPTY_FEATURE_COLLECTION: {
                 type: 'FeatureCollection',
                 features: [],
@@ -50,11 +51,17 @@ function loadMapModule(url) {
 }
 
 const directions = loadMapModule(new URL('../directions.js', import.meta.url));
-const { getCurrentLocationRoadHint } = loadMapModule(
+const { getRerouteHeading, getCurrentLocationRoadHint } = loadMapModule(
     new URL('../route-snapping.js', import.meta.url),
 );
 const { createSharedNavigationReroutingController } = loadMapModule(
     new URL('../shared-navigation-rerouting.js', import.meta.url),
+);
+const { createNavigationRouteTrail } = loadMapModule(
+    new URL('../navigation-route-trail.js', import.meta.url),
+);
+const { makeDirectionsWaypointMarkers } = loadMapModule(
+    new URL('../directions-waypoint-markers.js', import.meta.url),
 );
 
 function location(longitude, latitude, recordedAt) {
@@ -152,9 +159,9 @@ test('direction steps reset for replacement routes and tolerate missing maneuver
         false,
     );
 });
-function harness() {
+function harness(initialRoute = makeRoute(), getDeviceFix = () => null) {
     let time = 10000;
-    let state = { drivingModeIsActive: true, directionsRoute: makeRoute() };
+    let state = { drivingModeIsActive: true, directionsRoute: initialRoute };
     const requests = [],
         published = [],
         statuses = [];
@@ -162,6 +169,7 @@ function harness() {
     const controller = createSharedNavigationReroutingController({
         now: () => time,
         getRoutingState: () => state,
+        getDeviceFix,
         getDirections: (body) => {
             requests.push(body);
             return new Promise((resolve, fail) => {
@@ -181,9 +189,12 @@ function harness() {
         requests,
         published,
         statuses,
-        tick: (ms, lng = 0.005, lat = 0.001) => {
+        tick: (ms, lng = 0.005, lat = 0.001, extra = {}, deviceFix) => {
             time += ms;
-            controller.update(location(lng, lat, time));
+            controller.update(
+                { ...location(lng, lat, time), ...extra },
+                deviceFix,
+            );
         },
         resolve: (route) => settle({ route, exclusionZone: null }),
         reject: () => reject(new Error('Offline')),
@@ -235,6 +246,91 @@ test('road hints require a fresh confident match and never substitute a place na
         undefined,
     );
 });
+
+test('reroutes use any known heading, including north, without movement or accuracy checks', () => {
+    const current = { recordedAt: 10000, heading: 180, isMoving: false };
+    assert.equal(
+        getRerouteHeading(current, {
+            timestamp: 10000,
+            coords: { heading: 0, speed: 0 },
+        }),
+        0,
+    );
+    assert.equal(
+        getRerouteHeading(current, {
+            timestamp: 9000,
+            coords: { heading: 90 },
+        }),
+        180,
+    );
+    assert.equal(getRerouteHeading({ courseHeading: 215 }, null), 215);
+    assert.equal(
+        getRerouteHeading({ heading: -1, compassHeading: 75 }, null),
+        75,
+    );
+    assert.equal(
+        getRerouteHeading({}, { coords: { heading: -1, course: 270 } }),
+        270,
+    );
+    assert.equal(getRerouteHeading({ heading: 360 }, null), 0);
+    assert.equal(getRerouteHeading({}, { coords: { heading: -1 } }), null);
+});
+
+for (const key of ['direct', 'ideal']) {
+    test(`${key} automatic reroutes send a known heading and otherwise fall back to the road name`, async (t) => {
+        for (const [deviceHeading, navigationHeading, expected] of [
+            [0, 180, { heading: 0 }],
+            [null, 270, { heading: 270 }],
+            [null, null, { road_hint: 'Main Street' }],
+        ]) {
+            const route = makeRoute();
+            route.routes.direct = { ...route.routes.ideal, routeKey: 'direct' };
+            const fix = {
+                timestamp: 12100,
+                coords: { heading: deviceHeading },
+            };
+            const h = harness(
+                directions.selectDirectionsRoute(route, key),
+                () => fix,
+            );
+            t.after(() => h.controller.cancel());
+            const current = {
+                heading: navigationHeading,
+                isMoving: false,
+                roadMatch: {
+                    roadName: 'Main Street',
+                    confidence: 1,
+                    isOffRoad: false,
+                    distanceFromObservationMeters: 1,
+                },
+            };
+            h.tick(0, 0.005, 0.001, current);
+            h.tick(
+                2100,
+                0.005,
+                0.001,
+                current,
+                key === 'direct' ? fix : undefined,
+            );
+            await flush();
+            assert.equal(h.requests.length, 1);
+            const { latitude, longitude, ...hints } = h.requests[0].start;
+            assert.deepEqual(hints, expected);
+            assert.ok(Math.abs(longitude - 0.005) < 1e-9 && latitude === 0.001);
+            assert.equal(h.requests[0].end.heading, undefined);
+            const manual = directions.getDirectionsWaypointApiCoord(
+                directions.createCurrentLocationDirectionsWaypoint({
+                    ...current,
+                    latitude,
+                    longitude,
+                    recordedAt: Date.now(),
+                }),
+            );
+            assert.equal(manual.road_hint, 'Main Street');
+            assert.equal(manual.heading, undefined);
+        }
+    });
+}
 
 test('remaining ETA follows segment timing rather than whole-route average speed', () => {
     const route = makeRoute();
@@ -305,6 +401,136 @@ test('one controller reroutes from either location source while retaining stops,
     assert.equal(h.published[0].stopWaypoints.length, 1);
     assert.deepEqual(h.statuses, [true, false]);
     h.controller.cancel();
+});
+
+for (const key of ['direct', 'ideal']) {
+    test(`two ${key} reroutes keep the driven bends and original pin while guidance follows the new leg`, async (t) => {
+        function routeFor(coordinates) {
+            const route = makeRoute(coordinates);
+            route.routes.direct = { ...route.routes.ideal, routeKey: 'direct' };
+            return directions.selectDirectionsRoute(route, key);
+        }
+        const origin = {
+            location: { longitude: 0, latitude: 0 },
+            label: 'Home',
+        };
+        const initial = routeFor([
+            [0, 0],
+            [0, 0.002],
+            [0.01, 0.002],
+            [0.02, 0],
+        ]);
+        initial.start = origin;
+        const h = harness(initial);
+        t.after(() => h.controller.cancel());
+        h.tick(0, 0, 0);
+        h.tick(1000, 0.005, 0.002);
+        h.tick(1000, 0.004, 0.002);
+        h.tick(1000, 0.004, 0.003);
+        h.tick(2100, 0.005, 0.003);
+        await flush();
+        const firstLeg = [
+            [0.005, 0.003],
+            [0.013, 0.003],
+            [0.02, 0],
+        ];
+        const firstResponse = routeFor(firstLeg);
+        h.resolve(firstResponse);
+        await flush();
+        const first = h.published[0];
+        assert.deepEqual(first.coordinates, firstResponse.coordinates);
+        assert.deepEqual(first.traveledSegments[0].slice(0, 2), [
+            [0, 0],
+            [0, 0.002],
+        ]);
+        assert.ok(Math.abs(first.traveledSegments[0].at(-1)[0] - 0.005) < 1e-9);
+        assert.deepEqual(first.traveledSegments[1].at(-1), firstLeg[0]);
+        assert.deepEqual(first.bounds.sw, [0, 0]);
+        h.tick(8000, 0.011, 0.003);
+        h.tick(1000, 0.011, 0.004);
+        h.tick(2100, 0.011, 0.0045);
+        await flush();
+        const secondLeg = [
+            [0.011, 0.0045],
+            [0.016, 0.0045],
+            [0.02, 0],
+        ];
+        const secondResponse = routeFor(secondLeg);
+        h.resolve(secondResponse);
+        await flush();
+        const second = JSON.parse(JSON.stringify(h.published[1]));
+        assert.deepEqual(
+            second.traveledSegments.slice(0, 2),
+            first.traveledSegments,
+        );
+        assert.equal(second.traveledSegments.length, 4);
+        assert.equal(second.selectedRouteKey, key);
+        assert.deepEqual(second.originalStart, origin);
+        assert.deepEqual(
+            makeDirectionsWaypointMarkers({ directionsRoute: second })[0]
+                .coordinate,
+            [0, 0],
+        );
+        const features =
+            directions.makeDirectionsRouteFeatureCollection(second).features;
+        assert.deepEqual(
+            features
+                .filter((f) => f.properties.traveled)
+                .map((f) => f.geometry.coordinates),
+            second.traveledSegments,
+        );
+        assert.deepEqual(
+            features.find(
+                (f) => f.properties.selected && !f.properties.traveled,
+            ).geometry.coordinates,
+            secondResponse.coordinates,
+        );
+        const values = directions.getRemainingDirectionsRouteValues(
+            second,
+            location(...secondLeg[0], 30000),
+        );
+        assert.equal(values.distanceRemaining, second.distance);
+        assert.equal(values.durationRemaining, second.duration);
+        h.setState({ drivingModeIsActive: false, directionsRoute: null });
+        assert.deepEqual(
+            directions
+                .makeDirectionsRouteFeatureCollection(makeRoute())
+                .features.map((f) => Boolean(f.properties.traveled)),
+            [false],
+        );
+    });
+}
+
+test('starting a loop at its destination leaves the line ahead untraveled', () => {
+    const route = makeRoute([
+        [0, 0],
+        [0.01, 0],
+        [0, 0],
+    ]);
+    const tracker = directions.createDirectionsRouteProgressTracker();
+    assert.equal(
+        tracker.update(route, location(0, 0, 10000)).alongRouteDistance,
+        0,
+    );
+    const halfway = tracker.update(route, location(0.005, 0, 11000));
+    assert.equal(halfway.coordinateIndex, 0);
+    assert.ok(Math.abs(halfway.segmentFraction - 0.5) < 1e-9);
+});
+
+test('gaps in GPS coverage keep the last driven road without drawing a shortcut', () => {
+    const route = makeRoute();
+    const trail = createNavigationRouteTrail(10000);
+    const loc = location(0.005, 0, 1000);
+    trail.record(loc, directions.getDirectionsRouteProgress(route, loc), true);
+    trail.record(location(0.016, 0.01, 30000), null, false);
+    trail.record(location(0.016, 0.011, 31000), null, false);
+    const [prefix, detour] = trail.snapshot(route.coordinates);
+    assert.equal(prefix.length, 2);
+    assert.ok(Math.abs(prefix.at(-1)[0] - 0.005) < 1e-9);
+    assert.deepEqual(detour, [
+        [0.016, 0.01],
+        [0.016, 0.011],
+    ]);
 });
 
 test('cancelling or replacing navigation prevents an in-flight response from restoring it', async () => {
@@ -402,6 +628,26 @@ test('rerouting rejects unexpectedly distant snapped starts', async () => {
     h.controller.cancel();
 });
 
+test('a response missing the selected mode keeps the current route', async (t) => {
+    const h = harness();
+    t.after(() => h.controller.cancel());
+    h.tick(0);
+    h.tick(2100);
+    await flush();
+    const route = directions.normalizeDirectionsRouteResponse({
+        direct: {
+            coordinates: [
+                [0.005, 0.001],
+                [0.02, 0],
+            ],
+        },
+    });
+    h.resolve(route);
+    await flush();
+    assert.equal(h.published.length, 0);
+    assert.equal(h.state().directionsRoute.selectedRouteKey, 'ideal');
+});
+
 test('partial segment timing falls back to complete maneuver timing and unknown totals stay unknown', () => {
     const route = makeRoute();
     route.routes.ideal.timingSegments = [{ way_points: [1, 2], duration: 900 }];
@@ -445,6 +691,10 @@ test('the app controller consumes shared and automotive fixes without depending 
         },
     ).code;
     const phoneLocation = location(0.005, 0.001, 10000);
+    const phoneFix = {
+        timestamp: phoneLocation.recordedAt,
+        coords: { heading: 90, speed: 10 },
+    };
     const mocked = {
         react: {
             useSyncExternalStore: (subscribe, getSnapshot) => {
@@ -452,7 +702,11 @@ test('the app controller consumes shared and automotive fixes without depending 
                 return getSnapshot();
             },
         },
+        './accepted-device-location': {
+            getLatestAcceptedDeviceLocation: () => phoneFix,
+        },
         './api': { getDirections: () => {} },
+        './directions': directions,
         './debug-overlays': { DEBUG_OVERLAY_DIRECTIONS_GEOMETRY: 'geometry' },
         './shared-map-preferences-sync': {
             getSharedMapPreferencesState: () => ({
@@ -475,7 +729,7 @@ test('the app controller consumes shared and automotive fixes without depending 
             createSharedNavigationReroutingController: (args) => {
                 options = args;
                 return {
-                    update: (loc) => updates.push(loc),
+                    update: (loc, fix) => updates.push([loc, fix]),
                     cancel: () => updates.push('cancel'),
                 };
             },
@@ -487,12 +741,21 @@ test('the app controller consumes shared and automotive fixes without depending 
         module.exports,
     );
     const stop = module.exports.startSharedNavigationController();
+    assert.equal(options.getDeviceFix(), phoneFix);
     module.exports.useSharedNavigationRerouting();
     routingListener();
     locationListener();
     const carLocation = location(0.006, 0.001, 11000);
-    module.exports.updateSharedNavigationLocation(carLocation);
-    assert.deepEqual(updates, [undefined, phoneLocation, carLocation]);
+    const carFix = {
+        timestamp: carLocation.recordedAt,
+        coords: { heading: 270, speed: 12 },
+    };
+    module.exports.updateSharedNavigationLocation(carLocation, carFix);
+    assert.deepEqual(updates, [
+        [undefined, undefined],
+        [phoneLocation, undefined],
+        [carLocation, carFix],
+    ]);
     options.onStatusChange(true);
     options.onStatusChange(false);
     assert.deepEqual(statusUpdates, [true, false]);
@@ -569,6 +832,7 @@ function loadGuidanceCards(
             NativeWindBottomSheetTouchableOpacity: 'SheetTouchable',
         },
         './roundabout-guidance': { getRoundaboutExitNumber: () => null },
+        './maneuver-icon': { ManeuverIcon: 'ManeuverIcon' },
         './directions': { ...directions, ...directionOverrides },
     };
     new Function('require', 'module', 'exports', source)(

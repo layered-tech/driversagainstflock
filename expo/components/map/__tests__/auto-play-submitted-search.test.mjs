@@ -51,7 +51,8 @@ function harness({
         countdowns = [];
     const state = {};
     const context = vm.createContext({
-        autoPlayPlatform: platform === 'ios' ? iosPlatform : {},
+        autoPlayPlatform:
+            platform === 'ios' ? iosPlatform : { preservesSearchResults: true },
         rootMapTemplate: { setRootTemplate: restoreRoot },
         rootMapTemplateIsReady: true,
         AbortController,
@@ -61,7 +62,11 @@ function harness({
         searchRequestSequence: 0,
         PLACE_SEARCH_MIN_QUERY_LENGTH: 2,
         autoPlaySearchRequestIsCurrent,
-        clearAutoPlaySubmittedSearchResults() {},
+        clearAutoPlaySubmittedSearchResults() {
+            delete state.results;
+        },
+        abortRouteLoadRequest() {},
+        clearAutoPlayRouteLoading() {},
         setAutoPlayState: (next) => Object.assign(state, next),
         setAutoPlaySubmittedSearchResults: (next) =>
             Object.assign(state, {
@@ -375,4 +380,27 @@ test('voice offers every result first and Map reuses the top six without another
     assert.equal(h.state.results.length, 6);
     assert.equal(h.requests.length, 1);
     assert.equal(h.requests[0].signal.aborted, false);
+});
+
+test('Android Auto Back from map results reveals the full voice results list', async () => {
+    let pops = 0;
+    const h = harness({ pop: async () => pops++ });
+    const search = h.run('Coffee');
+    await flush();
+    const results = Array.from({ length: 8 }, (_, id) => ({ id }));
+    h.requests[0].resolve(results);
+    await search;
+    const list = h.lists[0];
+    const openMap =
+        list.config.headerActions.android.endHeaderActions[0].onPress;
+    await openMap();
+    assert.equal(pops, 1);
+    assert.equal(h.state.results.length, 6);
+    h.lists[1].config.headerActions.dismiss();
+    h.lists[1].config.onPopped();
+    assert.equal(h.state.results, undefined);
+    assert.strictEqual(list.config.sections.items, results);
+    await openMap();
+    assert.equal(h.lists.length, 3);
+    assert.equal(h.requests.length, 1);
 });

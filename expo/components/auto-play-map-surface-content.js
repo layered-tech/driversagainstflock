@@ -75,8 +75,10 @@ import {
 } from './map/debug-camera-zoom';
 import {
     DEBUG_OVERLAY_ALPR_PRESENCE,
+    DEBUG_OVERLAY_CAMERA_FOCUS,
     DEBUG_OVERLAY_DIRECTIONS_GEOMETRY,
     DEBUG_OVERLAY_ELECTRONIC_HORIZON,
+    DEBUG_OVERLAY_SAFE_AREA,
 } from './map/debug-overlays';
 import {
     createNavigationOverviewBoundsTracker,
@@ -126,6 +128,7 @@ import {
 } from './map/map-screen-context';
 import { resolveMarkerLoadBounds } from './map/marker-load-bounds';
 import { getNavigationPuckSize } from './map/navigation-puck-layout';
+import { SafeAreaDebugOverlay } from './map/safe-area-debug-overlay';
 import { getRouteCurrentSpeedMps } from './map/speed-limit';
 import { getSubmittedSearchResultsBounds } from './map/submitted-search-results-bounds';
 import { useDeferredCameraDebugState } from './map/use-deferred-camera-debug-state';
@@ -428,7 +431,10 @@ function makeAutoPlayDirectionsWaypointMarkers(route) {
     }
 
     return [
-        createDirectionsWaypointMarker(DIRECTIONS_FIELD_START, route.start),
+        createDirectionsWaypointMarker(
+            DIRECTIONS_FIELD_START,
+            route.originalStart ?? route.start,
+        ),
         createDirectionsWaypointMarker(
             DIRECTIONS_FIELD_DESTINATION,
             route.destination,
@@ -448,6 +454,7 @@ function getPointCoordinate(point) {
 
 function useAutoPlayMapController({
     cameraDebugStateUpdatesEnabled = false,
+    centersPuckInSafeArea,
     drivingMapViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
     followPitch,
     navigationSurface,
@@ -679,10 +686,9 @@ function useAutoPlayMapController({
             !presenceCameraIsLocked &&
             drivingMapViewMode !== DRIVING_MAP_VIEW_ROUTE_OVERVIEW,
         followSpeedZoomEnabled: true,
-        followViewportAnchorY:
-            drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP
-                ? undefined
-                : followViewportAnchorY,
+        followViewportAnchorY: centersPuckInSafeArea
+            ? undefined
+            : followViewportAnchorY,
         isDrivingMode,
         locationTrackingMode,
         locationTrackingModeRef,
@@ -1893,6 +1899,7 @@ export function AutoPlayMapSurfaceContent({
     const autoPlayState = stateOverride ?? sharedAutoPlayState;
     const isRootMapSurface = !id || id === AUTO_PLAY_ROOT_MODULE_ID;
     const isDashboardMapSurface = id === AUTO_PLAY_CARPLAY_DASHBOARD_MODULE_ID;
+    const isCarPlay = Platform.OS === 'ios';
     const navigationSurface = isClusterMapSurface
         ? 'cluster'
         : isDashboardMapSurface
@@ -1939,6 +1946,9 @@ export function AutoPlayMapSurfaceContent({
     const activeDirectionsRoute = autoPlayState.isNavigating
         ? displayedDirectionsRoute
         : null;
+    const centersPuckInSafeArea =
+        drivingMapViewMode === DRIVING_MAP_VIEW_NORTH_UP &&
+        !activeDirectionsRoute;
     const submittedSearchResults =
         routePreviewIsActive || autoPlayState.isNavigating
             ? EMPTY_AUTO_PLAY_SUBMITTED_SEARCH_RESULTS
@@ -1987,15 +1997,22 @@ export function AutoPlayMapSurfaceContent({
                 layoutSize,
                 ornamentSafeAreaLeftScale,
                 safeAreaInsets: autoPlaySafeAreaInsets,
-                // Dashboard's bridge reports the whole screen, while its map
-                // and measured puck slot live inside a smaller pane.
-                windowInfo: isDashboardMapSurface ? undefined : windowInfo,
+                // CarPlay's secondary maps can occupy only part of the screen
+                // reported by the bridge. Use the same canvas for the camera
+                // and the puck slot once the cluster layout is available.
+                windowInfo:
+                    isDashboardMapSurface ||
+                    (isCarPlay && isClusterMapSurface && layoutSize?.height)
+                        ? undefined
+                        : windowInfo,
             }),
         [
             autoPlaySafeAreaInsets.bottom,
             autoPlaySafeAreaInsets.left,
             autoPlaySafeAreaInsets.right,
             autoPlaySafeAreaInsets.top,
+            isCarPlay,
+            isClusterMapSurface,
             isDashboardMapSurface,
             layoutSize?.height,
             layoutSize?.width,
@@ -2019,6 +2036,19 @@ export function AutoPlayMapSurfaceContent({
         SHOW_MAP_DEBUG_CONTROLS &&
         mapPreferences.debugOverlayIsVisible;
     const debugOverlayVisibility = mapPreferences.debugOverlayVisibility;
+    const cameraFocusDebugOverlayIsVisible =
+        SHOW_MAP_DEBUG_CONTROLS &&
+        debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA_FOCUS] === true;
+    const safeAreaDebugOverlayIsVisible =
+        SHOW_MAP_DEBUG_CONTROLS &&
+        debugOverlayVisibility?.[DEBUG_OVERLAY_SAFE_AREA] === true;
+    const safeAreaDebugSurfaceLabel = isCarPlay
+        ? {
+              automotive: 'CarPlay main display',
+              cluster: 'CarPlay instrument cluster',
+              dashboard: 'CarPlay Dashboard',
+          }[navigationSurface]
+        : undefined;
     const mapGestureCoordinateScale = useMemo(
         () =>
             getMapGestureCoordinateScale({
@@ -2044,6 +2074,7 @@ export function AutoPlayMapSurfaceContent({
         );
     }, []);
     const controller = useAutoPlayMapController({
+        centersPuckInSafeArea,
         cameraDebugStateUpdatesEnabled:
             autoPlayCameraDebugStateUpdatesAreEnabled({
                 debugOverlayVisibility,
@@ -2751,6 +2782,10 @@ export function AutoPlayMapSurfaceContent({
                             isDashboardMapSurface) &&
                         !searchResultsMapIsActive
                     }
+                    debugRoadPillOutlineIsVisible={
+                        cameraFocusDebugOverlayIsVisible
+                    }
+                    debugPuckGapIsVisible={!centersPuckInSafeArea}
                     drivingStatusIsVisible={
                         mapContentVisibility.drivingStatusIsVisible &&
                         shouldShowDrivingMapStatus(drivingMapViewMode)
@@ -2762,7 +2797,6 @@ export function AutoPlayMapSurfaceContent({
                         mapPreferences.mapPreferencesAreLoaded
                     }
                     onLocationAnchorLayout={handleLocationAnchorLayout}
-                    navigationPuckSize={navigationPuckSize}
                     presentation={presentation}
                     rendersSpeedLimit={speedLimitIsRendered}
                     speedLimitBadge={speedLimitBadge}
@@ -2781,12 +2815,26 @@ export function AutoPlayMapSurfaceContent({
                         searchLoading={autoPlayState.searchLoading}
                     />
                 ) : null}
+                {safeAreaDebugOverlayIsVisible ? (
+                    <SafeAreaDebugOverlay
+                        controlInsets={presentation.mapControlLayoutInsets}
+                        insets={presentation.insets}
+                        sceneInsets={
+                            isCarPlay ? autoPlaySafeAreaInsets : undefined
+                        }
+                        surfaceLabel={safeAreaDebugSurfaceLabel}
+                    />
+                ) : null}
                 <AutoPlayDebugOverlays
+                    cameraFocusDebugOverlayIsVisible={
+                        cameraFocusDebugOverlayIsVisible
+                    }
                     controller={controller}
                     debugOverlayVisibility={debugOverlayVisibility}
                     debugOverlaysAreVisible={debugOverlaysAreVisible}
                     isDrivingMode={isDrivingMode}
                     presentation={presentation}
+                    safeAreaInsets={autoPlaySafeAreaInsets}
                     userLocation={mapPreferences.userLocation}
                     viewportMetrics={viewportMetrics}
                 />

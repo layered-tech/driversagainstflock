@@ -4,6 +4,8 @@ import {
 } from '../auto-play-drive-simulation';
 import { presenceCoordinator } from './alpr-presence-runtime';
 import { e2eMapApiMocksCanBeEnabled } from './api-mocks';
+import { getRoadCoordinateDistanceMeters } from './road-graph';
+import { pewaukeeCoordinates } from './pewaukee-drive-fixture';
 
 let fixture = null;
 export function getPresenceE2EFixture() {
@@ -27,34 +29,42 @@ export function startPresenceE2EScenario(command) {
         stopAutoDriveSimulation();
         return true;
     }
-    const navigationActive = command.startsWith('navigation');
+    if (!['start', 'navigation', 'former-eligibility'].includes(command))
+        return false;
+    const navigationActive = command === 'navigation';
     const formerEligibilityGates = command === 'former-eligibility';
-    const coordinates = [
-        [-97.7431, 30.2672],
-        [-97.7431, 30.2742],
-    ];
+    // Start just north of the mapped reader so the smoke suite observes the pass.
+    const coordinates = pewaukeeCoordinates.slice(48);
+    const speedMetersPerSecond = 8;
     fixture = {
         coordinates,
         routeKey: 'presence-e2e',
         navigationActive,
-        maneuverSeconds: command === 'navigation-near-maneuver' ? 20 : 90,
+        maneuverSeconds: null,
         coverageComplete: true,
         coverageCenter: null,
         nodes: [
             {
-                id: 'osm-node-fixture',
-                osm_id: 987654321,
-                longitude: -97.7431,
-                latitude: 30.26755,
-                tags: { 'addr:street': 'Congress Avenue' },
+                id: 'osm-node-12634608635',
+                osm_id: 12634608635,
+                longitude: -88.2445066,
+                latitude: 43.1099621,
+                tags: { 'addr:street': 'Pewaukee Road' },
             },
         ],
     };
     startAutoDriveSimulation({
         coordinates,
-        speedMetersPerSecond: 8,
+        speedMetersPerSecond,
         tickMs: 1000,
         onLocation: (position) => {
+            if (navigationActive) {
+                fixture.maneuverSeconds =
+                    getRoadCoordinateDistanceMeters(
+                        [position.coords.longitude, position.coords.latitude],
+                        coordinates.at(-1),
+                    ) / speedMetersPerSecond;
+            }
             fixture.location = {
                 ...position.coords,
                 ...(formerEligibilityGates ? { speed: 0 } : {}),

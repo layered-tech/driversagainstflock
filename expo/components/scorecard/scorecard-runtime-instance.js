@@ -6,7 +6,6 @@ import {
     addAcceptedDeviceLocationListener,
     getLatestAcceptedDeviceLocation,
 } from '../map/accepted-device-location';
-import { APP_ENVIRONMENT } from '../map/config';
 import {
     getDirectionsRouteProgress,
     getDirectionsWaypointCoordinate,
@@ -19,7 +18,6 @@ import {
     hydrateElectronicHorizonAlprNodes,
 } from '../map/electronic-horizon-alpr-store';
 import { getLocationCourseHeading, getLocationUpdate } from '../map/geo';
-import { scorecardDriveE2ECameraInventoryIsReady } from '../map/scorecard-drive-e2e-fixture';
 import {
     addSharedRoutingStateListener,
     getDirectionsRouteGeometrySyncKey,
@@ -111,13 +109,6 @@ export function initializeScorecardRuntime() {
     });
     addElectronicHorizonAlprNodesListener((nodes) => {
         runtime.setSupplementalNodes(nodes);
-
-        if (
-            APP_ENVIRONMENT === 'e2e' &&
-            scorecardDriveE2ECameraInventoryIsReady(nodes)
-        ) {
-            console.info('[E2E] scorecard-camera-inventory-ready');
-        }
     });
 
     const acceptedLocation = getLatestAcceptedDeviceLocation();

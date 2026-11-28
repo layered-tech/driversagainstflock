@@ -525,6 +525,26 @@ test(
                 true,
                 'fresh DHU capture shows the puck',
             );
+            const northUpPuck = JSON.parse(
+                execFileSync(
+                    binary,
+                    [
+                        '--puck-pixels',
+                        fileURLToPath(
+                            new URL(
+                                './fixtures/android-auto-north-up-puck.png',
+                                import.meta.url,
+                            ),
+                        ),
+                        '0',
+                        '0',
+                        '75',
+                        '80',
+                    ],
+                    { encoding: 'utf8', timeout: 30000 },
+                ),
+            );
+            assert.equal(northUpPuck.visible, true, 'smaller north-up puck');
             const emptyRoad = JSON.parse(
                 execFileSync(
                     binary,

@@ -5,8 +5,8 @@ tags:
   - directions
 ---
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 - launchApp:
     clearState: true
     stopApp: true
@@ -108,8 +108,8 @@ tags:
       id: 'map-search-directions-button-map'
     timeout: 10000
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 
 - tapOn:
     id: 'map-search-directions-button-map'
@@ -128,7 +128,7 @@ tags:
     id: 'map-directions-current-location-map'
 - tapOn:
     id: 'map-directions-destination-input-map'
-- inputText: 'Austin Central Library'
+- inputText: '377 Parkland Ct'
 - extendedWaitUntil:
     visible:
       id: 'map-directions-search-result-0-map'
@@ -155,16 +155,18 @@ tags:
 
 # Dragging the card up must not dismiss it — it stays open.
 - swipe:
-    start: '50%,64%'
-    end: '50%,20%'
+    from:
+      text: 'Bottom sheet handle'
+    direction: UP
     duration: 700
 - assertVisible:
     id: 'directions-route-sheet-presented'
 
 # Dragging the card down must close it (same as the back arrow).
 - swipe:
-    start: '50%,64%'
-    end: '50%,98%'
+    from:
+      text: 'Bottom sheet handle'
+    direction: DOWN
     duration: 900
 - extendedWaitUntil:
     notVisible:

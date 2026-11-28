@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import test from 'node:test';
+import vm from 'node:vm';
 
 const autoPlaySource = readFileSync(
     new URL('../../auto-play.js', import.meta.url),
@@ -33,7 +34,7 @@ test('Android Auto reveals route choices immediately after result selection', ()
     );
     assert.match(
         autoPlaySource,
-        /onBackPressed:\s*clearAutoPlayRoutePreviewState/,
+        /onBackPressed: \(\) => \{[\s\S]*?clearAutoPlayRoutePreviewState\(\)/,
     );
     assert.match(
         autoPlaySource,
@@ -101,6 +102,69 @@ test('route previews clear search-map context before presenting route choices', 
         autoPlaySource,
         /clearAutoPlaySubmittedSearchResults\(\)[\s\S]*?await HybridAutoPlay\.popToRootTemplate\(false\)[\s\S]*?showTripSelector/,
     );
+});
+
+test('route choice Back restores cached results once and ignores stale Back events', async () => {
+    const calls = [];
+    let selector;
+    const start = autoPlaySource.indexOf('async function showRoutePreview(');
+    const end = autoPlaySource.indexOf(
+        'async function resolvePlaceForResult(',
+        start,
+    );
+    const context = vm.createContext({
+        rootMapTemplate: {
+            showTripSelector: (config) => {
+                selector = config;
+                calls.push('selector');
+            },
+        },
+        rootMapTemplateIsReady: true,
+        routePreviewRequestSequence: 0,
+        routePreviewIsVisible: false,
+        searchRequestSequence: 0,
+        loadAutoPlayModule: () => ({
+            HybridAutoPlay: {
+                popToRootTemplate: async () => calls.push('root'),
+            },
+        }),
+        setAutoPlaySearchWorkflowIsActive() {},
+        clearAutoPlaySubmittedSearchResults() {},
+        clearAutoPlayRoutePreviewState() {
+            context.routePreviewIsVisible = false;
+            context.routePreviewRequestSequence++;
+        },
+        getDirectionsRouteOptions: () => [],
+        getSelectedDirectionsRouteOption: () => null,
+        DIRECTIONS_ROUTE_FASTEST: 'fastest',
+        makeAutoPlayTripSelectorTrips: () => [],
+        getRootMapButtons: () => [],
+        AUTO_PLAY_TRIP_PREVIEW_TEXT_CONFIGURATION: {},
+        setAutoPlayRoutePreviewState() {},
+        logAutoPlayPlatformAction() {},
+        showAutoPlayError: (...error) => assert.fail(error.join(' ')),
+        presentAutoPlaySearchResults: (options) => calls.push(options),
+    });
+    vm.runInContext(autoPlaySource.slice(start, end), context);
+    const results = [{ id: 'coffee' }];
+    const searchResults = { query: 'Coffee', results };
+    await context.showRoutePreview(
+        { destination: { label: 'Coffee' } },
+        searchResults,
+    );
+    assert.deepEqual(calls, ['root', 'selector']);
+    selector.onBackPressed();
+    selector.onBackPressed();
+    assert.equal(calls.length, 3);
+    assert.equal(calls[2].query, 'Coffee');
+    assert.strictEqual(calls[2].results, results);
+    assert.equal(calls[2].requestIsCurrent(), true);
+    context.searchRequestSequence++;
+    assert.equal(calls[2].requestIsCurrent(), false);
+
+    await context.showRoutePreview({ destination: { label: 'Home' } });
+    selector.onBackPressed();
+    assert.deepEqual(calls.slice(3), ['root', 'selector']);
 });
 
 test('new route previews select their first route from the shared preference', () => {

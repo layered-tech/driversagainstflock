@@ -54,7 +54,7 @@ export function makeDirectionsWaypointMarkers({
         return [
             createDirectionsWaypointMarker(
                 DIRECTIONS_FIELD_START,
-                directionsRoute.start,
+                directionsRoute.originalStart ?? directionsRoute.start,
             ),
             ...(directionsRoute.stopWaypoints ?? []).map((waypoint, index) =>
                 createDirectionsWaypointMarker(

@@ -48,6 +48,7 @@ export function useStableCurrentRoadText(userLocation) {
 export function CurrentRoadPill({
     className = '',
     compact = false,
+    debugOutlineIsVisible = false,
     isDarkMode,
     roadText: roadTextOverride,
     style,
@@ -74,13 +75,20 @@ export function CurrentRoadPill({
             testID={testID}
         >
             <Text
-                className={`max-w-full text-center font-semibold ${compact ? 'text-[14px] leading-[20px]' : 'text-[16px] leading-[22px]'} ${resolvedIsDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
+                className={`max-w-full text-center font-semibold ${compact ? 'text-[13px] leading-[18px]' : 'text-[16px] leading-[22px]'} ${resolvedIsDarkMode ? 'text-neutral-100' : 'text-neutral-900'}`}
                 ellipsizeMode="tail"
                 numberOfLines={1}
                 style={textStyle}
             >
                 {roadText}
             </Text>
+            {debugOutlineIsVisible ? (
+                <View
+                    className="absolute inset-0 rounded-full border-2 border-amber-400"
+                    pointerEvents="none"
+                    testID="current-road-pill-debug-outline"
+                />
+            ) : null}
         </View>
     );
 }

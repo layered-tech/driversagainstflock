@@ -14,6 +14,8 @@ import {
     selectDirectionsRoute,
 } from './directions';
 import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
+import { createNavigationRouteTrail } from './navigation-route-trail';
+import { getRerouteHeading } from './route-snapping';
 
 const CONFIRMATION_MS = 2000;
 const COOLDOWN_MS = 8000;
@@ -24,12 +26,14 @@ const REQUEST_TIMEOUT_MS = 60000;
 export function createSharedNavigationReroutingController({
     getRoutingState,
     getDirections,
+    getDeviceFix = () => null,
     publishRoute,
     onStatusChange = () => {},
     getShowZone = () => false,
     now = Date.now,
 }) {
     const tracker = createDirectionsRouteProgressTracker();
+    const trail = createNavigationRouteTrail(MAX_LOCATION_AGE_MS);
     let activeRoute = null;
     let latestLocation = null;
     let offRouteSince = null;
@@ -59,12 +63,13 @@ export function createSharedNavigationReroutingController({
         );
     }
 
-    function update(location = latestLocation) {
+    function update(location = latestLocation, deviceFix) {
         const state = getRoutingState();
         const route = state?.drivingModeIsActive ? state.directionsRoute : null;
         if (route !== activeRoute) {
             cancel();
             tracker.reset();
+            trail.reset();
             activeRoute = route;
             nextAttemptAt = 0;
             failureCount = 0;
@@ -89,6 +94,15 @@ export function createSharedNavigationReroutingController({
             routeProgress: progress,
             userLocation: location,
         });
+        if (progress?.coordinate && distance !== null) {
+            trail.record(
+                location,
+                progress,
+                distance <= ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS &&
+                    progress.distanceFromRoute <=
+                        ACTIVE_ROUTE_DEVIATION_THRESHOLD_METERS,
+            );
+        }
         if (
             !progress ||
             distance === null ||
@@ -110,13 +124,25 @@ export function createSharedNavigationReroutingController({
             return;
         }
         const startWaypoint = createCurrentLocationDirectionsWaypoint(location);
-        const start = getDirectionsWaypointApiCoord(startWaypoint);
+        const start = getDirectionsWaypointApiCoord(startWaypoint, {
+            rerouteHeading: getRerouteHeading(
+                location,
+                deviceFix ?? getDeviceFix(),
+            ),
+            now: now(),
+        });
         const end = getDirectionsWaypointApiCoord(route.destination);
         if (!start || !end) {
             return;
         }
         const stops = getRemainingDirectionsStopWaypoints(route, progress);
         const selectedRouteKey = getSelectedDirectionsRouteKey(route);
+        const traveledSegments = [
+            ...(route.traveledSegments ?? []),
+            ...trail.snapshot(
+                getSelectedDirectionsRouteOption(route).coordinates,
+            ),
+        ];
         const request = { controller: new AbortController(), timeoutId: null };
         pendingRequest = request;
         offRouteSince = null;
@@ -134,7 +160,9 @@ export function createSharedNavigationReroutingController({
                     start,
                     end,
                     waypoints: stops
-                        .map(getDirectionsWaypointApiCoord)
+                        .map((waypoint) =>
+                            getDirectionsWaypointApiCoord(waypoint),
+                        )
                         .filter(Boolean),
                     showZone: getShowZone(),
                     signal: request.controller.signal,
@@ -166,6 +194,7 @@ export function createSharedNavigationReroutingController({
                 );
                 if (
                     !locationIsUsable(latestLocation) ||
+                    option?.routeKey !== selectedRouteKey ||
                     snapDistance === null ||
                     snapDistance > 75 ||
                     !currentProgress ||
@@ -181,16 +210,19 @@ export function createSharedNavigationReroutingController({
                 const nextRoute = {
                     ...selectedRoute,
                     advancedRouteSettings: route.advancedRouteSettings,
-                    bounds: getDirectionsRouteBounds(selectedRoute),
                     debugGeometry,
                     destination: route.destination,
                     exclusionZone,
+                    originalStart: route.originalStart ?? route.start,
                     requestedAt: now(),
                     start: startWaypoint,
                     stopWaypoints: stops,
+                    traveledSegments,
                 };
+                nextRoute.bounds = getDirectionsRouteBounds(nextRoute);
                 activeRoute = nextRoute;
                 tracker.reset();
+                trail.reset();
                 nextAttemptAt = now() + COOLDOWN_MS;
                 publishRoute(nextRoute);
             })

@@ -49,6 +49,7 @@ test('Android fixture commands preserve live API mode and normalize only E2E nav
         'reset',
         'locations&locations=work',
         'search&query=Walmart%20Delafield',
+        'search&query=377%20Parkland%20Ct%2C%20Pewaukee',
     ]) {
         const url = `driversagainstflock://e2e-android-auto?command=${command}`;
         assert.equal(

@@ -1,5 +1,26 @@
 import { getStoredNumber } from './geo';
 
+export function getRerouteHeading(location, deviceFix) {
+    const gpsHeading = [
+        deviceFix?.coords?.heading,
+        deviceFix?.coords?.course,
+    ].find(isHeading);
+    const navigationHeading = [
+        location.courseHeading,
+        location.heading,
+        location.compassHeading,
+    ].find(isHeading);
+    const heading =
+        deviceFix?.timestamp < location.recordedAt
+            ? (navigationHeading ?? gpsHeading)
+            : (gpsHeading ?? navigationHeading);
+    return heading === undefined ? null : heading % 360;
+}
+
+function isHeading(value) {
+    return Number.isFinite(value) && value >= 0;
+}
+
 export function getCurrentLocationRoadHint(location, now = Date.now()) {
     const match = location?.roadMatch;
     const recordedAt = getStoredNumber(location?.recordedAt);

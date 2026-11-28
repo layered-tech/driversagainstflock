@@ -1,4 +1,4 @@
-import { useWindowDimensions, View } from 'react-native';
+import { Platform, useWindowDimensions, View } from 'react-native';
 import { CameraFocusDebugOverlay } from './camera-focus-debug-overlay';
 import { SHOW_MAP_DEBUG_CONTROLS } from './config';
 import { DebugOverlayStack } from './debug-overlay-stack';
@@ -11,7 +11,7 @@ import {
 import { useDebugControlsContext } from './map-screen-context';
 import { SafeAreaDebugOverlay } from './safe-area-debug-overlay';
 
-export function MapDebugControls() {
+export function MapDebugControls({ mapChromeIsVisible = true }) {
     const { height: windowHeight, width: windowWidth } = useWindowDimensions();
     const {
         cameraFocusDebugState,
@@ -27,7 +27,9 @@ export function MapDebugControls() {
         return null;
     }
 
+    const isIOS = Platform.OS === 'ios';
     const safeAreaDebugOverlayIsVisible =
+        (isIOS || mapChromeIsVisible) &&
         debugOverlayVisibility?.[DEBUG_OVERLAY_SAFE_AREA] === true;
     const cameraFocusDebugOverlayIsVisible =
         debugOverlayVisibility?.[DEBUG_OVERLAY_CAMERA_FOCUS] === true;
@@ -36,7 +38,8 @@ export function MapDebugControls() {
     const networkDebugOverlayIsVisible =
         debugOverlayVisibility?.[DEBUG_OVERLAY_NETWORK] === true;
     const debugOverlayStackIsVisible =
-        cameraDebugOverlayIsVisible || networkDebugOverlayIsVisible;
+        mapChromeIsVisible &&
+        (cameraDebugOverlayIsVisible || networkDebugOverlayIsVisible);
 
     return (
         <>
@@ -44,6 +47,7 @@ export function MapDebugControls() {
                 <SafeAreaDebugOverlay
                     controlInsets={mapControlLayoutInsets}
                     insets={insets}
+                    surfaceLabel={isIOS ? 'iOS map' : undefined}
                 />
             ) : null}
             {cameraFocusDebugOverlayIsVisible ? (

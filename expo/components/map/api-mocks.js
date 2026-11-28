@@ -8,11 +8,11 @@ import {
     normalizeDirectionsRouteResponse,
 } from './directions';
 import { getCoordinateDistanceMeters, getStoredNumber } from './geo';
-import { getE2ERoadCorridorWays } from './road-matching-e2e-fixture';
 import {
-    getScorecardDriveE2EDirectionsFixture,
-    getScorecardDriveE2ERoadCorridorWays,
-} from './scorecard-drive-e2e-fixture';
+    pewaukeeCoordinates,
+    pewaukeeDirections,
+    pewaukeeStops,
+} from './pewaukee-drive-fixture';
 import { getMockSpeedLimitSnapshot } from './speed-limit-mock';
 
 const E2E_MAP_API_MOCKS_ENV = process.env.EXPO_PUBLIC_E2E_MAP_API_MOCKS === '1';
@@ -37,6 +37,17 @@ const MOCK_WAZE_POLICE_NODES = [
 ];
 
 const MOCK_PLACES = {
+    ...Object.fromEntries(
+        pewaukeeStops.map(({ id, name, address, coordinate }) => [
+            id,
+            {
+                id,
+                displayName: { text: name },
+                formattedAddress: address,
+                location: { latitude: coordinate[1], longitude: coordinate[0] },
+            },
+        ]),
+    ),
     'mock-walmart-supercenter': {
         businessStatus: 'OPERATIONAL',
         displayName: { text: 'Walmart Supercenter' },
@@ -100,6 +111,13 @@ const MOCK_PLACES = {
 };
 
 const MOCK_SEARCH_RESULTS = [
+    ...pewaukeeStops.map(({ id, name, address }) => ({
+        id,
+        placeId: id,
+        primaryText: name,
+        secondaryText: address,
+        label: address,
+    })),
     {
         id: 'mock-walmart-supercenter',
         label: 'Walmart Supercenter, 1030 Norwood Park Blvd, Austin, TX 78753',
@@ -287,8 +305,19 @@ export async function getMockRoadCorridor({ signal }) {
     throwIfAborted(signal);
 
     return [
-        ...getE2ERoadCorridorWays(),
-        ...getScorecardDriveE2ERoadCorridorWays(),
+        {
+            id: 'e2e-pewaukee',
+            coordinates: pewaukeeCoordinates,
+            nodeIds: pewaukeeCoordinates.map((_, index) => `pewaukee-${index}`),
+            direction: 'forward',
+            roadClass: 'primary',
+            priority: 6,
+            name: 'Pewaukee Road',
+            speedLimit: {
+                speed: getMockSpeedLimitSnapshot().speedLimitMph,
+                unit: 'mph',
+            },
+        },
     ];
 }
 
@@ -480,143 +509,20 @@ export async function getMockDirections({
 }) {
     throwIfAborted(signal);
 
-    const scorecardDriveFixture = getScorecardDriveE2EDirectionsFixture();
-
-    if (scorecardDriveFixture) {
-        const debugGeometry = showZone
-            ? getMockDirectionsDebugGeometry({ end, start })
-            : { debugGeometry: null, exclusionZone: null };
-
-        return {
-            debugGeometry: debugGeometry.debugGeometry,
-            exclusionZone: debugGeometry.exclusionZone,
-            route: normalizeDirectionsRouteResponse(scorecardDriveFixture),
-        };
+    const savedDirections = pewaukeeDirections(start, end, waypoints);
+    if (!savedDirections) {
+        throw new Error(
+            'No saved Pewaukee drive matches these endpoints and waypoints.',
+        );
     }
 
-    const waypointCoordinates = Array.isArray(waypoints)
-        ? waypoints
-              .map((waypoint) => ({
-                  latitude: getStoredNumber(waypoint?.latitude),
-                  longitude: getStoredNumber(waypoint?.longitude),
-              }))
-              .filter(
-                  (waypoint) =>
-                      waypoint.latitude !== null && waypoint.longitude !== null,
-              )
-        : [];
-    const directCoordinates = [
-        [start.longitude, start.latitude],
-        ...waypointCoordinates.map((waypoint) => [
-            waypoint.longitude,
-            waypoint.latitude,
-        ]),
-        [
-            (start.longitude + end.longitude) / 2,
-            (start.latitude + end.latitude) / 2,
-        ],
-        [end.longitude, end.latitude],
-    ];
-    const idealCoordinates = [
-        [start.longitude, start.latitude],
-        ...waypointCoordinates.map((waypoint) => [
-            waypoint.longitude,
-            waypoint.latitude,
-        ]),
-        [
-            start.longitude + (end.longitude - start.longitude) * 0.33 - 0.004,
-            start.latitude + (end.latitude - start.latitude) * 0.33 + 0.004,
-        ],
-        [
-            start.longitude + (end.longitude - start.longitude) * 0.66 + 0.004,
-            start.latitude + (end.latitude - start.latitude) * 0.66 - 0.004,
-        ],
-        [end.longitude, end.latitude],
-    ];
-
-    const debugGeometry = showZone
-        ? getMockDirectionsDebugGeometry({ end, start })
-        : { debugGeometry: null, exclusionZone: null };
-
+    const debug = showZone
+        ? getMockDirectionsDebugGeometry({ start, end })
+        : {};
     return {
-        debugGeometry: debugGeometry.debugGeometry,
-        exclusionZone: debugGeometry.exclusionZone,
-        route: normalizeDirectionsRouteResponse({
-            fastest_route_node_count: 3,
-            routes: {
-                direct: {
-                    coordinates: directCoordinates,
-                    distance: 6759.2448,
-                    duration: 2520,
-                    maneuvers: [
-                        {
-                            distance: 2100,
-                            duration: 640,
-                            instruction: 'Head east on Barton Springs Road',
-                            maneuver: {
-                                location: [start.longitude, start.latitude],
-                            },
-                            name: 'Barton Springs Road',
-                            type: 11,
-                            way_points: [0, 1],
-                        },
-                        {
-                            distance: 4659.2448,
-                            duration: 1880,
-                            instruction: 'Continue toward your destination',
-                            maneuver: {
-                                location: directCoordinates[1],
-                            },
-                            name: '',
-                            type: 6,
-                            way_points: [1, directCoordinates.length - 1],
-                        },
-                    ],
-                    node_count: 3,
-                },
-                ideal: {
-                    coordinates: idealCoordinates,
-                    distance: 7420.02,
-                    duration: 2790,
-                    maneuvers: [
-                        {
-                            distance: 1200,
-                            duration: 420,
-                            instruction: 'Head east, then keep right',
-                            maneuver: {
-                                location: [start.longitude, start.latitude],
-                            },
-                            name: '',
-                            type: 11,
-                            way_points: [0, 1],
-                        },
-                        {
-                            distance: 3900,
-                            duration: 1420,
-                            instruction:
-                                'Turn right to avoid monitored intersections',
-                            maneuver: {
-                                location: idealCoordinates[1],
-                            },
-                            name: '',
-                            type: 1,
-                            way_points: [1, 2],
-                        },
-                        {
-                            distance: 2320.02,
-                            duration: 950,
-                            instruction: 'Arrive at your destination',
-                            maneuver: {
-                                location: idealCoordinates[2],
-                            },
-                            name: '',
-                            type: 10,
-                            way_points: [2, idealCoordinates.length - 1],
-                        },
-                    ],
-                },
-            },
-        }),
+        debugGeometry: debug.debugGeometry ?? null,
+        exclusionZone: debug.exclusionZone ?? null,
+        route: normalizeDirectionsRouteResponse(savedDirections),
     };
 }
 

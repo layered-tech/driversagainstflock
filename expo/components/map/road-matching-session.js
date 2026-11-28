@@ -585,16 +585,11 @@ async function publishRawLocationAsync(
         await acceptedLocationSettlement;
     }
 
-    const graphBeforeRequest = roadGraph;
+    const loadedGraph = await ensureRoadGraph(location, source);
 
-    await ensureRoadGraph(location, source);
-
-    if (
-        graphBeforeRequest !== roadGraph &&
-        lastRawLocation &&
-        (expectedLocationSourceGeneration === null ||
-            expectedLocationSourceGeneration === locationSourceGeneration)
-    ) {
+    // Retaining another map can replace the watch while its accepted fix
+    // awaits road data. Reapply the latest fix against the installed graph.
+    if (loadedGraph && loadedGraph === roadGraph && lastRawLocation) {
         applyRawLocation(lastRawLocation);
 
         if (updateWasDeliveredInBackground && lastRawLocation === location) {
@@ -919,10 +914,13 @@ async function ensurePersistentLocationPermission() {
         return false;
     }
 
-    // Android's foreground service and a visible CarPlay scene support
-    // user-initiated location use with While Using authorization. CarPlay still
-    // needs Expo's persistent task when the phone scene is backgrounded.
-    if (Platform.OS !== 'ios' || automotiveLocationOwnerIsActive()) {
+    // The phone can be foregrounded before the first CarPlay appearance.
+    // Either visible app surface can start the car's task with While Using.
+    if (
+        Platform.OS !== 'ios' ||
+        (getAutoPlaySessionState().isConnected &&
+            getOperationalAppState() === 'active')
+    ) {
         return true;
     }
 

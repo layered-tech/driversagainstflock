@@ -12,9 +12,9 @@ import {
     getAutoPlayTopRightStatusOverlayLayout,
 } from './auto-play-map-status-layout';
 import { dafSemanticColors } from './design-system/tokens';
+import { AUTO_PLAY_CURRENT_ROAD_PILL_PUCK_TARGET_GAP } from './map/current-road-pill-layout';
 import { DrivingLocationRoadStack } from './map/driving-location-road-stack';
 import { MarkerLoadingIndicator } from './map/marker-loading-indicator';
-import { AUTO_PLAY_NAVIGATION_PUCK_SIZE } from './map/navigation-puck-layout';
 import {
     getCurrentSpeedMph,
     SpeedLimitSign,
@@ -94,12 +94,13 @@ export function AutoPlayMapStatusOverlay({
     confirmationIsActive = false,
     activeDirectionsRoute,
     currentRoadPill,
+    debugPuckGapIsVisible,
+    debugRoadPillOutlineIsVisible,
     drivingStatusIsVisible = true,
     freeDriveIsActive,
     isDarkMode,
     markerLoader,
     mapPreferencesAreLoaded,
-    navigationPuckSize = AUTO_PLAY_NAVIGATION_PUCK_SIZE,
     onLocationAnchorLayout,
     presentation,
     rendersSpeedLimit = true,
@@ -171,16 +172,22 @@ export function AutoPlayMapStatusOverlay({
                   viewportMetrics,
               })
             : null;
+    const { paddingBottom, paddingLeft, paddingRight } =
+        viewportMetrics.cameraPadding;
     return (
         <>
             {drivingStatusIsVisible ? (
                 <View
-                    className="absolute inset-0"
+                    className="absolute"
                     pointerEvents="box-none"
-                    style={viewportMetrics.cameraPadding}
+                    style={{
+                        bottom: paddingBottom,
+                        left: paddingLeft,
+                        right: paddingRight,
+                    }}
                 >
-                    <View className="flex-1" pointerEvents="none" />
                     <DrivingLocationRoadStack
+                        bottomInset={paddingBottom}
                         currentRoadPillIsCompact={
                             currentRoadPill?.compact === true
                         }
@@ -203,9 +210,16 @@ export function AutoPlayMapStatusOverlay({
                                   currentRoadPill?.textStyle)
                                 : currentRoadPill?.textStyle
                         }
+                        debugPuckGapIsVisible={debugPuckGapIsVisible}
+                        debugRoadPillOutlineIsVisible={
+                            debugRoadPillOutlineIsVisible
+                        }
                         onLocationAnchorLayout={onLocationAnchorLayout}
-                        puckSize={navigationPuckSize}
+                        puckTargetGap={
+                            AUTO_PLAY_CURRENT_ROAD_PILL_PUCK_TARGET_GAP
+                        }
                         userLocation={userLocation}
+                        viewportHeight={viewportMetrics.height}
                     />
                 </View>
             ) : null}

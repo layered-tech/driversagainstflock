@@ -63,6 +63,8 @@ import {
     DIRECTIONS_DEBUG_SEARCH_ZONE,
 } from './directions';
 import { DrivingLocationProvider } from './driving-location-provider';
+import { DRIVING_MAP_VIEW_PERSPECTIVE } from './driving-map-view';
+import { DrivingStreetLabels } from './driving-street-labels';
 import {
     applyLocationPuck3DAsync,
     clearLocationPuck3DAsync,
@@ -515,7 +517,7 @@ export const MapCanvas = memo(function MapCanvas({
         initialCameraSettings,
         isDarkModeOverride,
         isDrivingMode,
-        navigationViewMode = 'perspective',
+        navigationViewMode = DRIVING_MAP_VIEW_PERSPECTIVE,
         navigationSurface = 'phone',
         isFollowing,
         locationAccessGranted,
@@ -1187,6 +1189,15 @@ export const MapCanvas = memo(function MapCanvas({
                 existing
                 id={MAPBOX_STANDARD_STYLE_IMPORT_ID}
             />
+            {isDrivingMode &&
+            isFollowing &&
+            !cameraIsLocked &&
+            navigationViewMode === DRIVING_MAP_VIEW_PERSPECTIVE ? (
+                <DrivingStreetLabels
+                    isDarkMap={isDuskNightMapLightPreset}
+                    userLocation={userLocation}
+                />
+            ) : null}
             {locationAccessGranted &&
             (isDrivingMode || usesSharedLocationProvider) ? (
                 <MapLocationProvider

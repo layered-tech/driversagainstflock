@@ -22,6 +22,8 @@ function harness({
     storage = new Map(),
     noV2 = false,
     mocksEnabled = false,
+    legacyCatalog = false,
+    cachedTile = false,
 } = {}) {
     const timers = new Map();
     const events = [];
@@ -48,6 +50,7 @@ function harness({
     tile.key = `tiles/${tile.id}-${tile.sha256}.jsonl.gz`;
     const catalog = {
         release: 'test',
+        ...(legacyCatalog ? {} : { region: '-45_21' }),
         coverage: [
             [
                 [
@@ -61,6 +64,11 @@ function harness({
         ],
         tiles: [tile],
     };
+    if (cachedTile)
+        files.set(
+            `docs/road-corridors/${catalog.release}/${tile.id}-${tile.sha256}.gz`,
+            bytes,
+        );
     class Directory {
         constructor(...parts) {
             this.uri = parts.map((part) => part.uri ?? part).join('/');
@@ -200,7 +208,7 @@ function harness({
                                   control({ schema_version: 1, ...catalog }),
                           }
                         : { ok: false };
-                if (url.startsWith('sign:') && signedGate) await signedGate;
+                if (url.startsWith('sign-v2:') && signedGate) await signedGate;
                 if (options?.signal?.aborted)
                     throw Object.assign(new Error('aborted'), {
                         name: 'AbortError',
@@ -385,6 +393,7 @@ test('a real verified replacement keeps separate files and does not mark an olde
 
 test('regional downloads sign v2 URLs and restore verified files and metadata offline', async () => {
     const h = await harness({
+        legacyCatalog: true,
         control: (catalog) => ({
             enabled: true,
             catalog: { ...catalog, release: 'national', region: '-45_21' },
@@ -404,6 +413,7 @@ test('regional downloads sign v2 URLs and restore verified files and metadata of
                 url.startsWith('sign-v2:') && url.includes('"region":"-45_21"'),
         ),
     );
+    assert.ok(!h.httpRequests.some(({ url }) => url.startsWith('sign:')));
     assert.ok(
         [...h.storage.keys()].some((key) =>
             key.endsWith('.catalog.national.-45_21'),
@@ -417,21 +427,22 @@ test('regional downloads sign v2 URLs and restore verified files and metadata of
     assert.equal(restored.counts().requests, 0);
 });
 
-test('new clients discover the legacy release when v2 is not deployed yet', async () => {
+test('a missing regional manifest does not trigger legacy manifest or tile requests', async () => {
     const h = await harness({
         noV2: true,
-        control: (catalog) => ({
-            enabled: true,
-            catalog: { ...catalog, release: 'legacy-new' },
-        }),
+        legacyCatalog: true,
     });
-    await h.load();
-    for (let i = 0; i < 20; i++) await new Promise(setImmediate);
-    assert.equal(h.getRelease().release, 'legacy-new');
-    assert.ok(
-        h.httpRequests.some(({ url }) =>
-            url.includes('v1/road-corridor-manifest'),
-        ),
+    const result = await h.load();
+    assert.equal(result.corridorSource.source, 'service');
+    assert.deepEqual(
+        h.httpRequests.map(({ url }) => url),
+        ['manifest:v2/road-corridor-manifest:-45_21'],
     );
-    assert.ok(!h.httpRequests.some(({ url }) => url.startsWith('sign-v2:')));
+});
+
+test('verified legacy tiles remain usable from the on-device cache', async () => {
+    const h = await harness({ legacyCatalog: true, cachedTile: true });
+    h.offline();
+    assert.equal((await h.load()).corridorSource.source, 'download');
+    assert.deepEqual(h.counts(), { requests: 0, services: 0 });
 });

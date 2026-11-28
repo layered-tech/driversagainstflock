@@ -6,8 +6,8 @@ tags:
   - visual
 ---
 - setLocation:
-    latitude: 30.2672
-    longitude: -97.7431
+    latitude: 43.12152
+    longitude: -88.24447
 - launchApp:
     stopApp: true
     permissions:
@@ -56,7 +56,7 @@ tags:
     id: 'map-directions-current-location-map'
 - tapOn:
     id: 'map-directions-destination-input-map'
-- inputText: 'Austin Central Library'
+- inputText: '377 Parkland Ct'
 - extendedWaitUntil:
     visible:
       id: 'map-directions-search-result-0-map'

@@ -118,6 +118,31 @@ test('stationary UI GPS is on the recorded road and separated from both saved-pl
         assert.ok(Math.abs(end.lat - point.latitude) > 0.005);
 });
 
+test('guided UI checks search for the saved destination from the replay origin', () => {
+    const scenarios = buildAndroidAutoNavigationSuite().filter(
+        (test) => test.startAtRouteOrigin,
+    );
+    assert.equal(scenarios.length, 1);
+    const { steps } = scenarios[0];
+    const { query } = steps.find((step) => step.type === 'recognizedSearch');
+    const leg = JSON.parse(
+        readFileSync(
+            new URL('../../.android-auto/route-pewaukee.json', import.meta.url),
+        ),
+    ).routes[0].legs[0];
+    assert.ok(leg.end_address.startsWith(query));
+    const select = steps.find(
+        (step) => step.type === 'tapOcr' && step.match === 'result',
+    );
+    for (const text of ['377 Parkland Ct', '1. 377 Parkland Ct']) {
+        const result = { text, x: 140, y: 250 };
+        assert.equal(
+            findAndroidAutoText({ textBounds: [result] }, select),
+            result,
+        );
+    }
+});
+
 test('map panning waits for rendered movement after the follow state changes', () => {
     const steps = buildAndroidAutoNavigationSuite()[0].steps;
     const pan = steps.find(({ type }) => type === 'assertMapAppearanceChanged');
@@ -195,10 +220,11 @@ test('all and UI groups cover both layouts in landscape and portrait and disconn
     );
     for (const source of [legacy, portrait]) {
         assert.equal(source.mapApiMocks, false);
-        for (const [group, count] of [
-            ['all', 43],
-            ['alpr', 17],
-            ['navigation', 27],
+        for (const [group, count, stationaryPerLayout] of [
+            ['all', 55, 19],
+            ['alpr', 17, 0],
+            ['navigation', 27, 13],
+            ['voice-search', 13, 6],
         ]) {
             const selected = selectAndroidAutoSuite(source, {
                 ANDROID_AUTO_E2E_SUITE: group,
@@ -210,7 +236,7 @@ test('all and UI groups cover both layouts in landscape and portrait and disconn
                     selected.tests.filter(
                         (test) => test.stationary && test.layout === layout,
                     ).length,
-                    group === 'alpr' ? 0 : 13,
+                    stationaryPerLayout,
                 );
             }
         }
@@ -429,23 +455,34 @@ test('native control coordinates follow header changes and both host orientation
         }
 });
 
-test('portrait Dashboard controls hit the native buttons observed in the DHU capture', () => {
+test('portrait Dashboard options hits the native header button observed in the DHU capture', () => {
     const portrait = loadSuite(
         new URL('../../.android-auto/suite-portrait.json', import.meta.url)
             .pathname,
     );
-    for (const [name, top, bottom] of [
-        ['options', 37, 102],
-        ['recenter', 680, 743],
-    ]) {
-        const point = getAndroidAutoControlPoint(
-            portrait.layouts.dashboard.appBounds,
-            name,
-            { home: true, work: true, recenterControlVisible: true },
-        );
-        assert.ok(point.x >= 1453 && point.x <= 1519, `${name} x=${point.x}`);
-        assert.ok(point.y >= top && point.y <= bottom, `${name} y=${point.y}`);
-    }
+    const point = getAndroidAutoControlPoint(
+        portrait.layouts.dashboard.appBounds,
+        'options',
+        { home: true, work: true },
+    );
+    assert.ok(point.x >= 1453 && point.x <= 1519, `options x=${point.x}`);
+    assert.ok(point.y >= 37 && point.y <= 102, `options y=${point.y}`);
+});
+
+test('landscape Dashboard taps the observed map-view and recenter buttons', () => {
+    const bounds = legacy.layouts.dashboard.appBounds;
+    const state = { isNavigating: true, recenterControlVisible: true };
+    const overview = getAndroidAutoControlPoint(bounds, 'overview', state);
+    const recenter = getAndroidAutoControlPoint(bounds, 'recenter', state);
+
+    assert.ok(overview.x >= 774 && overview.x <= 838);
+    assert.ok(overview.y >= 634 && overview.y <= 698);
+    assert.equal(recenter.x, overview.x);
+    assert.ok(recenter.y >= 406 && recenter.y <= 470);
+    assert.deepEqual(
+        getAndroidAutoControlPoint(bounds, 'overview', { isNavigating: true }),
+        overview,
+    );
 });
 
 test('native keyboard input targets OCR keys and rejects absent keys instead of injecting search', () => {
@@ -527,6 +564,33 @@ test('retrying Search never taps map coordinates after the native Search panel o
     runner.captureScreenshot = () =>
         assert.fail('Wait for the existing Search panel');
     await runner.runStep({ type: 'tapControl', name: 'search' });
+});
+
+test('Search can reopen from the visible speed-limit map after backing out of results', async () => {
+    const runner = Object.create(Runner.prototype);
+    runner.suite = legacy;
+    runner.carLayout = 'dashboard';
+    runner.metroOutput = '';
+    runner.autoPlayCommand = async () => ({
+        statusLabel: 'Search',
+        home: true,
+        work: true,
+    });
+    let searchTaps = 0;
+    let panelFrames = 0;
+    runner.captureScreenshot = async (name) => {
+        if (name === 'opened-search') panelFrames += 1;
+        return { ocr: panelFrames >= 3 ? 'Where to?' : 'SPEED\nLIMIT' };
+    };
+    runner.tapDhu = ({ x, y }) => {
+        if (x === 584 && y === 48) searchTaps += 1;
+    };
+    await runner.runStep({
+        type: 'tapControl',
+        name: 'search',
+        expectText: ['Where to?'],
+    });
+    assert.equal(searchTaps, 1);
 });
 
 test('sparse portrait keys require aligned number keys and evidence from two letter rows', () => {
@@ -697,6 +761,7 @@ test('each stationary scenario resets, seeds, verifies layout and records succes
                 },
                 {
                     name: 'second',
+                    startAtRouteOrigin: true,
                     stationary: true,
                     layout: 'fullscreen',
                     steps: [{ type: 'fail' }],
@@ -704,12 +769,8 @@ test('each stationary scenario resets, seeds, verifies layout and records succes
             ],
         };
         runner.report = () => {};
-        runner.setEmulatorLocation = (fix) =>
-            assert.deepEqual(fix, {
-                latitude: 43.5,
-                longitude: -88.5,
-                velocityKnots: 0,
-            });
+        const fixes = [];
+        runner.setEmulatorLocation = (fix) => fixes.push(fix);
         runner.sendDhu = (command) => assert.equal(command, 'restrict none');
         runner.autoPlayCommand = async (command) => events.push(command);
         runner.assertAutoPlayState = async () => events.push('state');
@@ -720,6 +781,10 @@ test('each stationary scenario resets, seeds, verifies layout and records succes
         };
         runner.captureScreenshot = async () => events.push('failure capture');
         await assert.rejects(runner.runSuite(), /test failure/);
+        assert.deepEqual(fixes, [
+            { ...runner.suite.stationaryLocation, velocityKnots: 0 },
+            { ...runner.suite.location, velocityKnots: 0 },
+        ]);
         assert.deepEqual(events, [
             'reset',
             'seed',

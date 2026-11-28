@@ -143,16 +143,30 @@ export function getDirectionsWaypointCoordinate(waypoint) {
     return getLocationCoordinate(waypoint?.location);
 }
 
-export function getDirectionsWaypointApiCoord(waypoint) {
+export function getDirectionsWaypointApiCoord(
+    waypoint,
+    { rerouteHeading = null, now } = {},
+) {
     const coordinate = getDirectionsWaypointCoordinate(waypoint);
 
     if (!coordinate) {
         return null;
     }
 
+    if (
+        waypoint?.kind === CURRENT_LOCATION_DIRECTIONS_WAYPOINT_ID &&
+        rerouteHeading !== null
+    ) {
+        return {
+            latitude: coordinate[1],
+            longitude: coordinate[0],
+            heading: rerouteHeading,
+        };
+    }
+
     const roadHint =
         waypoint?.kind === CURRENT_LOCATION_DIRECTIONS_WAYPOINT_ID
-            ? getCurrentLocationRoadHint(waypoint.location)
+            ? getCurrentLocationRoadHint(waypoint.location, now)
             : null;
 
     return {
@@ -575,12 +589,16 @@ function getRouteBoundsFromCoordinates(coordinates) {
         return null;
     }
 
-    const longitudes = coordinates.map((coordinate) => coordinate[0]);
-    const latitudes = coordinates.map((coordinate) => coordinate[1]);
-    const west = Math.min(...longitudes);
-    const east = Math.max(...longitudes);
-    const south = Math.min(...latitudes);
-    const north = Math.max(...latitudes);
+    let west = Infinity;
+    let east = -Infinity;
+    let south = Infinity;
+    let north = -Infinity;
+    for (const [longitude, latitude] of coordinates) {
+        west = Math.min(west, longitude);
+        east = Math.max(east, longitude);
+        south = Math.min(south, latitude);
+        north = Math.max(north, latitude);
+    }
 
     if (
         !Number.isFinite(west) ||
@@ -766,22 +784,33 @@ export function makeDirectionsRouteFeatureCollection(route) {
 
     return {
         type: 'FeatureCollection',
-        features: routeOptions.map((routeOption) => {
-            const selected = routeOption.routeKey === selectedRouteKey;
-
-            return {
+        features: [
+            ...(route.traveledSegments ?? []).map((coordinates) => ({
                 type: 'Feature',
-                geometry: {
-                    type: 'LineString',
-                    coordinates: routeOption.coordinates,
-                },
+                geometry: { type: 'LineString', coordinates },
                 properties: {
-                    routeKey: routeOption.routeKey,
-                    routeLabel: routeOption.routeLabel,
-                    selected,
+                    selected: true,
+                    traveled: true,
+                    routeKey: selectedRouteKey,
                 },
-            };
-        }),
+            })),
+            ...routeOptions.map((routeOption) => {
+                const selected = routeOption.routeKey === selectedRouteKey;
+
+                return {
+                    type: 'Feature',
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: routeOption.coordinates,
+                    },
+                    properties: {
+                        routeKey: routeOption.routeKey,
+                        routeLabel: routeOption.routeLabel,
+                        selected,
+                    },
+                };
+            }),
+        ],
     };
 }
 
@@ -800,34 +829,41 @@ export function makeDirectionsDebugFeatureCollection(
 }
 
 export function getDirectionsRouteBounds(route) {
-    return getRouteBoundsFromCoordinates(
+    const activeBounds = getRouteBoundsFromCoordinates(
         getSelectedDirectionsRouteOption(route)?.coordinates ??
             route?.coordinates,
     );
+    if (!activeBounds || !route?.traveledSegments) return activeBounds;
+    const corners = [activeBounds.sw, activeBounds.ne];
+    const origin = getDirectionsWaypointCoordinate(route.originalStart);
+    if (origin) corners.push(origin);
+    for (const segment of route.traveledSegments) {
+        const bounds = getRouteBoundsFromCoordinates(segment);
+        if (bounds) corners.push(bounds.sw, bounds.ne);
+    }
+    return getRouteBoundsFromCoordinates(corners);
 }
 
-/** Bounds for active guidance: retain upcoming bends, discard traveled geometry.
- * Keep a 100-meter geographic buffer as well as the surface's screen padding,
- * so arrival never produces a zero-area fit or excessive close-up.
- */
+/** Keep the full trip and an off-route driver visible with a 100-meter buffer. */
 export function createNavigationOverviewBoundsTracker() {
-    const tracker = createDirectionsRouteProgressTracker();
+    let previousRoute;
+    let routeBounds = null;
 
     return (route, userLocation) => {
-        const coordinates =
-            getSelectedDirectionsRouteOption(route)?.coordinates;
+        if (route !== previousRoute) {
+            routeBounds = getDirectionsRouteBounds(route);
+            previousRoute = route;
+        }
         const userCoordinate = getLocationCoordinate(userLocation);
-        const progress = tracker.update(route, userLocation);
-        if (!userCoordinate || !progress || !coordinates?.length) {
-            return getDirectionsRouteBounds(route);
+        if (!userCoordinate || !routeBounds) {
+            return routeBounds;
         }
 
         const bounds = getRouteBoundsFromCoordinates([
             userCoordinate,
-            progress.coordinate,
-            ...coordinates.slice(progress.coordinateIndex + 1),
+            routeBounds.sw,
+            routeBounds.ne,
         ]);
-        if (!bounds) return getDirectionsRouteBounds(route);
 
         const latitudeBuffer = 100 / 111195;
         const middleLatitude = (bounds.ne[1] + bounds.sw[1]) / 2;
@@ -1188,7 +1224,9 @@ export function createDirectionsRouteProgressTracker() {
         let progress = getDirectionsRouteProgress(
             route,
             userLocation,
-            userLocation.roadMatch?.isTeleport ? null : previousProgress,
+            userLocation.roadMatch?.isTeleport
+                ? null
+                : (previousProgress ?? { alongRouteDistance: 0 }),
         );
 
         if (!progress) {

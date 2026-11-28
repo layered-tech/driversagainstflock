@@ -143,6 +143,55 @@ describe('CarPlay Auto Play config plugin', () => {
         );
     });
 
+    test('keeps one Expo phone configuration when upgrading an existing CarPlay manifest', () => {
+        const phoneRole = 'UIWindowSceneSessionRoleApplication';
+        const secondary = {
+            UISceneConfigurationName: 'SecondaryWindow',
+            UISceneDelegateClassName: 'SecondaryWindowDelegate',
+        };
+        const manifest = mergeCarPlaySceneManifest({
+            UISceneConfigurations: {
+                [phoneRole]: [
+                    {
+                        UISceneConfigurationName: 'Default Configuration',
+                        UISceneDelegateClassName:
+                            '$(PRODUCT_MODULE_NAME).SceneDelegate',
+                    },
+                    {
+                        UISceneConfigurationName: 'WindowApplication',
+                        UISceneDelegateClassName:
+                            'DAFWindowApplicationSceneDelegate',
+                    },
+                    secondary,
+                ],
+            },
+        });
+        const [phone, ...others] = manifest.UISceneConfigurations[phoneRole];
+        assert.equal(phone.UISceneConfigurationName, 'Default Configuration');
+        assert.equal(
+            phone.UISceneDelegateClassName,
+            'DAFWindowApplicationSceneDelegate',
+        );
+        assert.deepEqual(others, [secondary]);
+        assert.deepEqual(mergeCarPlaySceneManifest(manifest), manifest);
+    });
+
+    test('starts the shared host when CarPlay connects before a phone window exists', () => {
+        const delegate = addAutoPlayRootViewToAppDelegate(
+            currentExpoAppDelegateFixture,
+        );
+        assert.match(delegate, /UIScene\.willConnectNotification/);
+        for (const scene of [
+            'CPTemplateApplicationScene',
+            'CPTemplateApplicationDashboardScene',
+            'CPTemplateApplicationInstrumentClusterScene',
+        ]) {
+            assert.ok(delegate.includes('is ' + scene));
+        }
+        assert.match(delegate, /rootViewFactory\.initializeReactHost\(/);
+        assert.doesNotMatch(delegate, /startReactNative\(/);
+    });
+
     test('applies Info.plist changes idempotently', () => {
         const initialInfoPlist = {
             CFBundleURLTypes: [
@@ -199,7 +248,7 @@ describe('CarPlay Auto Play config plugin', () => {
         );
     });
 
-    test('forwards Expo development links while retaining AutoPlay scene callbacks', () => {
+    test('inherits Expo phone startup and deep links while forwarding visibility to Auto Play', () => {
         const delegate = addExpoWindowSceneDelegateToAppDelegate(
             currentExpoAppDelegateFixture,
         );
@@ -210,16 +259,10 @@ describe('CarPlay Auto Play config plugin', () => {
         assert.match(delegate, /@objc\(DAFWindowApplicationSceneDelegate\)/);
         assert.match(
             delegate,
-            /autoPlayDelegate\.scene\?\(scene, willConnectTo: session, options: connectionOptions\)/,
+            /class DAFWindowApplicationSceneDelegate: SceneDelegate/,
         );
-        assert.match(
-            delegate,
-            /context\.url\.host == "expo-development-client"/,
-        );
-        assert.match(
-            delegate,
-            /autoPlayDelegate\.scene\?\(scene, openURLContexts: remaining\)/,
-        );
+        assert.doesNotMatch(delegate, /autoPlayDelegate\.scene\?\(/);
+        assert.match(delegate, /super\.sceneDidEnterBackground\(scene\)/);
         assert.match(
             delegate,
             /autoPlayDelegate\.sceneDidEnterBackground\?\(scene\)/,

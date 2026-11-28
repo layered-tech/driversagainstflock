@@ -867,9 +867,9 @@
             },
             "puckCrop": {
                 "x": 360,
-                "y": 500,
+                "y": 300,
                 "width": 410,
-                "height": 200
+                "height": 400
             }
         },
         "fullscreen": {
@@ -882,9 +882,9 @@
             },
             "puckCrop": {
                 "x": 500,
-                "y": 500,
+                "y": 300,
                 "width": 720,
-                "height": 200
+                "height": 400
             }
         }
     }

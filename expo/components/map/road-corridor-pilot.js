@@ -101,6 +101,9 @@ function ensureTile(catalog, tile, onMissing = () => {}) {
             }
         }
         onMissing();
+        if (!catalog.region)
+            throw new Error('Legacy corridor tile is unavailable offline');
+
         const releaseSlot = await downloadSlot();
         const startedAt = Date.now();
         let httpStatus;
@@ -118,10 +121,10 @@ function ensureTile(catalog, tile, onMissing = () => {}) {
             tileEvent(tile, 'DOWNLOAD_STARTED');
             const signed = await fetch(
                 buildApiURL(
-                    `${catalog.region ? 'v2' : 'v1'}/road-corridor-tiles/${tile.key.split('/').at(-1)}`,
+                    `v2/road-corridor-tiles/${tile.key.split('/').at(-1)}`,
                     {
                         release: catalog.release,
-                        ...(catalog.region ? { region: catalog.region } : {}),
+                        region: catalog.region,
                     },
                 ),
                 { signal: controller.signal },
@@ -183,6 +186,7 @@ function ensureTile(catalog, tile, onMissing = () => {}) {
     return job;
 }
 
+// Keep the existing storage keys so installed clients can restore saved releases.
 const storagePrefix = `road-corridor-releases.v1.${buildApiURL('v1/road-corridor-manifest')}`;
 const catalogKey = (release) => `${storagePrefix}.catalog.${release}`;
 async function readSavedCatalog(release) {
@@ -240,7 +244,7 @@ const releaseManager = createCorridorReleaseManager({
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 5000);
         try {
-            let response = await fetch(
+            const response = await fetch(
                 buildApiURL('v2/road-corridor-manifest', { region }),
                 {
                     signal: controller.signal,
@@ -249,14 +253,6 @@ const releaseManager = createCorridorReleaseManager({
                         : {},
                 },
             );
-            if (response.status === 404) {
-                response = await fetch(
-                    buildApiURL('v1/road-corridor-manifest'),
-                    {
-                        signal: controller.signal,
-                    },
-                );
-            }
             if (response.status === 304 && lastManifest) return lastManifest;
             if (!response.ok)
                 throw new Error(

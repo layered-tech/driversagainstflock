@@ -81,7 +81,6 @@ function createHandler(enabled, resetError = null, environment = 'e2e') {
             '../map/upcoming-alert-debug': {
                 upcomingAlertDebugStore: { getSnapshot: () => null },
             },
-            '../map/scorecard-drive-e2e-fixture': {},
             './e2e-map-api-mock-url': urlHelpers,
         },
         logs,

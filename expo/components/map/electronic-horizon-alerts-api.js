@@ -10,7 +10,6 @@ import {
     endMapPerformanceSignpost,
     recordMapPerformanceSignpost,
 } from './map-performance-signposts';
-import { getScorecardDriveE2EElectronicHorizonFixture } from './scorecard-drive-e2e-fixture';
 
 function normalizeElectronicHorizonAlprNode(node, index) {
     const coordinate = normalizeElectronicHorizonCoordinates([
@@ -100,12 +99,7 @@ export async function getElectronicHorizonAlprNodes({
     }
 
     if (mapApiMocksAreEnabled()) {
-        return (
-            getScorecardDriveE2EElectronicHorizonFixture() ?? {
-                coverageComplete: false,
-                nodes: [],
-            }
-        );
+        return { coverageComplete: false, nodes: [] };
     }
 
     const requestSignpost = beginMapPerformanceSignpost('alpr.request', {

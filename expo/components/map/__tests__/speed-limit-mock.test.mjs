@@ -16,10 +16,10 @@ describe('speed-limit Maestro fixture', () => {
             getMockCurrentSpeedMps() * METERS_PER_SECOND_TO_MILES_PER_HOUR,
         );
 
-        assert.equal(speedLimit.speedLimitMph, 35);
-        assert.equal(MOCK_SPEED_LIMIT_MPH, 35);
-        assert.equal(currentSpeedMph, 41);
-        assert.equal(MOCK_CURRENT_SPEED_MPH, 41);
+        assert.equal(speedLimit.speedLimitMph, 45);
+        assert.equal(MOCK_SPEED_LIMIT_MPH, 45);
+        assert.equal(currentSpeedMph, 51);
+        assert.equal(MOCK_CURRENT_SPEED_MPH, 51);
         assert.ok(currentSpeedMph > speedLimit.speedLimitMph);
     });
 });

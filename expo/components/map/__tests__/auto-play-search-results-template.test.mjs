@@ -88,7 +88,8 @@ function createSavedSearchTemplateHarness(
             state.pinPublications.push(value),
         createPlaceSearchSessionToken: () => 'session',
         getAutoPlaySearchLocation: async () => [1, 2],
-        searchPlaces: async () => [],
+        searchPlaces: async (options) =>
+            state.onAutocompleteRequest?.(options) ?? [],
         searchTextPlaces: async ({ textQuery }) => {
             state.queries.push(textQuery);
             const results = await runPlaceTextSearch?.(
@@ -114,7 +115,7 @@ function createSavedSearchTemplateHarness(
                     ? results
                     : [{ title: { text: `No results for ${query}` } }],
             });
-            return Promise.resolve(true);
+            return state.onRowsUpdated?.() ?? Promise.resolve(true);
         },
         addSearchSavedLocationsListener(listener) {
             state.listener = listener;
@@ -143,9 +144,12 @@ function createSavedSearchTemplateHarness(
         handleSearchResultSelected: (...args) => selections.push(args),
         loadAutoPlayModule: () => ({ SearchTemplate }),
         loadSearchSavedLocations: () => loadSavedLocations,
-        logAutoPlayPlatformAction() {},
+        logAutoPlayPlatformAction(action, details) {
+            state.onLog?.(action, details);
+        },
         makeAutoText: (text) => ({ text }),
-        makeDisabledSearchRow: (title) => ({
+        makeDisabledSearchRow: (title, detailedText) => ({
+            detailedText,
             enabled: false,
             title: { text: title },
         }),
@@ -245,6 +249,113 @@ test('an initial voice query opens with a processing row', async () => {
     await opened.pushPromise;
 });
 
+test('Android Auto shows search feedback before multi-word autocomplete starts', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const favorite = { id: 'favorite', name: 'Favorite place' };
+    const result = { id: 'coffee', title: { text: 'Coffee shop' } };
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [favorite] }),
+        undefined,
+        { showsSearchAutocompleteLoading: true },
+    );
+    let finishAutocomplete;
+    let autocompleteQuery;
+    h.state.onAutocompleteRequest = ({ input }) => {
+        autocompleteQuery = input;
+        return new Promise((resolve) => {
+            finishAutocomplete = resolve;
+        });
+    };
+    await h.openSearchTemplate().pushPromise;
+    assert.equal(h.updates.at(-1).items[0].title.text, favorite.name);
+
+    h.state.template.config.onSearchTextChanged('  Coffee shop  ');
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Searching...');
+    assert.equal(h.updates.at(-1).items[0].detailedText, undefined);
+    assert.equal(h.updates.at(-1).items[0].enabled, false);
+    assert.equal(autocompleteQuery, undefined);
+
+    t.mock.timers.tick(250);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(autocompleteQuery, 'Coffee shop');
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Searching...');
+
+    finishAutocomplete([result]);
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.strictEqual(h.updates.at(-1).items[0], result);
+});
+
+test('only acknowledged rows from the still-open template are reported as presented', async () => {
+    const presented = [];
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        undefined,
+        {
+            preservesSearchResults: true,
+        },
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    h.state.onLog = (action, { query }) => {
+        if (action === 'search-results-presented') presented.push(query);
+    };
+    let acknowledge;
+    h.state.onRowsUpdated = () =>
+        new Promise((resolve) => {
+            acknowledge = resolve;
+        });
+    const walmart = template.config.onSearchTextSubmitted('Walmart');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.deepEqual(presented, []);
+    acknowledge(true);
+    await walmart;
+    assert.deepEqual(presented, ['Walmart']);
+
+    const taco = template.config.onSearchTextSubmitted('Taco Bell');
+    await new Promise((resolve) => setImmediate(resolve));
+    template.config.onPopped();
+    acknowledge(true);
+    await taco;
+    assert.deepEqual(presented, ['Walmart']);
+});
+
+test('Android Auto replaces pending search feedback when cleared or when autocomplete fails', async (t) => {
+    t.mock.timers.enable({ apis: ['setTimeout'] });
+    const favorite = { id: 'favorite', name: 'Favorite place' };
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [favorite] }),
+        undefined,
+        { showsSearchAutocompleteLoading: true },
+    );
+    let failAutocomplete;
+    let signal;
+    h.state.onAutocompleteRequest = (options) => {
+        signal = options.signal;
+        return new Promise((_resolve, reject) => {
+            failAutocomplete = reject;
+        });
+    };
+    await h.openSearchTemplate().pushPromise;
+    const { onSearchTextChanged } = h.state.template.config;
+
+    onSearchTextChanged('Coffee shop');
+    t.mock.timers.tick(250);
+    await new Promise((resolve) => setImmediate(resolve));
+    onSearchTextChanged('');
+    assert.equal(signal.aborted, true);
+    assert.equal(h.updates.at(-1).items[0].title.text, favorite.name);
+    failAutocomplete(new Error('Ignored search failure'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.updates.at(-1).items[0].title.text, favorite.name);
+
+    onSearchTextChanged('Pizza place');
+    t.mock.timers.tick(250);
+    await new Promise((resolve) => setImmediate(resolve));
+    failAutocomplete(new Error('Search failed'));
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Search unavailable');
+});
+
 test('car search shows saved places before typing and selects through the route flow', async () => {
     const favorite = { id: 'favorite', name: 'Favorite place' };
     const harness = createSavedSearchTemplateHarness(
@@ -279,6 +390,7 @@ test('warm car keyboard search is constructed with saved destinations immediatel
         { places: [{ id: 'favorite', name: 'Favorite place' }] },
     );
     const opened = harness.openSearchTemplate();
+    assert.equal(harness.state.template.config.showKeyboardByDefault, false);
     assert.equal(
         harness.state.template.config.results.items[0].title.text,
         'Favorite place',
@@ -372,6 +484,8 @@ test('both platforms share native autocomplete and submit callbacks', () => {
     assert.match(keyboard, /placeSearch\.change\(searchTextValue\)/);
     assert.match(keyboard, /placeSearch\.submit\(searchTextValue\)/);
     assert.doesNotMatch(keyboard, /nativeTransition|new ListTemplate/);
+    assert.match(androidPlatformSource, /showsSearchAutocompleteLoading: true/);
+    assert.doesNotMatch(iosPlatformSource, /showsSearchAutocompleteLoading/);
 });
 
 test('Auto Play omits the unreachable header driving-mode toggle', () => {
@@ -615,6 +729,144 @@ test('moving from native results to the map survives the keyboard being popped a
     assert.equal(h.state.unsubscribed, true);
     assert.equal(h.state.mapPresentation.requestIsCurrent(), true);
     assert.equal(h.state.queries.length, 1);
+});
+
+test('Android Auto keeps submitted keyboard results under the map and can reopen it after Back', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async () => [{ id: 'coffee' }],
+        { preservesSearchResults: true },
+    );
+    await h.openSearchTemplate().pushPromise;
+    const { headerActions, onSearchTextSubmitted } = h.state.template.config;
+    await onSearchTextSubmitted('Coffee');
+    await headerActions.onMap();
+    assert.equal(h.state.preparations, 0);
+    assert.equal(h.state.unsubscribed, false);
+    const firstMap = h.state.mapPresentation;
+    firstMap.onMapDismissed();
+    await headerActions.onMap();
+    assert.notStrictEqual(h.state.mapPresentation, firstMap);
+    assert.deepEqual(h.state.queries, ['Coffee']);
+});
+
+test('Android dictation updates the same search screen once across resume and duplicate callbacks', async () => {
+    let finish;
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [{ name: 'Home' }] }),
+        () =>
+            new Promise((resolve) => {
+                finish = resolve;
+            }),
+        { preservesSearchResults: true },
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    const pending = template.config.onSearchTextSubmitted('Taco Bell');
+    await new Promise((resolve) => setImmediate(resolve));
+    template.config.onWillAppear();
+    template.config.onSearchTextChanged('');
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Searching...');
+    template.config.onSearchTextChanged('Taco Bell');
+    const repeated = template.config.onSearchTextSubmitted('Taco Bell');
+    const places = [{ id: 'taco-bell', primaryText: 'Taco Bell' }];
+    finish(places);
+    await Promise.all([pending, repeated]);
+    assert.deepEqual(h.state.queries, ['Taco Bell']);
+    assert.strictEqual(h.updates.at(-1).items, places);
+    assert.equal(h.state.template, template);
+    assert.equal(h.state.preparations, 0);
+});
+
+test('the next Android submission can replace the results on the same search field', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async (_template, query) => [{ title: { text: query } }],
+        { preservesSearchResults: true },
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    await template.config.onSearchTextSubmitted('Walmart');
+    template.config.onSearchTextChanged('Taco Bell');
+    await template.config.onSearchTextSubmitted('Taco Bell');
+    assert.deepEqual(h.state.queries, ['Walmart', 'Taco Bell']);
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Taco Bell');
+});
+
+test('a completed Android transcript supersedes a partial submission still in flight', async () => {
+    let finishPartial;
+    const fullResult = { title: { text: 'Taco Bell' } };
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        (_template, query) =>
+            query === 'Taco'
+                ? new Promise((resolve) => {
+                      finishPartial = resolve;
+                  })
+                : Promise.resolve([fullResult]),
+        { preservesSearchResults: true },
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    const partial = template.config.onSearchTextSubmitted('Taco');
+    await new Promise((resolve) => setImmediate(resolve));
+    template.config.onSearchTextChanged('Taco Bell');
+    await new Promise((resolve) => setImmediate(resolve));
+    finishPartial([{ title: { text: 'Other taco restaurant' } }]);
+    await partial;
+    assert.deepEqual(h.state.queries, ['Taco', 'Taco Bell']);
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Taco Bell');
+});
+
+test('Android can finish dictation with an edit after the first word already returned rows', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        async (_template, query) => [{ title: { text: query } }],
+        { preservesSearchResults: true },
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    await template.config.onSearchTextSubmitted('Taco');
+    template.config.onSearchTextChanged('');
+    await template.config.onSearchTextChanged('Taco Bell');
+    await template.config.onSearchTextSubmitted('Taco Bell');
+    assert.deepEqual(h.state.queries, ['Taco', 'Taco Bell']);
+    assert.equal(h.updates.at(-1).items[0].title.text, 'Taco Bell');
+});
+
+test('a retired Android search callback cannot issue a lookup for the replacement field', async () => {
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve({ places: [] }),
+        undefined,
+        { preservesSearchResults: true },
+    );
+    const original = h.openSearchTemplate();
+    await original.pushPromise;
+    const replacement = h.openSearchTemplate();
+    await replacement.pushPromise;
+    await original.template.config.onSearchTextSubmitted('Old destination');
+    await replacement.template.config.onSearchTextSubmitted('New destination');
+    assert.deepEqual(h.state.queries, ['New destination']);
+});
+
+test('a warm Android search keeps its initial rows when the same saved places load again', async () => {
+    const saved = { places: [{ name: 'Home' }] };
+    const h = createSavedSearchTemplateHarness(
+        Promise.resolve(saved),
+        undefined,
+        { preservesSearchResults: true },
+        saved,
+    );
+    const { template, pushPromise } = h.openSearchTemplate();
+    await pushPromise;
+    template.config.onDidAppear();
+    h.state.listener(saved);
+    template.config.onSearchTextChanged('');
+    await template.config.onSearchTextSubmitted('   ');
+    assert.equal(template.config.results.items[0].title.text, 'Home');
+    assert.equal(template.config.initialSearchText, undefined);
+    assert.deepEqual(h.updates, []);
+    assert.deepEqual(h.state.queries, []);
 });
 
 test('the Map header action is wired for both platforms', () => {

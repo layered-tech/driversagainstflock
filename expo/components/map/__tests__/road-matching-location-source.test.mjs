@@ -126,6 +126,7 @@ function createRoadMatchingSessionHarness({
     let backgroundTaskIsStarted = false;
     let backgroundLocationTask = null;
     let autoPlaySessionIsConnected = false;
+    let carSceneIsVisible = false;
     let currentRoutingState = routingState;
     const AppState = {
         currentState: 'active',
@@ -217,8 +218,9 @@ function createRoadMatchingSessionHarness({
             },
             autoPlaySessionOwnsForegroundLocation(platform) {
                 return (
-                    ['android', 'ios'].includes(platform) &&
-                    autoPlaySessionIsConnected
+                    autoPlaySessionIsConnected &&
+                    (platform === 'android' ||
+                        (platform === 'ios' && carSceneIsVisible))
                 );
             },
         },
@@ -359,8 +361,9 @@ function createRoadMatchingSessionHarness({
             AppState.currentState = nextState;
             appStateListeners.forEach((listener) => listener(nextState));
         },
-        transitionAutoPlayConnection(isConnected) {
+        transitionAutoPlayConnection(isConnected, isVisible = isConnected) {
             autoPlaySessionIsConnected = isConnected;
+            carSceneIsVisible = isVisible;
             autoPlaySessionStateListeners.forEach((listener) =>
                 listener({ isConnected }),
             );
@@ -398,6 +401,73 @@ test('CarPlay alone starts matching on iOS with the phone backgrounded and While
         handle.remove();
     }
     await waitFor(() => harness.calls.backgroundStops === 1);
+});
+
+test('CarPlay snaps its first foreground fix when another map joins during the corridor load', async () => {
+    const corridor = createDeferred();
+    const shared = [];
+    const raw = makeLocation(41.0001, -87, 1000);
+    const harness = createRoadMatchingSessionHarness({
+        platformOS: 'ios',
+        createDirectedRoadGraph: createUsableRoadGraph,
+        createRoadMatcherWithHistory: () => ({
+            update: (fix) => ({
+                ...makeMatchedLocation(fix),
+                latitude: 41,
+                bearing: 86,
+            }),
+        }),
+        getRoadCorridor: () => corridor.promise,
+        publishSharedRoadMatchedLocation: (fix) => shared.push(fix),
+    });
+    harness.transitionAutoPlayConnection(true);
+    harness.backgroundTaskStart.resolve();
+    const session = harness.roadMatchingSession;
+    const car = await session.retainRoadMatchingSessionAsync({
+        persistent: true,
+    });
+    let phone;
+    try {
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        harness.foregroundLocationCallbacks[0](raw);
+        await waitFor(() => harness.roadCorridorRequests.length === 1);
+        assert.equal(shared.at(-1).roadMatch.isOffRoad, true);
+        phone = await session.retainRoadMatchingSessionAsync();
+        corridor.resolve([{ id: 'way-1' }]);
+        await waitFor(
+            () =>
+                session.getRoadMatchingSessionDiagnostics()
+                    .roadGraphLoadCount === 1,
+        );
+        assert.equal(shared.at(-1).roadMatch.isOffRoad, false);
+        assert.equal(shared.at(-1).coords.latitude, 41);
+        assert.equal(shared.at(-1).coords.heading, 86);
+        assert.equal(shared.at(-1).timestamp, raw.timestamp);
+    } finally {
+        corridor.resolve([]);
+        phone?.remove();
+        car.remove();
+    }
+});
+
+test('a CarPlay connection starts matching while the phone map is active and the first car appearance is pending', async () => {
+    const harness = createRoadMatchingSessionHarness({
+        platformOS: 'ios',
+        backgroundPermissionGranted: false,
+    });
+    harness.transitionAutoPlayConnection(true, false);
+    const car =
+        await harness.roadMatchingSession.retainRoadMatchingSessionAsync({
+            persistent: true,
+        });
+    try {
+        await waitFor(() => harness.foregroundLocationCallbacks.length === 1);
+        assert.equal(harness.calls.backgroundPermissionRequests, 0);
+        await waitFor(() => harness.calls.backgroundStarts === 1);
+    } finally {
+        harness.backgroundTaskStart.resolve();
+        car.remove();
+    }
 });
 
 test('iOS phone driving still requests background permission when no CarPlay scene is visible', async () => {

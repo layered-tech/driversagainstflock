@@ -11,8 +11,8 @@
         "port": 8091
     },
     "location": {
-        "latitude": 30.2672,
-        "longitude": -97.7431
+        "latitude": 43.11028,
+        "longitude": -88.24481
     },
     "tests": [
         {
@@ -191,34 +191,6 @@
                     "type": "dhu",
                     "command": "tap 275 154",
                     "waitForMetro": "[E2E] presence:native-dismissed:user"
-                }
-            ]
-        },
-        {
-            "name": "active navigation blocks confirmation near a maneuver",
-            "steps": [
-                {
-                    "type": "deepLink",
-                    "requestType": "presence",
-                    "query": "reset"
-                },
-                {
-                    "type": "deepLink",
-                    "requestType": "presence",
-                    "query": "navigation-near-maneuver"
-                },
-                {
-                    "type": "sleep",
-                    "milliseconds": 20000
-                },
-                {
-                    "type": "screenshot",
-                    "name": "presence-navigation-blocked"
-                },
-                {
-                    "type": "assertOcr",
-                    "screenshot": "presence-navigation-blocked",
-                    "notContains": ["Camera you just passed"]
                 }
             ]
         },

@@ -30,9 +30,9 @@
             },
             "puckCrop": {
                 "x": 650,
-                "y": 500,
+                "y": 300,
                 "width": 700,
-                "height": 300
+                "height": 500
             },
             "appBounds": {
                 "x": 389,
@@ -54,9 +54,9 @@
             },
             "puckCrop": {
                 "x": 650,
-                "y": 650,
+                "y": 375,
                 "width": 700,
-                "height": 350
+                "height": 625
             },
             "appBounds": {
                 "x": 389,
