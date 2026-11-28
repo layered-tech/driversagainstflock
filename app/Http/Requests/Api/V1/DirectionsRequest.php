@@ -20,6 +20,7 @@ class DirectionsRequest extends FormRequest
             'start' => ['required', 'array'],
             'start.latitude' => ['required', 'numeric', 'between:-90,90'],
             'start.longitude' => ['required', 'numeric', 'between:-180,180'],
+            'start.heading' => ['nullable', 'numeric', 'min:0', 'lt:360'],
             'start.road_hint' => ['nullable', 'string', 'max:255'],
             'end' => ['required', 'array'],
             'end.latitude' => ['required', 'numeric', 'between:-90,90'],

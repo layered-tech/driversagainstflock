@@ -528,13 +528,14 @@ class DirectionsRouter
 
     /**
      * @param  array<string, mixed>  $coordinate
-     * @return array{longitude: float, latitude: float}
+     * @return array{longitude: float, latitude: float, heading?: float, road_hint?: string}
      */
     private function coordinate(array $coordinate): array
     {
         return [
             'longitude' => (float) $coordinate['longitude'],
             'latitude' => (float) $coordinate['latitude'],
+            ...isset($coordinate['heading']) ? ['heading' => (float) $coordinate['heading']] : [],
             ...isset($coordinate['road_hint']) ? ['road_hint' => $coordinate['road_hint']] : [],
         ];
     }

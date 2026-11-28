@@ -17,7 +17,7 @@ class GraphHopperClient implements DirectionsProvider
     }
 
     /**
-     * @param  array<int, array{longitude: float, latitude: float}>  $coordinates
+     * @param  array<int, array{longitude: float, latitude: float, heading?: float, road_hint?: string}>  $coordinates
      * @param  array{type: string, coordinates: array<int, mixed>}  $exclusionZone
      * @return array{coordinates: array<int, array<int, float>>, distance: float|null, duration: float|null, maneuvers: array<int, array<string, mixed>>}
      */
@@ -40,7 +40,9 @@ class GraphHopperClient implements DirectionsProvider
             'timeout_ms' => (int) config('services.graphhopper.route_timeout_milliseconds'),
         ];
 
-        if (isset($coordinates[0]['road_hint']) && trim($coordinates[0]['road_hint']) !== '') {
+        if (isset($coordinates[0]['heading'])) {
+            $body['headings'] = [$coordinates[0]['heading']];
+        } elseif (isset($coordinates[0]['road_hint']) && trim($coordinates[0]['road_hint']) !== '') {
             $body['point_hints'] = array_map(
                 fn (array $coordinate): string => trim($coordinate['road_hint'] ?? ''),
                 $coordinates,
